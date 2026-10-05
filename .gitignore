@@ -1,0 +1,17 @@
+# Gradle / Android Studio
+.gradle/
+build/
+.kotlin/
+.idea/
+*.iml
+captures/
+.cxx/
+.externalNativeBuild/
+
+# Local machine and secrets: never commit
+local.properties
+local*.properties
+local-cameras.json
+*.jks
+*.keystore
+keystore.properties
