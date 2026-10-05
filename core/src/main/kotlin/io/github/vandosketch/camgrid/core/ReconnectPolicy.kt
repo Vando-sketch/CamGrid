@@ -13,5 +13,11 @@ class ReconnectPolicy(
         require(maxDelayMillis >= initialDelayMillis) { "maxDelayMillis must be >= initialDelayMillis" }
     }
 
-    fun delayMillis(attempt: Int): Long = TODO()
+    fun delayMillis(attempt: Int): Long {
+        val doublings = attempt.coerceAtLeast(0)
+        // initialDelayMillis >= 1, so 2^63 or more always exceeds the cap.
+        if (doublings >= Long.SIZE_BITS - 1) return maxDelayMillis
+        val factor = 1L shl doublings
+        return if (initialDelayMillis > maxDelayMillis / factor) maxDelayMillis else initialDelayMillis * factor
+    }
 }

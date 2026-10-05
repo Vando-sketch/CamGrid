@@ -225,6 +225,45 @@ class Go2rtcTest {
     }
 
     @Test
+    fun suggest_onlyDetailVariantHasBlankDetailUrl() {
+        assertEquals(
+            listOf(Camera("go2rtc:drive", "drive", rtsp + "drive_main", "")),
+            Go2rtc.suggestCameras(base, listOf("drive_main")),
+        )
+    }
+
+    @Test
+    fun suggest_splitLeavingEmptyBaseIsOwnBase() {
+        assertEquals(
+            listOf(
+                Camera("go2rtc:_sub", "_sub", rtsp + "_sub", ""),
+                Camera("go2rtc:-main", "-main", rtsp + "-main", ""),
+                Camera("go2rtc:.hd", ".hd", rtsp + ".hd", ""),
+            ),
+            Go2rtc.suggestCameras(base, listOf("_sub", "-main", ".hd")),
+        )
+    }
+
+    @Test
+    fun suggest_baseNamesAreCaseSensitive() {
+        assertEquals(
+            listOf(
+                Camera("go2rtc:Front", "Front", rtsp + "Front_sub", ""),
+                Camera("go2rtc:front", "front", rtsp + "front_main", ""),
+            ),
+            Go2rtc.suggestCameras(base, listOf("Front_sub", "front_main")),
+        )
+    }
+
+    @Test
+    fun suggest_firstGridAndDetailVariantWin() {
+        assertEquals(
+            listOf(Camera("go2rtc:cam", "cam", rtsp + "cam_low", rtsp + "cam_hd")),
+            Go2rtc.suggestCameras(base, listOf("cam_hd", "cam_low", "cam_sub", "cam_main", "cam_medium", "cam")),
+        )
+    }
+
+    @Test
     fun suggest_unrelatedNamesAreOwnCameras() {
         assertEquals(
             listOf(

@@ -4,13 +4,19 @@ package io.github.vandosketch.camgrid.core
 object GridPaging {
 
     /** Cameras chunked into pages in config order. No cameras: an empty list. */
-    fun pages(config: CamGridConfig): List<List<Camera>> = TODO()
+    fun pages(config: CamGridConfig): List<List<Camera>> = config.cameras.chunked(config.layout.tilesPerPage)
 
     /** Number of pages; 0 when there are no cameras. */
-    fun pageCount(config: CamGridConfig): Int = TODO()
+    fun pageCount(config: CamGridConfig): Int = pageCount(config.cameras.size, config.layout)
 
     /** The page that shows the camera with [cameraId], or null if there is no such camera. */
-    fun pageOf(config: CamGridConfig, cameraId: String): Int? = TODO()
+    fun pageOf(config: CamGridConfig, cameraId: String): Int? {
+        val index = config.cameras.indexOfFirst { it.id == cameraId }
+        return if (index < 0) null else index / config.layout.tilesPerPage
+    }
+
+    internal fun pageCount(cameraCount: Int, layout: GridLayout): Int =
+        (cameraCount + layout.tilesPerPage - 1) / layout.tilesPerPage
 }
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
@@ -30,5 +36,29 @@ data class GridPosition(val page: Int, val index: Int)
  *   is clamped to that page's last tile. With no previous/next page the position stays.
  */
 object GridNavigator {
-    fun move(position: GridPosition, direction: Direction, layout: GridLayout, cameraCount: Int): GridPosition = TODO()
+    fun move(position: GridPosition, direction: Direction, layout: GridLayout, cameraCount: Int): GridPosition {
+        val (page, index) = position
+        val columns = layout.columns
+        val row = index / columns
+        val column = index % columns
+        val pageCount = GridPaging.pageCount(cameraCount, layout)
+        fun tilesOn(page: Int) = minOf(layout.tilesPerPage, cameraCount - page * layout.tilesPerPage)
+        fun onPage(page: Int, index: Int) = GridPosition(page, minOf(index, tilesOn(page) - 1))
+
+        return when (direction) {
+            Direction.UP -> if (row > 0) GridPosition(page, index - columns) else position
+            Direction.DOWN ->
+                if (row < layout.rows - 1 && index + columns < tilesOn(page)) GridPosition(page, index + columns) else position
+            Direction.LEFT -> when {
+                column > 0 -> GridPosition(page, index - 1)
+                page > 0 -> onPage(page - 1, row * columns + columns - 1)
+                else -> position
+            }
+            Direction.RIGHT -> when {
+                column < columns - 1 && index + 1 < tilesOn(page) -> GridPosition(page, index + 1)
+                page < pageCount - 1 -> onPage(page + 1, row * columns)
+                else -> position
+            }
+        }
+    }
 }

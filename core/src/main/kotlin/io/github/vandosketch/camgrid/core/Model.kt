@@ -19,22 +19,23 @@ data class Camera(
 ) {
     /** The URL to play in fullscreen: [detailUrl] if set, otherwise [gridUrl]. Trimmed. */
     val fullscreenUrl: String
-        get() = TODO()
+        get() = detailUrl.trim().ifEmpty { gridUrl.trim() }
 }
 
-/** Grid dimensions. Both values must be within [MIN_SIZE]..[MAX_SIZE]. */
+/** Grid dimensions. Both values must be within [MIN_SIZE]..[MAX_SIZE], otherwise [IllegalArgumentException]. */
 @Serializable
 data class GridLayout(
     val columns: Int = 2,
     val rows: Int = 2,
 ) {
     init {
-        TODO()
+        require(columns in MIN_SIZE..MAX_SIZE) { "columns must be in $MIN_SIZE..$MAX_SIZE, was $columns" }
+        require(rows in MIN_SIZE..MAX_SIZE) { "rows must be in $MIN_SIZE..$MAX_SIZE, was $rows" }
     }
 
     /** Number of tiles on one page: columns * rows. */
     val tilesPerPage: Int
-        get() = TODO()
+        get() = columns * rows
 
     companion object {
         const val MIN_SIZE = 1

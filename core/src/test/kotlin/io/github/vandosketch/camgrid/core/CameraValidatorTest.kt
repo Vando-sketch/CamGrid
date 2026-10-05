@@ -130,6 +130,12 @@ class CameraValidatorTest {
     }
 
     @Test
+    fun blankGridUrlReportsOnlyGridUrlBlank() {
+        assertEquals(setOf(CameraError.GRID_URL_BLANK), CameraValidator.validate(camera(gridUrl = "")))
+        assertEquals(setOf(CameraError.GRID_URL_BLANK), CameraValidator.validate(camera(gridUrl = " \t ")))
+    }
+
+    @Test
     fun invalidGridUrl() {
         assertEquals(setOf(CameraError.GRID_URL_INVALID), CameraValidator.validate(camera(gridUrl = "ftp://192.0.2.10/x")))
         assertEquals(setOf(CameraError.GRID_URL_INVALID), CameraValidator.validate(camera(gridUrl = "rtsp:///x")))
@@ -149,6 +155,14 @@ class CameraValidatorTest {
         assertEquals(
             setOf(CameraError.NAME_BLANK, CameraError.GRID_URL_INVALID, CameraError.DETAIL_URL_INVALID),
             CameraValidator.validate(c),
+        )
+    }
+
+    @Test
+    fun reportsBlankNameBlankGridUrlAndInvalidDetailUrlExactly() {
+        assertEquals(
+            setOf(CameraError.NAME_BLANK, CameraError.GRID_URL_BLANK, CameraError.DETAIL_URL_INVALID),
+            CameraValidator.validate(camera(name = "", gridUrl = "", detailUrl = "bad url")),
         )
     }
 

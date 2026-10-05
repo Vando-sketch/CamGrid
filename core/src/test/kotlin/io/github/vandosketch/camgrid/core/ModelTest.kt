@@ -102,6 +102,12 @@ class ModelTest {
     }
 
     @Test
+    fun gridLayout_copyOutsideBoundsThrows() {
+        assertThrows(IllegalArgumentException::class.java) { GridLayout(2, 2).copy(columns = 5) }
+        assertThrows(IllegalArgumentException::class.java) { GridLayout(2, 2).copy(rows = 0) }
+    }
+
+    @Test
     fun camGridConfig_defaults() {
         val config = CamGridConfig()
         assertEquals(GridLayout(), config.layout)
