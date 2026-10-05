@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CamGrid</string>
+
+    <!-- Grid -->
+    <string name="open_settings">Settings</string>
+    <string name="empty_title">No cameras yet</string>
+    <string name="empty_body">Add cameras in the settings, by hand or imported from go2rtc.</string>
+    <string name="page_indicator">%1$d / %2$d</string>
+
+    <!-- Stream status -->
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_offline">Offline · retry in %1$d s</string>
+
+    <!-- Fullscreen -->
+    <string name="fullscreen_position">%1$d / %2$d</string>
+    <string name="sound_on">Sound on</string>
+    <string name="sound_off">Muted</string>
+    <string name="fullscreen_hint">◀ ▶ or swipe: switch camera · OK: sound on/off · Back: grid</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="done">Done</string>
+    <string name="back">Back</string>
+    <string name="section_layout">Grid layout</string>
+    <string name="columns">Columns</string>
+    <string name="rows">Rows</string>
+    <string name="decrease">Decrease %1$s</string>
+    <string name="increase">Increase %1$s</string>
+    <string name="tiles_per_page">Cameras per page: %1$d</string>
+    <string name="section_cameras">Cameras</string>
+    <string name="add_camera">Add camera</string>
+    <string name="import_go2rtc">Import from go2rtc</string>
+    <string name="no_cameras">No cameras configured.</string>
+    <string name="move_up">Move %1$s up</string>
+    <string name="move_down">Move %1$s down</string>
+    <string name="edit">Edit %1$s</string>
+    <string name="delete">Delete %1$s</string>
+    <string name="delete_title">Delete camera?</string>
+    <string name="delete_message">\"%1$s\" will be removed from the grid.</string>
+    <string name="delete_confirm">Delete</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Camera editor -->
+    <string name="editor_title_new">Add camera</string>
+    <string name="editor_title_edit">Edit camera</string>
+    <string name="field_name">Name</string>
+    <string name="hint_name">Kitchen</string>
+    <string name="field_grid_url">Grid URL (low resolution, muted)</string>
+    <string name="hint_grid_url">rtsp://192.0.2.10:8554/kitchen_medium</string>
+    <string name="field_detail_url">Detail URL (high resolution, optional)</string>
+    <string name="hint_detail_url">rtsp://192.0.2.10:8554/kitchen_high</string>
+    <string name="help_detail_url">Played in fullscreen with sound. Leave empty to use the grid URL.</string>
+    <string name="save">Save</string>
+    <string name="error_name_blank">Enter a name.</string>
+    <string name="error_grid_url_blank">Enter the grid stream URL.</string>
+    <string name="error_url_invalid">Use rtsp://, rtsps://, http:// or https:// with a host and no spaces.</string>
+
+    <!-- go2rtc import -->
+    <string name="field_go2rtc_url">go2rtc address</string>
+    <string name="hint_go2rtc_url">http://192.0.2.10:1984</string>
+    <string name="fetch">Fetch streams</string>
+    <string name="import_loading">Fetching streams…</string>
+    <string name="import_selected">Import selected (%1$d)</string>
+    <string name="import_empty">The server has no streams.</string>
+    <string name="import_already_added">Already added</string>
+    <string name="import_error_invalid_url">That is not a valid address.</string>
+    <string name="import_error_network">Could not reach the server (%1$s).</string>
+    <string name="import_error_http">The server answered with an error (%1$s).</string>
+    <string name="import_error_not_go2rtc">The answer does not look like a go2rtc stream list.</string>
+    <string name="url_grid">Grid: %1$s</string>
+    <string name="url_detail">Detail: %1$s</string>
+    <string name="url_detail_none">Detail: same as grid</string>
+</resources>

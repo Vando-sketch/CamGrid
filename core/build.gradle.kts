@@ -17,6 +17,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(libs.serialization.json)
+    // api: the app uses the @Serializable model classes.
+    api(libs.serialization.json)
     testImplementation(libs.junit)
 }

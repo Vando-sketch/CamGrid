@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fire TV / Android TV launcher banner (320x180): a 2x2 camera grid motif. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:fillColor="#FF101418"
+        android:pathData="M0,0h320v180h-320z" />
+    <!-- 2x2 grid, centred -->
+    <path
+        android:fillColor="#FF2B6CB0"
+        android:pathData="M96,26h62v60h-62z" />
+    <path
+        android:fillColor="#FF2F855A"
+        android:pathData="M162,26h62v60h-62z" />
+    <path
+        android:fillColor="#FFB7791F"
+        android:pathData="M96,94h62v60h-62z" />
+    <path
+        android:fillColor="#FF6B46C1"
+        android:pathData="M162,94h62v60h-62z" />
+    <!-- small "lens" dots, one per tile -->
+    <path
+        android:fillColor="#CCFFFFFF"
+        android:pathData="M127,56m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+    <path
+        android:fillColor="#CCFFFFFF"
+        android:pathData="M193,56m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+    <path
+        android:fillColor="#CCFFFFFF"
+        android:pathData="M127,124m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+    <path
+        android:fillColor="#CCFFFFFF"
+        android:pathData="M193,124m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+</vector>
