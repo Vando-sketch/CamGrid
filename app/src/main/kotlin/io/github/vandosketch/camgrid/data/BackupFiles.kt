@@ -19,10 +19,10 @@ class BackupFiles(private val context: Context) {
     val folder: File
         get() = File(context.getExternalFilesDir(null) ?: context.filesDir, "backups")
 
-    /** File name suggested for a new backup, with today's date. */
+    /** File name suggested for a new backup, with date and time so exports never overwrite each other. */
     fun suggestedName(): String =
         // java.time needs API 26; the stick may be on API 25.
-        "camgrid-backup-${SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())}.json"
+        "camgrid-backup-${SimpleDateFormat("yyyy-MM-dd-HHmmss", Locale.US).format(Date())}.json"
 
     @Throws(IOException::class)
     fun write(uri: Uri, text: String) {

@@ -8,14 +8,14 @@ A personal camera wall for Android phones and Fire TV: live camera streams in a 
 
 *The images in this README are rendered from a UI mockup with simulated video and example cameras, not screenshots from a device. See [docs/mockup](#ui-mockup).*
 
-> **Status:** CamGrid builds and its core logic is covered by unit tests in CI, but it has not been tested on a real phone or Fire TV yet. Expect rough edges.
+> **Status:** CamGrid builds and its core logic is covered by unit tests in CI. A first test on a phone, with WebRTC streams, worked. It has not been tested on a real Fire TV yet. Expect rough edges.
 
 ## Features
 
 - One APK for phones and Fire TV (Android 7.1 / Fire OS 6 and newer, minSdk 25).
 - Free layouts ("views"): tiles on a cell canvas of up to 12x12 cells may span several cells, so portrait and landscape tiles can sit side by side (for example two portrait tiles next to two stacked landscape tiles). Up to 16 tiles per view, several views one after the other.
 - Each tile shows a fixed camera or is an auto tile that takes the next camera in the camera order; more cameras than auto tiles spill onto further pages. Each tile either crops the picture to fill the tile or fits it with black bars.
-- A layout editor that works with the Fire TV remote (select, move and resize tiles with the arrows, OK switches mode) and by touch, with presets for common layouts.
+- A layout editor that works with the Fire TV remote (select, move and resize tiles with the arrows, OK switches mode) and by touch, with presets for common layouts. See [Views](#views).
 - Grid tiles play a low-resolution stream with no audio. Tap or OK opens the camera fullscreen with its high-resolution stream and sound.
 - Only one screen plays at a time: the grid's streams are released before fullscreen starts its own.
 - Full D-pad navigation for the Fire TV remote, touch and swipe on phones.
@@ -23,6 +23,7 @@ A personal camera wall for Android phones and Fire TV: live camera streams in a 
   - **RTSP**, played by Media3 ExoPlayer (`rtsp://`, `rtsps://`, or an `http(s)://` media URL such as HLS). RTSP runs over TCP.
   - **WebRTC**, via a WHEP-style endpoint such as go2rtc's `/api/webrtc?src=<name>`. Receive-only.
 - Import cameras from a go2rtc server's stream list, with `_medium` / `_high` style pairs matched into grid and detail URLs.
+- Settings export and import as one JSON file, encrypted with a password if you want. See [Backup](#backup).
 - Dropped streams reconnect on their own with backoff (1 s, doubling, up to 30 s). The tile shows "Offline · retry in N s" and a short error code.
 - The screen stays on while the grid or a fullscreen camera is shown. Streams stop when the app goes to the background.
 
@@ -31,7 +32,7 @@ A personal camera wall for Android phones and Fire TV: live camera streams in a 
 <table>
   <tr>
     <td width="50%"><img src="docs/images/fullscreen.png" alt="Fullscreen camera (UI mockup)"><br>Fullscreen: one camera, high-resolution stream with sound. Left/right switch camera, OK toggles sound.</td>
-    <td width="50%"><img src="docs/images/settings.png" alt="Settings (UI mockup)"><br>Settings: grid size, camera order, add, edit and delete cameras. (The mockup predates views: grid size is now set per view in the layout editor.)</td>
+    <td width="50%"><img src="docs/images/settings.png" alt="Settings (UI mockup)"><br>Settings: camera order, add, edit and delete cameras. (The mockup predates views and backup: the grid size setting shown is gone; Settings now has a Views section, which opens the layout editor, and a Backup section.)</td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/go2rtc-import.png" alt="go2rtc import (UI mockup)"><br>Import from go2rtc: fetch the stream list, tick cameras, import.</td>
@@ -39,7 +40,7 @@ A personal camera wall for Android phones and Fire TV: live camera streams in a 
   </tr>
 </table>
 
-The mockups predate the stream type setting. In the app, the camera editor and the go2rtc import screen also have a "Stream type" choice (RTSP or WebRTC).
+The mockups predate views, backup and the stream type setting. All mockup grids are uniform grids; in the app, a view can mix tile sizes. The camera editor and the go2rtc import screen also have a "Stream type" choice (RTSP or WebRTC), which the mockups do not show.
 
 ## Install
 
@@ -67,7 +68,31 @@ Open the link above on the phone, download the APK and install it. Android asks 
 
 ### Updating
 
-`adb install -r` (or installing over the old app on a phone) only works when both APKs are signed with the same key. If the repository has no signing secrets set (see [CI and signing](#ci-and-signing)), every CI run signs with a new debug key and the update fails with a signature error. Uninstall the old version first (`adb uninstall io.github.vandosketch.camgrid`). Uninstalling deletes the camera configuration.
+Android installs a new APK over the old one only when both are signed with the same key and the new one has a higher version code. Once the repository has its signing key set up (see [CI and signing](#ci-and-signing)), both are true for every CI build: install the new APK over the old one on a phone, or run `adb install -r camgrid-debug.apk` again on the Fire TV. Settings are kept.
+
+The release notes of each preview say which key the build was signed with: `stable` (installs over the previous build) or `one-off` (no signing key was set; uninstall the old app first with `adb uninstall io.github.vandosketch.camgrid`).
+
+**Switching to the stable key once.** Builds made before the key was set were each signed with their own random key, so the first build with the stable key cannot update them. This needs one last uninstall, and uninstalling deletes the configuration. So:
+
+1. In the old app, open Settings > Backup and export your settings, with a password. On a Fire TV, copy the file to your computer, because uninstalling also deletes the app's backup folder:
+
+   ```sh
+   adb pull /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups/ .
+   ```
+
+   This only works if the installed build already has Settings > Backup. Builds from before Backup have no way to export: note your cameras and views, or plan to re-import the cameras from go2rtc, and rebuild the views in the editor.
+2. Uninstall the old app (`adb uninstall io.github.vandosketch.camgrid`, or long-press the app on a phone).
+3. Install the new build.
+4. Import the backup under Settings > Backup > Import from file. On a phone, pick the file. On a Fire TV, push it into the app's folder first, then pick it from the list:
+
+   ```sh
+   adb shell mkdir -p /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups
+   adb push camgrid-backup-2026-10-06-120000.json /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups/
+   ```
+
+From then on, every new build installs over the old one.
+
+Each CI build's version code is its workflow run number, so a newer build is always a higher version. Installing an *older* build over a newer one is a downgrade, which Android refuses; `adb install -r -d camgrid-debug.apk` allows it for the debug APK. A local build without `CAMGRID_BUILD_NUMBER` has version code 1 and is signed with your local debug key, so it cannot replace a CI build either.
 
 ## Setup with go2rtc
 
@@ -108,6 +133,46 @@ The stream type is set per camera. When you switch it in the camera editor, go2r
 - **RTSP** is the default and the safer choice. It runs over TCP, which avoids lost packets on Wi-Fi, and plays whatever ExoPlayer can decode. Expect about a second of delay.
 - **WebRTC** has lower delay. It needs H264 video, and fullscreen sound only works with Opus or G.711 audio. CamGrid uses no STUN or TURN server, so the phone or Fire TV must reach go2rtc directly, which in practice means the same LAN.
 
+## Views
+
+A view is one screen layout: a canvas of up to 12x12 cells with up to 16 tiles on it. A tile can span several cells, so portrait and landscape tiles can sit side by side, and cells may stay empty. You can have several views; the grid shows them one after the other, and the page indicator at the top shows the view's name and the page number.
+
+Each tile either shows a fixed camera or is an **auto tile**, which takes the next camera in the camera order (cameras fixed elsewhere in the same view are skipped). When there are more cameras than auto tiles, the view continues on further pages with the fixed tiles unchanged. Each tile also has a picture setting: **Crop** fills the tile and cuts off the edges, **Fit** shows the whole picture with black bars.
+
+Open Settings > Views, then a view (or **Add view**) to edit it. The editor shows a preview of the layout and below it the selected tile's camera and picture setting, add tile, remove tile, fill empty cells, the canvas size (columns and rows), presets and delete view.
+
+Presets: 2x2, 3x3, side by side, 2 portrait + 2 landscape, 1 big + 3, 1 big + 5, 3 portrait. Applying a preset keeps the cameras of the old tiles in reading order.
+
+Editing with the Fire TV remote, with focus on the preview:
+
+| Mode | Arrows | OK | Back |
+| --- | --- | --- | --- |
+| Select | Pick a tile (focus leaves the preview at its edges) | Move mode | Close the editor |
+| Move | Move the tile by one cell | Resize mode | Select mode |
+| Resize | Right / down grow, left / up shrink | Select mode | Select mode |
+
+On a phone, tap a tile to select it, pick the mode with the Select / Move / Resize chips and use the arrow buttons. A move or resize that would leave the canvas or overlap another tile is ignored.
+
+The editor shows how many streams the view plays at once and warns above 4, which is about what a Fire TV Stick can decode. The JSON format of views is in [docs/view-format.md](docs/view-format.md).
+
+## Backup
+
+Settings > **Backup** exports all settings (views, cameras with their URLs, the go2rtc address) to one JSON file and imports them again, for example before uninstalling or to copy a setup from a phone to a Fire TV.
+
+- **Export with password** (recommended): the configuration is encrypted with AES-256-GCM, with a key derived from the password by PBKDF2-HMAC-SHA1 (200,000 rounds; SHA1 because Fire OS 6 / API 25 lacks PBKDF2-SHA256).
+- **Export without password**: readable JSON that contains the camera URLs including any user names and passwords in them. The app warns before exporting this way.
+- **Import from file** accepts a backup or a bare config JSON (any version the app can migrate). It asks for the password if the file is encrypted, then asks before replacing all current settings.
+
+On a phone, export and import use the system file picker. A Fire TV has no file picker, so the app saves backups to and reads them from its own folder, `/sdcard/Android/data/io.github.vandosketch.camgrid/files/backups`; copy files with `adb`:
+
+```sh
+adb pull /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups/ .     # Fire TV -> computer
+adb shell mkdir -p /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups
+adb push camgrid-backup-2026-10-06-120000.json /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups/   # computer -> Fire TV
+```
+
+Uninstalling the app deletes that folder. The file format is described in [docs/backup-format.md](docs/backup-format.md).
+
 ## Controls
 
 | Action | Phone | Fire TV remote |
@@ -124,11 +189,13 @@ The stream type is set per camera. When you switch it in the camera editor, go2r
 
 Fullscreen cycles through all cameras in configured order, not just the current page. Returning to the grid puts focus on the camera you were watching.
 
-On a Fire TV Stick, use a **2x2** grid. A stick can only decode about four live streams at once, so larger grids will leave tiles stuck on "Connecting…" or failing.
+On a Fire TV Stick, keep views to about **4 tiles**. A stick can only decode about four live streams at once, so larger views will leave tiles stuck on "Connecting…" or failing.
+
+Pages run across views: Right past the edge of the last page of one view goes to the first page of the next.
 
 ## UI mockup
 
-[`docs/mockup/camgrid-mockup.html`](docs/mockup/camgrid-mockup.html) is a clickable HTML mockup of the app's screens, built from the Compose code. Open it in a browser and use the mouse or the arrow keys, Enter, Esc and M like a Fire TV remote. It loads its fonts from Google Fonts, and its cameras use the documentation-only address range 192.0.2.x.
+[`docs/mockup/camgrid-mockup.html`](docs/mockup/camgrid-mockup.html) is a clickable HTML mockup of the app's screens, built from the Compose code as it was before views, backup and the stream type setting existed. Open it in a browser and use the mouse or the arrow keys, Enter, Esc and M like a Fire TV remote. It loads its fonts from Google Fonts, and its cameras use the documentation-only address range 192.0.2.x.
 
 The README images are rendered from it with Playwright's Chromium:
 
@@ -149,8 +216,8 @@ Requirements: JDK 21 (what CI uses) and the Android SDK. The Gradle wrapper down
 
 Modules:
 
-- **`:core`**: pure Kotlin, no Android dependencies. Config model and JSON codec, config edits, grid paging and D-pad navigation, go2rtc stream pairing and URL conversion, URL validation and redaction, reconnect backoff, stream watchdog, WebRTC signalling parsing. All of it has JVM unit tests.
-- **`:app`**: the Android app in Jetpack Compose. Screens, encrypted config storage, the ExoPlayer and WebRTC players, and the go2rtc and WHEP HTTP clients.
+- **`:core`**: pure Kotlin, no Android dependencies. Config model and JSON codec with migration, backup export and import with password encryption, views and the view editor's edits, view paging and D-pad navigation, go2rtc stream pairing and URL conversion, URL validation and redaction, reconnect backoff, stream watchdog, WebRTC signalling parsing. All of it has JVM unit tests.
+- **`:app`**: the Android app in Jetpack Compose. Screens (grid, fullscreen, settings, view editor, camera editor, go2rtc import, backup), encrypted config storage, backup files, the ExoPlayer and WebRTC players, and the go2rtc and WHEP HTTP clients.
 
 The APK contains native libwebrtc for `armeabi-v7a`, `arm64-v8a` and `x86_64` (the last for the emulator).
 
@@ -158,30 +225,67 @@ The APK contains native libwebrtc for `armeabi-v7a`, `arm64-v8a` and `x86_64` (t
 
 `.github/workflows/android.yml` runs unit tests, lint and both APK builds on every push to `main` and `claude/**` branches, on pull requests and on manual runs. The APKs are uploaded as the `camgrid-apks` workflow artifact. On a push, they are also published as a pre-release: `preview` for `main`, `preview-<last part of the branch name>` for other branches. Each push replaces the previous pre-release of the same tag.
 
-To sign every build with the same key, so new APKs install over old ones, add these repository secrets:
+Each build gets the workflow run number as its version code (version name `0.2.<run number>`), so every build is an upgrade of the one before.
 
-| Secret | Value |
-| --- | --- |
-| `CAMGRID_KEYSTORE_BASE64` | The keystore file, base64-encoded (`base64 -w0 camgrid.jks`) |
-| `CAMGRID_KEYSTORE_PASSWORD` | Keystore password |
-| `CAMGRID_KEY_ALIAS` | Key alias |
-| `CAMGRID_KEY_PASSWORD` | Key password |
+**Why updates used to need an uninstall:** Android only installs an update that is signed with the same key as the installed app. Without signing secrets, every CI run signs with a debug key that is generated fresh on the runner, so each build has a different key and Android refuses it as an update. The fix is one stable key, stored as repository secrets. With it, both the debug and the release APK of every build are signed with that key.
 
-With them, both the debug and the release APK are signed with that key. Without them, each CI run signs with a fresh debug key, and you have to uninstall before installing a newer build. Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the keystore and the three password/alias variables are set.
+#### Setting up the signing key (once)
+
+1. Create a keystore on your own computer. `keytool` comes with any JDK; Android Studio has one in its bundled JDK (`jbr/bin`).
+
+   ```sh
+   keytool -genkeypair -v -keystore camgrid-release.jks -storetype PKCS12 -alias camgrid -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=CamGrid"
+   ```
+
+   It asks for a password. PKCS12 uses the same password for the store and the key.
+2. Base64-encode it:
+
+   ```sh
+   base64 -w0 camgrid-release.jks > keystore.txt            # Linux
+   base64 -i camgrid-release.jks -o keystore.txt           # macOS
+   ```
+
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("camgrid-release.jks")) > keystore.txt   # Windows PowerShell
+   ```
+3. On GitHub, open the repository's Settings > Secrets and variables > Actions > **New repository secret** and add four secrets:
+
+   | Secret | Value |
+   | --- | --- |
+   | `CAMGRID_KEYSTORE_BASE64` | The contents of `keystore.txt` |
+   | `CAMGRID_KEYSTORE_PASSWORD` | The password from step 1 |
+   | `CAMGRID_KEY_ALIAS` | `camgrid` |
+   | `CAMGRID_KEY_PASSWORD` | The same password |
+
+   Or with the GitHub CLI, from the folder with the files:
+
+   ```sh
+   gh secret set CAMGRID_KEYSTORE_BASE64 < keystore.txt
+   gh secret set CAMGRID_KEYSTORE_PASSWORD     # prompts for the value
+   gh secret set CAMGRID_KEY_ALIAS --body camgrid
+   gh secret set CAMGRID_KEY_PASSWORD          # prompts for the value
+   ```
+4. Delete `keystore.txt`. Keep `camgrid-release.jks` and its password safe and backed up (a password manager is a good place for both). Never commit them; `.gitignore` already excludes `*.jks` and `*.keystore`. If the key is lost, new builds get a new key, and every device has to uninstall again.
+5. Push to `main` (or re-run the workflow). Then do the one-time switch described in [Updating](#updating): export settings, uninstall, install the new build, import.
+
+Without the secrets, CI still builds and publishes APKs, but the run shows a "No signing key" warning, the release notes say `Signing key: one-off`, and every update needs an uninstall.
+
+Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the keystore and `CAMGRID_KEYSTORE_PASSWORD`, `CAMGRID_KEY_ALIAS` and `CAMGRID_KEY_PASSWORD` are set; set `CAMGRID_BUILD_NUMBER` for a version code above 1.
 
 ## Privacy and security
 
-- The configuration, including stream URLs and any credentials in them, is stored in one file encrypted with AES-256-GCM. The key lives in the Android Keystore and never leaves the device. Android backup and device-to-device transfer are turned off for the app.
+- The configuration, including stream URLs and any credentials in them, is stored in one file encrypted with AES-256-GCM. The key lives in the Android Keystore and never leaves the device. Android backup and device-to-device transfer are turned off for the app; the only way settings leave the device is a backup you export yourself (password-protected unless you choose otherwise, see [Backup](#backup)).
 - CamGrid does not log stream URLs. Logs name the camera and a short error code instead, player error text passes through a redactor that masks user info and password or token parameters, and Media3's own logging is switched off because its messages can contain URLs.
 - No cloud, account, analytics or telemetry. The app only talks to the addresses you configure. Cleartext HTTP is allowed because go2rtc usually runs on the LAN without TLS.
 
 ## Known limitations
 
-- Not yet tested on a real device (see Status above).
+- Not yet tested on a real Fire TV (see Status above).
 - WebRTC works on the local network only (no STUN/TURN) and needs H264 video.
 - No recording, playback of past footage, motion alerts, PTZ or two-way audio. It is a live viewer only.
-- No export or import of the configuration. Uninstalling the app deletes it.
-- A Fire TV Stick can play only about four streams at once; larger grids need a stronger device.
+- Uninstalling the app deletes the configuration (and on a Fire TV the backup folder). Export a backup first and keep it off the device.
+- Backup on a Fire TV goes through `adb push` / `adb pull`, since there is no file picker.
+- A Fire TV Stick can play only about four streams at once; larger views need a stronger device.
 - Typing URLs with a TV remote is slow. Importing from go2rtc saves most of the typing.
 
 ## License
