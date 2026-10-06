@@ -26,6 +26,10 @@ bytedecoFfmpeg = "8.1.2-1.5.14"
 javacpp = "1.5.14"
 # Desktop config key on Windows (DPAPI). Dual Apache-2.0 / LGPL-2.1; used under Apache-2.0.
 jna = "5.19.1"
+# Back handling on desktop and iOS; the version Compose Multiplatform 1.12.1 itself uses.
+navigationEventMultiplatform = "1.1.0"
+# Apache-2.0. HTTP for go2rtc and WebRTC signalling on every platform.
+ktor = "3.6.0"
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -50,6 +54,7 @@ webrtc = { module = "io.github.webrtc-sdk:android", version.ref = "webrtc" }
 cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
 cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
 cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+navigationevent-compose-mp = { module = "org.jetbrains.androidx.navigationevent:navigationevent-compose", version.ref = "navigationEventMultiplatform" }
 cmp-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
 cmp-material-icons = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "composeMaterialIcons" }
@@ -60,6 +65,11 @@ webrtc-java = { module = "dev.onvoid.webrtc:webrtc-java", version.ref = "webrtcJ
 bytedeco-ffmpeg = { module = "org.bytedeco:ffmpeg", version.ref = "bytedecoFfmpeg" }
 bytedeco-javacpp = { module = "org.bytedeco:javacpp", version.ref = "javacpp" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
+ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
 cryptography-provider-optimal = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }
 

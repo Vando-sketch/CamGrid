@@ -10,6 +10,10 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.addAll("kotlin.uuid.ExperimentalUuidApi", "kotlin.io.encoding.ExperimentalEncodingApi")
+    }
+
     android {
         namespace = "io.github.vandosketch.camgrid.shared"
         compileSdk = 37
@@ -33,14 +37,34 @@ kotlin {
             api(libs.cmp.ui)
             api(libs.cmp.material3)
             implementation(libs.cmp.material.icons)
+            // Back key / gesture on desktop and iOS (Android uses androidx.activity's BackHandler).
+            implementation(libs.navigationevent.compose.mp)
             implementation(libs.cmp.resources)
             api(libs.lifecycle.viewmodel.compose.mp)
             implementation(libs.lifecycle.runtime.compose.mp)
             implementation(libs.coroutines.core)
+            // api: the Android app's WebRTC player uses WhepClient with the shared HttpClient.
+            api(libs.ktor.client.core)
+        }
+        androidMain.dependencies {
+            // HttpURLConnection underneath, like the app used before.
+            implementation(libs.ktor.client.android)
+            implementation(libs.activity.compose)
+        }
+        getByName("desktopMain").dependencies {
+            implementation(libs.ktor.client.java)
+        }
+        getByName("desktopTest").dependencies {
+            // Skiko's native library: Compose resources ask it for the system theme.
+            implementation(compose.desktop.currentOs)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
     }
 }
