@@ -14,6 +14,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Optional signing secrets. With them every build is signed with the same key, so a new
+    # APK installs over the old one; without them each run gets a fresh debug key.
+    env:
+      KEYSTORE_BASE64: ${{ secrets.CAMGRID_KEYSTORE_BASE64 }}
+      CAMGRID_KEYSTORE_PASSWORD: ${{ secrets.CAMGRID_KEYSTORE_PASSWORD }}
+      CAMGRID_KEY_ALIAS: ${{ secrets.CAMGRID_KEY_ALIAS }}
+      CAMGRID_KEY_PASSWORD: ${{ secrets.CAMGRID_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
 
@@ -24,6 +31,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      - name: Decode release keystore
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/camgrid.jks"
+          echo "CAMGRID_KEYSTORE_FILE=$RUNNER_TEMP/camgrid.jks" >> "$GITHUB_ENV"
+
       - name: Unit tests
         run: ./gradlew test --stacktrace
 
@@ -31,7 +44,11 @@ jobs:
         run: ./gradlew :app:lintDebug --stacktrace
 
       - name: Build APKs
-        run: ./gradlew :app:assembleDebug :app:assembleRelease --stacktrace
+        run: |
+          ./gradlew :app:assembleDebug :app:assembleRelease --stacktrace
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/camgrid-debug.apk
+          cp app/build/outputs/apk/release/app-release.apk dist/camgrid-release.apk
 
       - name: Upload test reports
         if: always()
@@ -45,4 +62,4 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: camgrid-apks
-          path: app/build/outputs/apk/**/*.apk
+          path: dist/*.apk

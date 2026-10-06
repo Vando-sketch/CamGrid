@@ -17,14 +17,33 @@ android {
         versionName = "0.1.0"
     }
 
+    // CI decodes the release keystore from repository secrets into this file. Without it the
+    // release APK falls back to the debug key, which differs on every CI runner.
+    val releaseKeystore = providers.environmentVariable("CAMGRID_KEYSTORE_FILE").orNull
+        ?.let { file(it) }
+        ?.takeIf { it.isFile }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = providers.environmentVariable("CAMGRID_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("CAMGRID_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("CAMGRID_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            // Same key for both builds once it exists, so either APK can update the other.
+            signingConfigs.findByName("release")?.let { signingConfig = it }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key until a release keystore is set up in CI secrets,
-            // so the release APK still installs over ADB.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
