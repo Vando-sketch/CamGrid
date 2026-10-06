@@ -13,8 +13,10 @@ android {
         // Fire OS 6 is API 25. The stick's Fire OS version is unknown, so stay this low.
         minSdk = 25
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes its run number, so every CI build is a real upgrade of the previous one.
+        val buildNumber = providers.environmentVariable("CAMGRID_BUILD_NUMBER").orNull?.toIntOrNull() ?: 1
+        versionCode = buildNumber
+        versionName = "0.2.$buildNumber"
 
         // libwebrtc is native code, about 7 to 16 MB per ABI. Phones and the Fire TV Stick are ARM;
         // x86_64 stays for the emulator. 32-bit x86 devices are not a target.
@@ -23,8 +25,9 @@ android {
         }
     }
 
-    // CI decodes the release keystore from repository secrets into this file. Without it the
-    // release APK falls back to the debug key, which differs on every CI runner.
+    // CI decodes the release keystore from repository secrets into this file. Without it both
+    // APKs are signed with the debug key, which is generated fresh on every CI runner: Android
+    // then refuses to update an installed build, and the old app has to be uninstalled first.
     val releaseKeystore = providers.environmentVariable("CAMGRID_KEYSTORE_FILE").orNull
         ?.let { file(it) }
         ?.takeIf { it.isFile }

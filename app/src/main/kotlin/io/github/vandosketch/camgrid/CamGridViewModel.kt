@@ -1,6 +1,7 @@
 package io.github.vandosketch.camgrid
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -9,20 +10,26 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.vandosketch.camgrid.core.CamGridConfig
+import io.github.vandosketch.camgrid.core.BackupException
 import io.github.vandosketch.camgrid.core.CamView
+import io.github.vandosketch.camgrid.core.ConfigBackup
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.ConfigEditor
 import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.core.ViewPaging
+import io.github.vandosketch.camgrid.data.BackupFiles
 import io.github.vandosketch.camgrid.data.ConfigRepository
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.Go2rtcException
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** State of the "Import from go2rtc" screen. */
 sealed interface ImportState {
@@ -99,6 +106,11 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         screen = Screen.EditCamera(cameraId)
     }
 
+    fun openBackup() {
+        resetBackup()
+        screen = Screen.Backup
+    }
+
     fun openImport() {
         fetchJob?.cancel()
         importState = ImportState.Idle
@@ -115,6 +127,10 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
             }
             Screen.Settings -> Screen.Grid
             is Screen.EditCamera, Screen.Go2rtcImport, is Screen.EditView -> Screen.Settings
+            Screen.Backup -> {
+                resetBackup()
+                Screen.Settings
+            }
         }
     }
 
@@ -236,6 +252,121 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         edit { ConfigEditor.importCameras(it, chosen) }
         importState = ImportState.Idle
         screen = Screen.Settings
+    }
+
+    // --- Backup (settings export / import) ---
+
+    private val backupFiles = BackupFiles(application)
+
+    var backupState by mutableStateOf<BackupState>(BackupState.Idle)
+        private set
+
+    /** The text and config of a file being imported, kept until it is confirmed or dropped. */
+    private var pendingImportText: String? = null
+    private var pendingImport: CamGridConfig? = null
+    private var backupJob: Job? = null
+
+    /** Folder used when the device has no file picker (Fire TV). */
+    val backupFolderPath: String get() = backupFiles.folder.absolutePath
+
+    fun suggestedBackupName(): String = backupFiles.suggestedName()
+
+    /** Backup files in the app folder, newest first (for devices without a file picker). */
+    fun backupFolderFiles(): List<String> = backupFiles.listFolder()
+
+    /** Exports to a file chosen with the system picker; [password] null means unencrypted. */
+    fun exportBackup(uri: Uri, password: CharArray?) =
+        runExport(password) { text -> backupFiles.write(uri, text); uri.lastPathSegment ?: uri.toString() }
+
+    /** Exports into [backupFolderPath], for devices without a file picker. */
+    fun exportBackupToFolder(password: CharArray?) = runExport(password) { text -> backupFiles.writeToFolder(text) }
+
+    fun importBackup(uri: Uri) = runRead { backupFiles.read(uri) }
+
+    fun importBackupFromFolder(name: String) = runRead { backupFiles.readFromFolder(name) }
+
+    /** Tries [password] on the encrypted file read last. */
+    fun submitBackupPassword(password: CharArray) {
+        val text = pendingImportText ?: return
+        backupState = BackupState.Working
+        backupJob = viewModelScope.launch {
+            val result = withContext(Dispatchers.Default) { decode(text, password) }
+            password.fill(' ')
+            backupState = result
+        }
+    }
+
+    /** Replaces the current settings with the file read last. */
+    fun confirmImport() {
+        val imported = pendingImport ?: return
+        edit { imported }
+        gridPage = 0
+        gridFocusIndex = 0
+        pendingImport = null
+        pendingImportText = null
+        backupState = BackupState.Imported
+    }
+
+    fun resetBackup() {
+        backupJob?.cancel()
+        pendingImport = null
+        pendingImportText = null
+        backupState = BackupState.Idle
+    }
+
+    private fun runExport(password: CharArray?, write: (String) -> String) {
+        backupJob?.cancel()
+        backupState = BackupState.Working
+        val snapshot = config.value
+        backupJob = viewModelScope.launch {
+            backupState = try {
+                val where = withContext(Dispatchers.IO) { write(ConfigBackup.export(snapshot, password)) }
+                BackupState.Exported(where)
+            } catch (e: IOException) {
+                Log.w(TAG, "Backup export failed: ${e.javaClass.simpleName}")
+                BackupState.Failed(BackupError.WRITE_FAILED)
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Backup export failed: ${e.javaClass.simpleName}")
+                BackupState.Failed(BackupError.WRITE_FAILED)
+            } finally {
+                password?.fill(' ')
+            }
+        }
+    }
+
+    private fun runRead(read: () -> String) {
+        backupJob?.cancel()
+        pendingImport = null
+        pendingImportText = null
+        backupState = BackupState.Working
+        backupJob = viewModelScope.launch {
+            backupState = try {
+                val text = withContext(Dispatchers.IO) { read() }
+                pendingImportText = text
+                withContext(Dispatchers.Default) { decode(text, password = null) }
+            } catch (e: IOException) {
+                Log.w(TAG, "Backup read failed: ${e.javaClass.simpleName}")
+                BackupState.Failed(BackupError.READ_FAILED)
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Backup read failed: ${e.javaClass.simpleName}")
+                BackupState.Failed(BackupError.READ_FAILED)
+            }
+        }
+    }
+
+    /** Decodes [text]; on success keeps the config for [confirmImport]. Runs off the main thread. */
+    private fun decode(text: String, password: CharArray?): BackupState = try {
+        val imported = ConfigBackup.import(text, password)
+        pendingImport = imported
+        val current = config.value
+        BackupState.ConfirmImport(imported.cameras.size, imported.views.size, current.cameras.size, current.views.size)
+    } catch (e: BackupException) {
+        when (e.reason) {
+            BackupException.Reason.PASSWORD_REQUIRED -> BackupState.NeedsPassword(wrongPassword = false)
+            BackupException.Reason.WRONG_PASSWORD -> BackupState.NeedsPassword(wrongPassword = true)
+            BackupException.Reason.NEWER_VERSION -> BackupState.Failed(BackupError.NEWER_VERSION)
+            BackupException.Reason.UNREADABLE -> BackupState.Failed(BackupError.UNREADABLE)
+        }
     }
 
     private fun edit(transform: (CamGridConfig) -> CamGridConfig) {

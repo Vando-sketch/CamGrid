@@ -27,6 +27,8 @@
     <string name="views_help">Views are shown one after the other. A view with more cameras than auto tiles continues on further pages.</string>
     <string name="add_view">Add view</string>
     <string name="view_summary">ID %1$s · %2$d tiles on %3$d×%4$d cells</string>
+    <string name="section_backup">Backup</string>
+    <string name="open_backup">Export or import settings</string>
     <string name="section_cameras">Cameras</string>
     <string name="add_camera">Add camera</string>
     <string name="import_go2rtc">Import from go2rtc</string>

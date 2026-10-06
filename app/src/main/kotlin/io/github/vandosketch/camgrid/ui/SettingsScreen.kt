@@ -65,6 +65,7 @@ fun SettingsScreen(
     onEditCamera: (id: String?) -> Unit,
     onDeleteCamera: (id: String) -> Unit,
     onImport: () -> Unit,
+    onBackup: () -> Unit,
 ) {
     var pendingDelete by remember { mutableStateOf<Camera?>(null) }
     val doneRequester = remember { FocusRequester() }
@@ -109,6 +110,16 @@ fun SettingsScreen(
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
                 Text(stringResource(R.string.add_view))
+            }
+        }
+
+        item { SectionTitle(stringResource(R.string.section_backup)) }
+        item {
+            OutlinedButton(
+                onClick = onBackup,
+                modifier = Modifier.focusBorder(shape = CircleShape),
+            ) {
+                Text(stringResource(R.string.open_backup))
             }
         }
 
