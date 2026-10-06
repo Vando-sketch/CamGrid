@@ -2,13 +2,26 @@ package io.github.vandosketch.camgrid.core
 
 import kotlinx.serialization.Serializable
 
+/** How a camera's URLs are played. Stored by name in the config. */
+@Serializable
+enum class StreamType {
+    /** Played by ExoPlayer: rtsp:// or rtsps://, or an http(s) media URL such as HLS. */
+    RTSP,
+
+    /**
+     * WebRTC with WHEP-style signalling: the app POSTs an SDP offer (application/sdp) to the
+     * http(s) URL and gets the SDP answer back. go2rtc serves this at `/api/webrtc?src=<name>`.
+     */
+    WEBRTC,
+}
+
 /**
  * One camera on the wall.
  *
  * [gridUrl] is the lower-resolution stream played in a grid tile. [detailUrl] is the
  * higher-resolution stream played in fullscreen; when it is blank, fullscreen falls back
- * to [gridUrl]. URLs may carry credentials (rtsp://user:pass@host/...), so never log
- * them unredacted (see [UrlRedactor]).
+ * to [gridUrl]. Both URLs are played as [streamType]. URLs may carry credentials
+ * (rtsp://user:pass@host/...), so never log them unredacted (see [UrlRedactor]).
  */
 @Serializable
 data class Camera(
@@ -16,6 +29,7 @@ data class Camera(
     val name: String,
     val gridUrl: String,
     val detailUrl: String = "",
+    val streamType: StreamType = StreamType.RTSP,
 ) {
     /** The URL to play in fullscreen: [detailUrl] if set, otherwise [gridUrl]. Trimmed. */
     val fullscreenUrl: String

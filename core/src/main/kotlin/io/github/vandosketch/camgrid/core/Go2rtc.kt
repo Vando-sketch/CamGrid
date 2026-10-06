@@ -1,5 +1,6 @@
 package io.github.vandosketch.camgrid.core
 
+import java.net.URLDecoder
 import java.net.URLEncoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -9,10 +10,13 @@ import kotlinx.serialization.json.JsonObject
  * Helpers for importing cameras from a go2rtc server.
  *
  * go2rtc's HTTP API (default port 1984) lists streams at `/api/streams` as a JSON object keyed
- * by stream name. Every stream is also served over RTSP on port 8554 at `rtsp://<host>:8554/<name>`.
+ * by stream name. Every stream is also served over RTSP on port 8554 at `rtsp://<host>:8554/<name>`
+ * and over WebRTC with signalling at `http://<host>:1984/api/webrtc?src=<name>`.
  */
 object Go2rtc {
     const val DEFAULT_RTSP_PORT = 8554
+    const val DEFAULT_API_PORT = 1984
+    private const val WEBRTC_PATH = "/api/webrtc"
 
     /** Words that mark a stream as the lower-resolution grid variant. */
     val GRID_SUFFIXES = setOf("medium", "med", "low", "sub", "sd", "lq", "small", "grid")
@@ -48,8 +52,49 @@ object Go2rtc {
     fun rtspUrl(baseUrl: String, streamName: String, rtspPort: Int = DEFAULT_RTSP_PORT): String {
         val base = requireNotNull(UrlParts.parse(withScheme(baseUrl))) { "Invalid go2rtc base URL" }
         val userInfo = base.userInfo?.let { "$it@" }.orEmpty()
-        val path = URLEncoder.encode(streamName, Charsets.UTF_8).replace("+", "%20")
-        return "rtsp://$userInfo${base.host}:$rtspPort/$path"
+        return "rtsp://$userInfo${base.host}:$rtspPort/${encodeName(streamName)}"
+    }
+
+    /**
+     * WebRTC signalling URL for [streamName] on [baseUrl]: `<base>/api/webrtc?src=<name>`.
+     * Scheme, user-info and port of [baseUrl] are kept (a base without scheme gets `http://`);
+     * the name is percent-encoded.
+     */
+    fun webrtcUrl(baseUrl: String, streamName: String): String =
+        withScheme(baseUrl).trimEnd('/') + "$WEBRTC_PATH?src=" + encodeName(streamName)
+
+    /**
+     * Converts a go2rtc stream URL to the same stream as [to], or returns null when [url] is not
+     * a recognisable go2rtc URL. Used when a camera's stream type is switched in the editor.
+     *
+     * Recognised: `rtsp://[userInfo@]host:<rtspPort>/<name>` (one path segment, no query), and
+     * `http(s)://[userInfo@]host[:port]/api/webrtc?...src=<name>...`. RTSP becomes
+     * `http://[userInfo@]host:<apiPort>/api/webrtc?src=<name>`; WebRTC becomes
+     * `rtsp://[userInfo@]host:<rtspPort>/<name>`. A URL already of type [to] that is recognised
+     * is returned trimmed and unchanged. Any other RTSP server, HTTP URL or garbage gives null.
+     */
+    fun convertUrl(
+        url: String,
+        to: StreamType,
+        apiPort: Int = DEFAULT_API_PORT,
+        rtspPort: Int = DEFAULT_RTSP_PORT,
+    ): String? {
+        val trimmed = url.trim()
+        val parts = UrlParts.parse(trimmed) ?: return null
+        if (parts.host.isEmpty()) return null
+        val userInfo = parts.userInfo?.let { "$it@" }.orEmpty()
+        val name = when (parts.scheme.lowercase()) {
+            "rtsp" -> rtspStreamName(parts, rtspPort)
+            "http", "https" -> webrtcStreamName(parts)
+            else -> null
+        } ?: return null
+        val isRtsp = parts.scheme.equals("rtsp", ignoreCase = true)
+        return when {
+            to == StreamType.RTSP && isRtsp -> trimmed
+            to == StreamType.WEBRTC && !isRtsp -> trimmed
+            to == StreamType.RTSP -> "rtsp://$userInfo${parts.host}:$rtspPort/${encodeName(name)}"
+            else -> "http://$userInfo${parts.host}:$apiPort$WEBRTC_PATH?src=${encodeName(name)}"
+        }
     }
 
     /**
@@ -66,8 +111,19 @@ object Go2rtc {
      * URL, else "". A base with only a detail variant therefore gets detailUrl "" (fullscreen
      * falls back to the same stream). Camera id is `go2rtc:<base>`, name is the base. Cameras keep the order in
      * which their base first appears in [streamNames].
+     *
+     * URLs are [rtspUrl]s for [StreamType.RTSP] and [webrtcUrl]s for [StreamType.WEBRTC].
      */
-    fun suggestCameras(baseUrl: String, streamNames: List<String>, rtspPort: Int = DEFAULT_RTSP_PORT): List<Camera> {
+    fun suggestCameras(
+        baseUrl: String,
+        streamNames: List<String>,
+        rtspPort: Int = DEFAULT_RTSP_PORT,
+        streamType: StreamType = StreamType.RTSP,
+    ): List<Camera> {
+        fun urlFor(name: String) = when (streamType) {
+            StreamType.RTSP -> rtspUrl(baseUrl, name, rtspPort)
+            StreamType.WEBRTC -> webrtcUrl(baseUrl, name)
+        }
         val streamsByBase = LinkedHashMap<String, BaseStreams>()
         for (name in streamNames) {
             val (base, variant) = splitVariant(name)
@@ -84,8 +140,9 @@ object Go2rtc {
             Camera(
                 id = "go2rtc:$base",
                 name = base,
-                gridUrl = rtspUrl(baseUrl, grid, rtspPort),
-                detailUrl = detail?.let { rtspUrl(baseUrl, it, rtspPort) }.orEmpty(),
+                gridUrl = urlFor(grid),
+                detailUrl = detail?.let(::urlFor).orEmpty(),
+                streamType = streamType,
             )
         }
     }
@@ -104,6 +161,32 @@ object Go2rtc {
             else -> return name to null
         }
         return name.substring(0, separator) to variant
+    }
+
+    private fun encodeName(name: String): String =
+        URLEncoder.encode(name, Charsets.UTF_8).replace("+", "%20")
+
+    /** The stream name of `rtsp://host:<rtspPort>/<name>`, or null for any other RTSP URL. */
+    private fun rtspStreamName(parts: UrlParts, rtspPort: Int): String? {
+        if (parts.hostPort.substringAfterLast(']').substringAfter(':', "") != rtspPort.toString()) return null
+        val segment = parts.rest.removePrefix("/")
+        if (!parts.rest.startsWith("/") || segment.isEmpty() || segment.any { it in "/?#" }) return null
+        return decode(segment.replace("+", "%2B"))
+    }
+
+    /** The `src` of `http(s)://host/api/webrtc?...src=<name>...`, or null. */
+    private fun webrtcStreamName(parts: UrlParts): String? {
+        val path = parts.rest.substringBefore('?').substringBefore('#')
+        if (path.trimEnd('/') != WEBRTC_PATH) return null
+        val query = parts.rest.substringAfter('?', "").substringBefore('#')
+        val src = query.split('&').firstOrNull { it.startsWith("src=") }?.removePrefix("src=") ?: return null
+        return decode(src)?.takeIf { it.isNotEmpty() }
+    }
+
+    private fun decode(value: String): String? = try {
+        URLDecoder.decode(value, Charsets.UTF_8)
+    } catch (_: IllegalArgumentException) {
+        null
     }
 
     private fun withScheme(baseUrl: String): String =
