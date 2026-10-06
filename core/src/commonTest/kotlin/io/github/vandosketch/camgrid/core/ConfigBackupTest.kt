@@ -6,6 +6,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.test.Test
+import kotlinx.coroutines.test.runTest
 
 class ConfigBackupTest {
 
@@ -24,22 +25,22 @@ class ConfigBackupTest {
         go2rtcBaseUrl = "http://192.0.2.10:1984",
     )
 
-    private fun export(password: String?) = ConfigBackup.export(config, password?.toCharArray(), rounds)
+    private suspend fun export(password: String?) = ConfigBackup.export(config, password?.toCharArray(), rounds)
 
-    private fun import(text: String, password: String?) = ConfigBackup.import(text, password?.toCharArray())
+    private suspend fun import(text: String, password: String?) = ConfigBackup.import(text, password?.toCharArray())
 
-    private fun reason(block: () -> Unit): BackupException.Reason =
+    private suspend fun reason(block: suspend () -> Unit): BackupException.Reason =
         assertFailsWith<BackupException> { block() }.reason
 
     // without password
 
     @Test
-    fun plain_roundTrip() {
+    fun plain_roundTrip() = runTest {
         assertEquals(config, import(export(null), null))
     }
 
     @Test
-    fun plain_isReadableJsonWithTheConfigInside() {
+    fun plain_isReadableJsonWithTheConfigInside() = runTest {
         val text = export(null)
         assertTrue(text.contains("\"format\""))
         assertTrue(text.contains("camgrid-backup"))
@@ -48,19 +49,19 @@ class ConfigBackupTest {
     }
 
     @Test
-    fun plain_ignoresAGivenPasswordOnImport() {
+    fun plain_ignoresAGivenPasswordOnImport() = runTest {
         assertEquals(config, import(export(null), "whatever"))
     }
 
     // with password
 
     @Test
-    fun encrypted_roundTrip() {
+    fun encrypted_roundTrip() = runTest {
         assertEquals(config, import(export("correct horse"), "correct horse"))
     }
 
     @Test
-    fun encrypted_hidesEverythingSecret() {
+    fun encrypted_hidesEverythingSecret() = runTest {
         val text = export("pw")
         assertTrue(ConfigBackup.isEncrypted(text))
         for (secret in listOf("secret", "192.0.2.10", "rtsp", "door", "Kitchen")) {
@@ -69,24 +70,24 @@ class ConfigBackupTest {
     }
 
     @Test
-    fun encrypted_twoExportsDiffer() {
+    fun encrypted_twoExportsDiffer() = runTest {
         // Fresh salt and IV every time.
         assertNotEquals(export("pw"), export("pw"))
     }
 
     @Test
-    fun encrypted_wrongPassword() {
+    fun encrypted_wrongPassword() = runTest {
         assertEquals(BackupException.Reason.WRONG_PASSWORD, reason { import(export("right"), "wrong") })
     }
 
     @Test
-    fun encrypted_missingPassword() {
+    fun encrypted_missingPassword() = runTest {
         assertEquals(BackupException.Reason.PASSWORD_REQUIRED, reason { import(export("right"), null) })
         assertEquals(BackupException.Reason.PASSWORD_REQUIRED, reason { import(export("right"), "") })
     }
 
     @Test
-    fun encrypted_tamperedDataLooksLikeAWrongPassword() {
+    fun encrypted_tamperedDataLooksLikeAWrongPassword() = runTest {
         val text = export("pw")
         val data = Regex("\"data\"\\s*:\\s*\"([^\"]+)\"").find(text)!!.groupValues[1]
         val flipped = (if (data[5] == 'A') 'B' else 'A').toString()
@@ -95,25 +96,25 @@ class ConfigBackupTest {
     }
 
     @Test
-    fun export_rejectsAnEmptyPassword() {
+    fun export_rejectsAnEmptyPassword() = runTest {
         assertFailsWith<IllegalArgumentException> { export("") }
     }
 
     @Test
-    fun export_defaultRoundsAreHigh() {
+    fun export_defaultRoundsAreHigh() = runTest {
         assertTrue(ConfigBackup.DEFAULT_ITERATIONS >= 100_000)
     }
 
     // other input
 
     @Test
-    fun importsABareConfigFile() {
+    fun importsABareConfigFile() = runTest {
         // A config written by hand (or served by a later web service) in the config format itself.
         assertEquals(config, import(ConfigCodec.encode(config), null))
     }
 
     @Test
-    fun importsAVersion1ConfigWithMigration() {
+    fun importsAVersion1ConfigWithMigration() = runTest {
         val v1 = """{"layout":{"columns":3,"rows":1},"cameras":[{"id":"a","name":"A","gridUrl":"rtsp://192.0.2.1/a"}]}"""
         val imported = import(v1, null)
         assertEquals(listOf(CamView.uniform("main", "", 3, 1)), imported.views)
@@ -121,7 +122,7 @@ class ConfigBackupTest {
     }
 
     @Test
-    fun garbageIsUnreadable() {
+    fun garbageIsUnreadable() = runTest {
         assertEquals(BackupException.Reason.UNREADABLE, reason { import("not json", null) })
         assertEquals(BackupException.Reason.UNREADABLE, reason { import("[1,2]", null) })
         assertEquals(BackupException.Reason.UNREADABLE, reason { import("""{"format":"camgrid-backup","version":1}""", null) })
@@ -129,24 +130,24 @@ class ConfigBackupTest {
     }
 
     @Test
-    fun invalidConfigInsideIsUnreadable() {
+    fun invalidConfigInsideIsUnreadable() = runTest {
         val bad = """{"format":"camgrid-backup","version":1,"encryption":"none","config":{"version":2,"views":[]}}"""
         assertEquals(BackupException.Reason.UNREADABLE, reason { import(bad, null) })
     }
 
     @Test
-    fun newerBackupVersionIsReported() {
+    fun newerBackupVersionIsReported() = runTest {
         val newer = """{"format":"camgrid-backup","version":99,"encryption":"none","config":{}}"""
         assertEquals(BackupException.Reason.NEWER_VERSION, reason { import(newer, null) })
     }
 
     @Test
-    fun isEncrypted_unreadableThrows() {
+    fun isEncrypted_unreadableThrows() = runTest {
         assertFailsWith<BackupException> { ConfigBackup.isEncrypted("nope") }
     }
 
     @Test
-    fun exceptionMessagesNeverQuoteTheInput() {
+    fun exceptionMessagesNeverQuoteTheInput() = runTest {
         val e = assertFailsWith<BackupException> { import("rtsp://viewer:secret@192.0.2.10", null) }
         assertFalse(e.message.orEmpty().contains("secret"))
         assertEquals(null, e.cause)

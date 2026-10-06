@@ -3,6 +3,7 @@ package io.github.vandosketch.camgrid.core
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 class ConfigCodecTest {
 
@@ -61,7 +62,7 @@ class ConfigCodecTest {
         // Views are meant to be served from elsewhere later; they must never carry stream URLs.
         val views = Regex("\"views\"(.*?)\"cameras\"", RegexOption.DOT_MATCHES_ALL)
             .find(ConfigCodec.encode(fullConfig))!!.groupValues[1]
-        assert("rtsp" !in views && "secret" !in views && "http" !in views) { views }
+        assertTrue("rtsp" !in views && "secret" !in views && "http" !in views, views)
     }
 
     @Test

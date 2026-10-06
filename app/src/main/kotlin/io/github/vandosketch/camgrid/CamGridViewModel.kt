@@ -355,7 +355,7 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /** Decodes [text]; on success keeps the config for [confirmImport]. Runs off the main thread. */
-    private fun decode(text: String, password: CharArray?): BackupState = try {
+    private suspend fun decode(text: String, password: CharArray?): BackupState = try {
         val imported = ConfigBackup.import(text, password)
         pendingImport = imported
         val current = config.value

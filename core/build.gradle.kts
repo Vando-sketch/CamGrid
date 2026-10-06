@@ -10,15 +10,26 @@ plugins {
 }
 
 kotlin {
+    // BackupCipher is an expect object with one actual per platform.
+    compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
+
     jvm {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
     }
+    // Apple klibs compile on Linux too; linking and running the iOS tests needs macOS (CI).
+    iosArm64()
+    iosSimulatorArm64()
 
     sourceSets {
         commonMain.dependencies {
             // api: the apps use the @Serializable model classes.
             api(libs.serialization.json)
             implementation(libs.coroutines.core)
+        }
+        iosMain.dependencies {
+            implementation(libs.cryptography.core)
+            // CryptoKit for AES-GCM, CommonCrypto for PBKDF2.
+            implementation(libs.cryptography.provider.optimal)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

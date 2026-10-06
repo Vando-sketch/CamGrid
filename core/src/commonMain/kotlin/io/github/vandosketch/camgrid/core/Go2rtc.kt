@@ -1,7 +1,5 @@
 package io.github.vandosketch.camgrid.core
 
-import java.net.URLDecoder
-import java.net.URLEncoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -191,9 +189,7 @@ object Go2rtc {
         return name.substring(0, separator) to variant
     }
 
-    // The String overloads: the Charset ones need API 33 on Android, and this runs on Fire OS 6 (API 25).
-    private fun encodeName(name: String): String =
-        URLEncoder.encode(name, "UTF-8").replace("+", "%20")
+    private fun encodeName(name: String): String = UrlCodec.encodeName(name)
 
     /** The stream name of `rtsp://host:<rtspPort>/<name>`, or null for any other RTSP URL. */
     private fun rtspStreamName(parts: UrlParts, rtspPort: Int): String? {
@@ -217,11 +213,7 @@ object Go2rtc {
         return decode(raw)
     }
 
-    private fun decode(value: String): String? = try {
-        URLDecoder.decode(value, "UTF-8")
-    } catch (_: IllegalArgumentException) {
-        null
-    }
+    private fun decode(value: String): String? = UrlCodec.decode(value)
 
     private fun withScheme(baseUrl: String): String =
         baseUrl.trim().let { if ("://" in it) it else "http://$it" }

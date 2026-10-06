@@ -1,0 +1,41 @@
+name: Shared core
+
+# The multiplatform :core module on Apple: compiles it for iOS and runs its tests in the
+# simulator, so the iOS backup crypto is checked against the same known-answer vector as
+# Android and desktop. Needs macOS (free for public repositories).
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["core/**", "gradle/**", "*.gradle.kts", ".github/workflows/shared-core.yml"]
+  pull_request:
+    paths: ["core/**", "gradle/**", "*.gradle.kts", ".github/workflows/shared-core.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Core tests in the iOS simulator
+        run: ./gradlew -Pcamgrid.skipAndroid=true :core:iosSimulatorArm64Test --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: core-ios-test-reports
+          path: core/build/reports/
+          if-no-files-found: ignore

@@ -10,6 +10,8 @@ serialization = "1.11.0"
 junit = "4.13.2"
 # Prebuilt Google libwebrtc (BSD-3-Clause), packaged by the LiveKit team on Maven Central.
 webrtc = "150.7871.01"
+# Apache-2.0. Only the iOS (and later web) backup crypto; Android and desktop use javax.crypto.
+cryptography = "0.6.0"
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -31,6 +33,8 @@ coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ve
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 junit = { module = "junit:junit", version.ref = "junit" }
 webrtc = { module = "io.github.webrtc-sdk:android", version.ref = "webrtc" }
+cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
+cryptography-provider-optimal = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

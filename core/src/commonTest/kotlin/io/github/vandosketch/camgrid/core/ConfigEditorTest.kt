@@ -3,6 +3,7 @@ package io.github.vandosketch.camgrid.core
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 class ConfigEditorTest {
 
@@ -299,7 +300,7 @@ class ConfigEditorTest {
     fun newViewId_isUnused() {
         val start = ConfigEditor.addView(config(), view("view-2"))
         val id = ConfigEditor.newViewId(start)
-        assert(id !in viewIds(start)) { id }
+        assertTrue(id !in viewIds(start), id)
         assertEquals("view-3", id)
     }
 }

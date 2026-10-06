@@ -1,13 +1,5 @@
 package io.github.vandosketch.camgrid.core
 
-import java.security.GeneralSecurityException
-import java.security.SecureRandom
-import javax.crypto.AEADBadTagException
-import javax.crypto.Cipher
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
 import kotlin.io.encoding.Base64
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -51,7 +43,8 @@ class BackupException(val reason: Reason) : Exception("CamGrid backup: $reason")
  * PBKDF2-SHA256); nothing about cameras or URLs stays readable. [import] also takes a bare
  * config file, in any version [ConfigCodec] can migrate.
  *
- * Encrypting is slow on purpose (about a second on a phone): call off the main thread.
+ * Encrypting is slow on purpose (about a second on a phone); [BackupCipher] does the work off
+ * the calling thread where the platform allows.
  */
 object ConfigBackup {
     const val FORMAT = "camgrid-backup"
@@ -62,17 +55,14 @@ object ConfigBackup {
     private const val SCHEME = "pbkdf2-sha1-aes256-gcm"
     private const val SALT_BYTES = 16
     private const val IV_BYTES = 12
-    private const val KEY_BITS = 256
-    private const val TAG_BITS = 128
 
     private val json = Json { prettyPrint = true }
-    private val random = SecureRandom()
 
     /**
      * Writes [config] as a backup, encrypted with [password] unless it is null. An empty
      * password throws [IllegalArgumentException]: pass null to export without one.
      */
-    fun export(config: CamGridConfig, password: CharArray?, iterations: Int = DEFAULT_ITERATIONS): String {
+    suspend fun export(config: CamGridConfig, password: CharArray?, iterations: Int = DEFAULT_ITERATIONS): String {
         val configJson = ConfigCodec.encode(config)
         val envelope = if (password == null) {
             buildJsonObject {
@@ -83,12 +73,9 @@ object ConfigBackup {
             }
         } else {
             require(password.isNotEmpty()) { "Empty password" }
-            val salt = ByteArray(SALT_BYTES).also(random::nextBytes)
-            val iv = ByteArray(IV_BYTES).also(random::nextBytes)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, deriveKey(password, salt, iterations), GCMParameterSpec(TAG_BITS, iv))
-            cipher.updateAAD(aad(iterations))
-            val sealed = cipher.doFinal(configJson.toByteArray(Charsets.UTF_8))
+            val salt = BackupCipher.randomBytes(SALT_BYTES)
+            val iv = BackupCipher.randomBytes(IV_BYTES)
+            val sealed = BackupCipher.seal(password, salt, iterations, iv, aad(iterations), configJson.encodeToByteArray())
             buildJsonObject {
                 put("format", FORMAT)
                 put("version", VERSION)
@@ -110,7 +97,7 @@ object ConfigBackup {
     }
 
     /** Reads a backup (or a bare config file). Throws [BackupException]. */
-    fun import(text: String, password: CharArray?): CamGridConfig {
+    suspend fun import(text: String, password: CharArray?): CamGridConfig {
         val envelope = parse(text) ?: return decodeConfig(text)
         checkVersion(envelope)
         return when (envelope.string("encryption")) {
@@ -141,7 +128,7 @@ object ConfigBackup {
         if (version < 1) unreadable()
     }
 
-    private fun decrypt(envelope: JsonObject, password: CharArray): String {
+    private suspend fun decrypt(envelope: JsonObject, password: CharArray): String {
         fun bytes(key: String) = Base64.decode(envelope.string(key) ?: unreadable())
         val iterations: Int
         val salt: ByteArray
@@ -157,16 +144,7 @@ object ConfigBackup {
             unreadable()
         }
         if (iterations !in 1..10_000_000 || iv.size != IV_BYTES) unreadable()
-        return try {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, deriveKey(password, salt, iterations), GCMParameterSpec(TAG_BITS, iv))
-            cipher.updateAAD(aad(iterations))
-            String(cipher.doFinal(data), Charsets.UTF_8)
-        } catch (_: AEADBadTagException) {
-            throw BackupException(BackupException.Reason.WRONG_PASSWORD)
-        } catch (_: GeneralSecurityException) {
-            unreadable()
-        }
+        return BackupCipher.open(password, salt, iterations, iv, aad(iterations), data).decodeToString()
     }
 
     private fun decodeConfig(configJson: String): CamGridConfig = try {
@@ -175,18 +153,8 @@ object ConfigBackup {
         unreadable()
     }
 
-    private fun deriveKey(password: CharArray, salt: ByteArray, iterations: Int): SecretKeySpec {
-        val spec = PBEKeySpec(password, salt, iterations, KEY_BITS)
-        try {
-            val bytes = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1").generateSecret(spec).encoded
-            return SecretKeySpec(bytes, "AES")
-        } finally {
-            spec.clearPassword()
-        }
-    }
-
     /** Binds the header to the ciphertext, so the iteration count cannot be swapped unnoticed. */
-    private fun aad(iterations: Int) = "$FORMAT/$VERSION/$SCHEME/$iterations".toByteArray(Charsets.UTF_8)
+    private fun aad(iterations: Int) = "$FORMAT/$VERSION/$SCHEME/$iterations".encodeToByteArray()
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
