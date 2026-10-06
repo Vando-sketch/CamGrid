@@ -2,17 +2,17 @@
 
 # CamGrid
 
-A personal camera wall for Android phones and Fire TV: live camera streams in a grid, one tap or OK to watch a camera fullscreen with sound.
+A personal camera wall for Android phones, Fire TV, iPhone and iPad, and desktop (macOS, Windows, Linux): live camera streams in a grid, one tap or OK to watch a camera fullscreen with sound.
 
 ![A 3x2 camera grid with one camera offline (UI mockup)](docs/images/grid.png)
 
 *The images in this README are rendered from a UI mockup with simulated video and example cameras, not screenshots from a device. See [docs/mockup](#ui-mockup).*
 
-> **Status:** CamGrid builds and its core logic is covered by unit tests in CI. A first test on a phone, with WebRTC streams, worked. It has not been tested on a real Fire TV yet. Expect rough edges.
+> **Status:** CamGrid builds and its core logic is covered by unit tests in CI. A first test on a phone, with WebRTC streams, worked. It has not been tested on a real Fire TV yet. The desktop app plays go2rtc streams in CI's Linux tests; the iOS app compiles but has not run on a device yet. Expect rough edges.
 
 ## Features
 
-- One APK for phones and Fire TV (Android 7.1 / Fire OS 6 and newer, minSdk 25).
+- One APK for phones and Fire TV (Android 7.1 / Fire OS 6 and newer, minSdk 25), an iOS app (iOS 15 and newer), and desktop installers for macOS, Windows and Linux. All share the same screens and settings format, so a backup moves between them.
 - Free layouts ("views"): tiles on a cell canvas of up to 12x12 cells may span several cells, so portrait and landscape tiles can sit side by side (for example two portrait tiles next to two stacked landscape tiles). Up to 16 tiles per view, several views one after the other.
 - Each tile shows a fixed camera or is an auto tile that takes the next camera in the camera order; more cameras than auto tiles spill onto further pages. Each tile either crops the picture to fill the tile or fits it with black bars.
 - A layout editor that works with the Fire TV remote (select, move and resize tiles with the arrows, OK switches mode) and by touch, with presets for common layouts. See [Views](#views).
@@ -20,7 +20,7 @@ A personal camera wall for Android phones and Fire TV: live camera streams in a 
 - Only one screen plays at a time: the grid's streams are released before fullscreen starts its own.
 - Full D-pad navigation for the Fire TV remote, touch and swipe on phones.
 - Per camera: a name, a grid URL, an optional detail URL for fullscreen, and a stream type:
-  - **RTSP**, played by Media3 ExoPlayer (`rtsp://`, `rtsps://`, or an `http(s)://` media URL such as HLS). RTSP runs over TCP.
+  - **RTSP**, played by Media3 ExoPlayer on Android, VLCKit on iOS and FFmpeg on desktop (`rtsp://`, `rtsps://`; on Android also an `http(s)://` media URL such as HLS). RTSP runs over TCP.
   - **WebRTC**, via a WHEP-style endpoint such as go2rtc's `/api/webrtc?src=<name>`. Receive-only.
 - Import cameras from a go2rtc server's stream list, with `_medium` / `_high` style pairs matched into grid and detail URLs.
 - Settings export and import as one JSON file, encrypted with a password if you want. See [Backup](#backup).
@@ -65,6 +65,10 @@ Open the link above on the phone, download the APK and install it. Android asks 
    ```
 
    Confirm the debugging prompt on the TV the first time. CamGrid then appears in the apps list.
+
+### Desktop (macOS, Windows, Linux)
+
+CI builds installers on every push to `main` and publishes them as the `preview-desktop` pre-release: a `.dmg` (Apple Silicon), an `.msi`, and `.deb` / `.rpm`. They are not signed: on macOS right-click the app and choose Open the first time, on Windows choose "More info", "Run anyway". F11 toggles fullscreen. See [desktop/README.md](desktop/README.md).
 
 ### iPhone and iPad
 
@@ -209,25 +213,31 @@ NODE_PATH=$(npm root -g) node docs/mockup/render.mjs   # writes docs/images/*.pn
 
 ## Building
 
-Requirements: JDK 21 (what CI uses) and the Android SDK. The Gradle wrapper downloads Gradle itself.
+Requirements: JDK 21 (what CI uses) and the Android SDK (Gradle configures the shared module's Android target even for desktop and iOS builds). The Gradle wrapper downloads Gradle itself. The iOS app needs a Mac with Xcode, see [docs/ios.md](docs/ios.md).
 
 ```sh
-./gradlew test                  # unit tests (core)
+./gradlew :core:jvmTest :shared:desktopTest :app:testDebugUnitTest   # unit tests
 ./gradlew :app:lintDebug        # Android lint
 ./gradlew :app:assembleDebug    # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease  # minified release APK
+./gradlew :desktop:run          # the desktop app
 ```
 
 Modules:
 
-- **`:core`**: pure Kotlin, no Android dependencies. Config model and JSON codec with migration, backup export and import with password encryption, views and the view editor's edits, view paging and D-pad navigation, go2rtc stream pairing and URL conversion, URL validation and redaction, reconnect backoff, stream watchdog, WebRTC signalling parsing. All of it has JVM unit tests.
-- **`:app`**: the Android app in Jetpack Compose. Screens (grid, fullscreen, settings, view editor, camera editor, go2rtc import, backup), encrypted config storage, backup files, the ExoPlayer and WebRTC players, and the go2rtc and WHEP HTTP clients.
+- **`:core`**: Kotlin Multiplatform (JVM and iOS), no platform dependencies. Config model and JSON codec with migration, backup export and import with password encryption, views and the view editor's edits, view paging and D-pad navigation, go2rtc stream pairing and URL conversion, URL validation and redaction, reconnect backoff, stream watchdog, WebRTC signalling parsing. All of it has unit tests that run on the JVM and in the iOS simulator.
+- **`:shared`**: the app itself in Compose Multiplatform, for every platform. Screens (grid, fullscreen, settings, view editor, camera editor, go2rtc import, backup), navigation and state, and the go2rtc and WHEP HTTP clients (Ktor). What differs per platform comes in through the interfaces in its `platform` package: video players, encrypted config storage, backup files.
+- **`:app`**: the Android and Fire TV shell: the activity, the ExoPlayer and WebRTC players, Keystore-encrypted config storage, backup files.
+- **`:desktop`**: the desktop shell: FFmpeg and webrtc-java players, config storage, file dialogs, installers. See [desktop/README.md](desktop/README.md).
+- **`iosApp/`**: the iOS shell (XcodeGen project): VLCKit and WebRTC players in Swift, Keychain config storage. See [docs/ios.md](docs/ios.md).
 
 The APK contains native libwebrtc for `armeabi-v7a`, `arm64-v8a` and `x86_64` (the last for the emulator).
 
 ### CI and signing
 
 `.github/workflows/android.yml` runs unit tests, lint and both APK builds on every push to `main` and `claude/**` branches, on pull requests and on manual runs. The APKs are uploaded as the `camgrid-apks` workflow artifact. On a push, they are also published as a pre-release: `preview` for `main`, `preview-<last part of the branch name>` for other branches. Each push replaces the previous pre-release of the same tag.
+
+`.github/workflows/desktop.yml` runs the desktop tests (including end-to-end playback against a real go2rtc on Linux) and builds the installers on macOS, Windows and Linux; on a push they are published as `preview-desktop` (`main`) or `preview-desktop-<branch>`. `.github/workflows/ios.yml` runs the shared tests in the iOS simulator and builds the app for the simulator; the unsigned device `.ipa` is built on `main` and on manual runs. Pull requests from branches of this repository don't repeat the push runs.
 
 Each build gets the workflow run number as its version code (version name `0.2.<run number>`), so every build is an upgrade of the one before.
 
@@ -278,7 +288,7 @@ Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the key
 
 ## Privacy and security
 
-- The configuration, including stream URLs and any credentials in them, is stored in one file encrypted with AES-256-GCM. The key lives in the Android Keystore and never leaves the device. Android backup and device-to-device transfer are turned off for the app; the only way settings leave the device is a backup you export yourself (password-protected unless you choose otherwise, see [Backup](#backup)).
+- The configuration, including stream URLs and any credentials in them, is stored encrypted. On Android it is one file encrypted with AES-256-GCM whose key lives in the Android Keystore and never leaves the device. On iOS it is a Keychain item for this device only. On desktop it is an AES-256-GCM file whose key is kept in the macOS Keychain, Windows DPAPI or the Linux Secret Service; without a Secret Service (some Linux desktops) the key falls back to an owner-only file next to the config, which only protects against other users. Android backup and device-to-device transfer are turned off for the app; the only way settings leave the device is a backup you export yourself (password-protected unless you choose otherwise, see [Backup](#backup)).
 - CamGrid does not log stream URLs. Logs name the camera and a short error code instead, player error text passes through a redactor that masks user info and password or token parameters, and Media3's own logging is switched off because its messages can contain URLs.
 - No cloud, account, analytics or telemetry. The app only talks to the addresses you configure. Cleartext HTTP is allowed because go2rtc usually runs on the LAN without TLS.
 
@@ -290,6 +300,8 @@ Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the key
 - Uninstalling the app deletes the configuration (and on a Fire TV the backup folder). Export a backup first and keep it off the device.
 - Backup on a Fire TV goes through `adb push` / `adb pull`, since there is no file picker.
 - A Fire TV Stick can play only about four streams at once; larger views need a stronger device.
+- Desktop decodes video on the CPU, so many high-resolution tiles need a strong machine. Desktop installers and the iOS app are unsigned (see Install).
+- The iOS app has to be re-signed every 7 days with a free Apple ID (yearly with a paid developer account). There is no Apple TV version.
 - Typing URLs with a TV remote is slow. Importing from go2rtc saves most of the typing.
 
 ## License
@@ -300,5 +312,7 @@ Third-party components:
 
 - [AndroidX Media3](https://github.com/androidx/media) (ExoPlayer), Apache License 2.0.
 - Google's libwebrtc, BSD 3-Clause License, via the prebuilt [`io.github.webrtc-sdk:android`](https://github.com/webrtc-sdk/android) package.
+- Shared UI: [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform), [Ktor](https://github.com/ktor/ktor) and, on iOS, [cryptography-kotlin](https://github.com/whyoleg/cryptography-kotlin), all Apache License 2.0.
+- Desktop app: [webrtc-java](https://github.com/devopvoid/webrtc-java) (Apache License 2.0, bundling libwebrtc, BSD 3-Clause) and [FFmpeg](https://ffmpeg.org) via [JavaCPP presets](https://github.com/bytedeco/javacpp-presets) (FFmpeg's LGPL build, GNU LGPL 3 or later). See [desktop/README.md](desktop/README.md) for how to replace the bundled FFmpeg.
 - iOS app: [VLCKit](https://code.videolan.org/videolan/VLCKit) (libVLC), GNU LGPL 2.1 or later, and Google's libwebrtc, BSD 3-Clause License, via [stasel/WebRTC](https://github.com/stasel/WebRTC). See [NOTICE](NOTICE), including how to rebuild with a modified VLCKit.
 - The wordmark in the icon set uses [Inter](https://github.com/rsms/inter), SIL Open Font License 1.1, embedded as outlines (see [design/icon/README.md](design/icon/README.md)).

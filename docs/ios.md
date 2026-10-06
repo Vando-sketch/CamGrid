@@ -50,9 +50,10 @@ What the account type means:
 
 ## Option B: sign the unsigned .ipa (Windows or Mac)
 
-Every CI run of the [iOS workflow](../.github/workflows/ios.yml) builds an unsigned
-`CamGrid-unsigned.ipa`. On GitHub, open Actions > iOS > the latest successful run > Artifacts >
-`camgrid-ios-unsigned` (you need to be signed in) and unzip it. Then sign and install it with
+The [iOS workflow](../.github/workflows/ios.yml) builds an unsigned `CamGrid-unsigned.ipa` on
+every push to `main`, and on any branch when you start it by hand (Actions > iOS > Run workflow;
+other pushes stop at the simulator build to keep CI fast). On GitHub, open Actions > iOS > the
+latest successful run > Artifacts > `camgrid-ios-unsigned` (you need to be signed in) and unzip it. Then sign and install it with
 one of these tools, which sign it with your Apple ID:
 
 - [Sideloadly](https://sideloadly.io) (Windows, macOS): connect the iPhone, drop the .ipa in,
