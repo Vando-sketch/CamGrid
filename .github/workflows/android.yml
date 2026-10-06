@@ -80,7 +80,8 @@ jobs:
       # publishes "preview", any other branch "preview-<last part of the branch name>", so a
       # feature branch never replaces the build someone is testing from another branch.
       - name: Publish preview release
-        if: github.event_name == 'push'
+        # Also on a manual run (Actions > Run workflow), e.g. to rebuild after the signing secrets change.
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
