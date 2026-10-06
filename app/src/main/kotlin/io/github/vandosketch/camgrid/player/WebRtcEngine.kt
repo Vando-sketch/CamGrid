@@ -1,13 +1,16 @@
 package io.github.vandosketch.camgrid.player
 
 import android.content.Context
+import android.media.AudioAttributes
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.EglBase
+import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.VideoCodecInfo
 import org.webrtc.VideoDecoder
 import org.webrtc.VideoDecoderFactory
 import org.webrtc.audio.JavaAudioDeviceModule
+import java.util.concurrent.Executors
 
 /**
  * The app-wide WebRTC objects, created on first use and kept for the life of the process:
@@ -27,6 +30,13 @@ class WebRtcEngine private constructor(context: Context) {
         val audioDeviceModule = JavaAudioDeviceModule.builder(context)
             .setUseHardwareAcousticEchoCanceler(false)
             .setUseHardwareNoiseSuppressor(false)
+            // Media, not the default voice-call stream: the remote's volume keys control media.
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                    .build(),
+            )
             .createAudioDeviceModule()
         factory = PeerConnectionFactory.builder()
             .setAudioDeviceModule(audioDeviceModule)
@@ -34,6 +44,18 @@ class WebRtcEngine private constructor(context: Context) {
             .createPeerConnectionFactory()
         // The factory keeps its own reference to the module.
         audioDeviceModule.release()
+    }
+
+    /**
+     * Disposes [peerConnection] off the main thread: dispose() blocks until WebRTC's own threads
+     * have torn it down, and a page switch disposes up to 16 at once.
+     */
+    fun disposeLater(peerConnection: PeerConnection) {
+        disposer.execute { peerConnection.dispose() }
+    }
+
+    private val disposer = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "CamGrid-WebRTC-dispose").apply { isDaemon = true }
     }
 
     companion object {

@@ -6,6 +6,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 
 /**
@@ -34,6 +35,9 @@ object WhepClient {
             // MalformedURLException, IllegalArgumentException (not absolute), or a non-HTTP scheme.
             throw IOException("Invalid URL")
         }
+        // Blocking socket IO ignores coroutine cancellation; disconnecting makes it throw at once,
+        // so a stream released mid-request (a page switch) does not hold an IO thread.
+        val cancelHandle = coroutineContext[Job]?.invokeOnCompletion { connection.disconnect() }
         try {
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
@@ -47,6 +51,7 @@ object WhepClient {
             val body = if (code in 200..299) readLimited(connection) else ""
             WebRtcSignaling.parseAnswer(code, connection.contentType, body)
         } finally {
+            cancelHandle?.dispose()
             connection.disconnect()
         }
     }

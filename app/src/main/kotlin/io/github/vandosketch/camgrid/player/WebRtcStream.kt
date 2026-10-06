@@ -247,7 +247,7 @@ class WebRtcStream(
             if (closed) return
             closed = true
             // dispose() also closes the connection and frees the tracks and their sinks.
-            peerConnection?.dispose()
+            peerConnection?.let(engine::disposeLater)
             audioTrack = null
         }
 

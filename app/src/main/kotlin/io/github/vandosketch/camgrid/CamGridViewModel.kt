@@ -191,11 +191,12 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
     fun selectImportStreamType(type: StreamType) {
         importStreamType = type
         val state = importState as? ImportState.Loaded ?: return
-        importState = try {
-            state.copy(streamType = type)
+        try {
+            importState = state.copy(streamType = type)
         } catch (e: IllegalArgumentException) {
-            // The base URL cannot form URLs of this type; report it like a failed fetch.
-            ImportState.Failed(Go2rtcException.Reason.INVALID_URL, e.javaClass.simpleName)
+            // The base URL cannot form URLs of this type; keep the list as it was.
+            Log.w(TAG, "Import stream type not applicable: ${e.javaClass.simpleName}")
+            importStreamType = state.streamType
         }
     }
 

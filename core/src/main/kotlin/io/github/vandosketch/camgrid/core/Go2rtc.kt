@@ -163,8 +163,9 @@ object Go2rtc {
         return name.substring(0, separator) to variant
     }
 
+    // The String overloads: the Charset ones need API 33 on Android, and this runs on Fire OS 6 (API 25).
     private fun encodeName(name: String): String =
-        URLEncoder.encode(name, Charsets.UTF_8).replace("+", "%20")
+        URLEncoder.encode(name, "UTF-8").replace("+", "%20")
 
     /** The stream name of `rtsp://host:<rtspPort>/<name>`, or null for any other RTSP URL. */
     private fun rtspStreamName(parts: UrlParts, rtspPort: Int): String? {
@@ -184,7 +185,7 @@ object Go2rtc {
     }
 
     private fun decode(value: String): String? = try {
-        URLDecoder.decode(value, Charsets.UTF_8)
+        URLDecoder.decode(value, "UTF-8")
     } catch (_: IllegalArgumentException) {
         null
     }
