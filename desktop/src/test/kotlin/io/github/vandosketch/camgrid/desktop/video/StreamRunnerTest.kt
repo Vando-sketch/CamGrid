@@ -213,6 +213,18 @@ class StreamRunnerTest {
     }
 
     @Test
+    fun nativeErrorsAlsoReconnect() = runTest {
+        // webrtc-java throws java.lang.Error for native failures.
+        val h = started()
+        h.current.outcome.completeExceptionally(Error("Initialize AudioDeviceModule failed"))
+        runCurrent()
+        assertEquals(StreamStatus.Offline("Error", 1), h.runner.status)
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(2, h.connections.size)
+    }
+
+    @Test
     fun releaseStopsTheConnectionAndAllRetries() = runTest {
         val h = started()
         h.runner.release()

@@ -154,7 +154,10 @@ class StreamRunner(
             e.code
         } catch (e: SignalingException) {
             e.code
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Native libraries report failures as java.lang.Error too; those must reconnect
+            // like any other failure. Only the JVM's own fatal errors are passed on.
+            if (e is VirtualMachineError) throw e
             // Only the type: exception messages can contain the host or the full URL.
             e.javaClass.simpleName
         } finally {

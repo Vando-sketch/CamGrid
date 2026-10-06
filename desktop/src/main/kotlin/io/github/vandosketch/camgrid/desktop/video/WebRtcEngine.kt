@@ -40,7 +40,10 @@ object WebRtcEngine {
         if (System.getProperty("camgrid.webrtc.headlessAudio") != "true") {
             try {
                 return PeerConnectionFactory(AudioDeviceModule())
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // webrtc-java reports native failures as java.lang.Error ("Initialize
+                // AudioDeviceModule failed" on a machine without a sound device).
+                if (e is VirtualMachineError) throw e
                 System.err.println("CamGrid: no audio device for WebRTC (${e.javaClass.simpleName}); video only")
             }
         }

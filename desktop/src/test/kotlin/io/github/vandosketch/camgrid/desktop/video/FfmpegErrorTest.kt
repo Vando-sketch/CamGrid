@@ -48,6 +48,7 @@ class FfmpegErrorTest {
         val license = avcodec.avcodec_license().string
         assertTrue(license.startsWith("LGPL"), license)
         val config = avcodec.avcodec_configuration().string
+        println("FFmpeg licence: $license\nFFmpeg configuration: $config")
         assertFalse("--enable-gpl" in config, config)
         assertFalse("--enable-nonfree" in config, config)
     }

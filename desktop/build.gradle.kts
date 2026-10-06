@@ -37,6 +37,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(libs.coroutines.swing)
+    implementation(libs.lifecycle.runtime.compose.mp)
 
     implementation(libs.webrtc.java)
     runtimeOnly(variantOf(libs.webrtc.java) { classifier(nativeClassifiers.webrtc) })
@@ -77,8 +78,10 @@ compose.desktop {
             vendor = "CamGrid contributors"
             copyright = "MIT License"
             licenseFile.set(rootProject.file("LICENSE"))
-            // jdk.unsupported: JavaCPP and JNA use sun.misc.Unsafe.
-            modules("java.naming", "jdk.unsupported")
+            // From suggestRuntimeModules: java.net.http is Ktor's engine (go2rtc import),
+            // jdk.unsupported is sun.misc.Unsafe for JavaCPP and JNA. jdk.crypto.ec: HTTPS servers
+            // with EC certificates.
+            modules("java.instrument", "java.management", "java.net.http", "jdk.unsupported", "jdk.crypto.ec")
 
             linux {
                 packageName = "camgrid"
