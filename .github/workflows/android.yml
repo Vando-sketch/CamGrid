@@ -30,17 +30,22 @@ jobs:
       # versionCode: each build must be higher than the installed one to count as an update.
       CAMGRID_BUILD_NUMBER: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
         with:
+          # v6 defaults to a closed-source cache under Gradle's terms of use; keep the MIT one.
+          cache-provider: basic
           # Also save the cache from feature branches; by default only main writes it.
           cache-read-only: false
+          # GitHub cannot read Gradle files for Dependabot security alerts, so main submits the
+          # resolved dependency graph. PRs don't, they lack the write permission from forks.
+          dependency-graph: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'generate-and-submit' || 'disabled' }}
 
       - name: Decode release keystore
         if: env.KEYSTORE_BASE64 != ''
@@ -76,14 +81,14 @@ jobs:
 
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: Android-test-reports
           path: "**/build/reports/"
           if-no-files-found: ignore
 
       - name: Upload APKs
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: CamGrid-Android-build-${{ github.run_number }}
           path: |
