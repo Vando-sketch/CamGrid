@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   ios:
+    # A branch of this repository already runs on push; its pull request would run everything twice.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: macos-latest
     timeout-minutes: 90
     env:
@@ -31,6 +33,17 @@ jobs:
           java-version: "21"
 
       - uses: gradle/actions/setup-gradle@v5
+        with:
+          # Also save the cache from feature branches; by default only main writes it.
+          cache-read-only: false
+
+      # The Kotlin/Native toolchain and its iOS caches (about 1 GB), otherwise downloaded and
+      # rebuilt on every run.
+      - name: Cache Kotlin/Native
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
 
       # Gradle configures the :shared module's Android target even for iOS builds, so it needs
       # an Android SDK to exist (nothing Android is compiled). GitHub's macOS images ship one and

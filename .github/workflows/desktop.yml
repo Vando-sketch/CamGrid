@@ -15,6 +15,8 @@ concurrency:
 
 jobs:
   build:
+    # A branch of this repository already runs on push; its pull request would run everything twice.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +43,9 @@ jobs:
           java-version: "21"
 
       - uses: gradle/actions/setup-gradle@v5
+        with:
+          # Also save the cache from feature branches; by default only main writes it.
+          cache-read-only: false
 
       - name: go2rtc and test streams (Linux)
         if: matrix.name == 'linux'
