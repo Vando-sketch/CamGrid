@@ -20,6 +20,8 @@ import io.github.vandosketch.camgrid.core.ReconnectPolicy
 import io.github.vandosketch.camgrid.core.SignalingException
 import io.github.vandosketch.camgrid.core.StreamWatchdog
 import io.github.vandosketch.camgrid.data.WhepClient
+import io.github.vandosketch.camgrid.platform.LiveStream
+import io.github.vandosketch.camgrid.platform.StreamStatus
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -59,6 +61,7 @@ import org.webrtc.VideoTrack
  */
 class WebRtcStream(
     context: Context,
+    private val whep: WhepClient,
     url: String,
     private val label: String,
     private val audioEnabled: Boolean,
@@ -135,8 +138,8 @@ class WebRtcStream(
             } catch (e: WebRtcFailure) {
                 fail(current, e.code)
             } catch (e: IOException) {
-                // Only the type: IOException messages can contain the host or the full URL.
-                fail(current, e.javaClass.simpleName)
+                // WhepClient's IOException messages are safe: "Invalid URL" or the failure's type.
+                fail(current, e.message ?: e.javaClass.simpleName)
             }
         }
     }
@@ -237,7 +240,7 @@ class WebRtcStream(
             // Host candidates on a LAN gather almost at once; send what there is after the timeout.
             withTimeoutOrNull(ICE_GATHERING_TIMEOUT_MS) { gatheringComplete.await() }
             val offerSdp = pc.localDescription?.description ?: offer.description
-            val answerSdp = WhepClient.exchange(url, offerSdp)
+            val answerSdp = whep.exchange(url, offerSdp)
             if (closed) return
             pc.awaitSet("ANSWER_REJECTED") {
                 setRemoteDescription(it, SessionDescription(SessionDescription.Type.ANSWER, answerSdp))

@@ -1,6 +1,5 @@
 package io.github.vandosketch.camgrid.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,18 +15,20 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.vandosketch.camgrid.CamGridViewModel
 import io.github.vandosketch.camgrid.Screen
+import io.github.vandosketch.camgrid.platform.VideoPlatform
 
 /**
  * Root composable: shows the current [Screen] and routes Back.
  *
  * Only one screen is in the composition at a time. That is what releases the grid's players
  * before fullscreen starts its own: Compose disposes the leaving grid tiles (releasing their
- * ExoPlayers) before the entering fullscreen's effects run.
+ * players) before the entering fullscreen's effects run.
  *
+ * @param video the platform's players; the screens use nothing else to show streams.
  * @param onImmersiveChange hides the system bars for the grid and fullscreen, shows them otherwise.
  */
 @Composable
-fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit) {
+fun CamGridApp(viewModel: CamGridViewModel, video: VideoPlatform, onImmersiveChange: (Boolean) -> Unit) {
     val config by viewModel.config.collectAsStateWithLifecycle()
     val screen = viewModel.screen
 
@@ -49,6 +50,7 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
         ) {
             when (screen) {
                 Screen.Grid -> GridScreen(
+                    video = video,
                     config = config,
                     page = viewModel.gridPage,
                     focusIndex = viewModel.gridFocusIndex,
@@ -57,6 +59,7 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
                     onOpenSettings = viewModel::openSettings,
                 )
                 is Screen.Fullscreen -> FullscreenScreen(
+                    video = video,
                     cameras = config.cameras,
                     cameraId = screen.cameraId,
                     onSwitchCamera = viewModel::openCamera,
@@ -93,6 +96,7 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
                     onBack = viewModel::back,
                 )
                 Screen.Backup -> BackupScreen(
+                    files = viewModel.backupFiles,
                     state = viewModel.backupState,
                     folderPath = viewModel.backupFolderPath,
                     suggestedName = viewModel.suggestedBackupName(),

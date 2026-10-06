@@ -1,9 +1,5 @@
 package io.github.vandosketch.camgrid.ui
 
-import android.content.ActivityNotFoundException
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,18 +33,53 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.BackupError
 import io.github.vandosketch.camgrid.BackupState
-import io.github.vandosketch.camgrid.R
-
-/** MIME types offered in the open dialog; some file managers label .json files as text or binary. */
-private val IMPORT_MIME_TYPES = arrayOf("application/json", "text/plain", "application/octet-stream")
+import io.github.vandosketch.camgrid.platform.BackupDocument
+import io.github.vandosketch.camgrid.platform.BackupFiles
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.bk_back
+import io.github.vandosketch.camgrid.shared.resources.bk_cameras
+import io.github.vandosketch.camgrid.shared.resources.bk_cancel
+import io.github.vandosketch.camgrid.shared.resources.bk_error_newer_version
+import io.github.vandosketch.camgrid.shared.resources.bk_error_password_empty
+import io.github.vandosketch.camgrid.shared.resources.bk_error_password_mismatch
+import io.github.vandosketch.camgrid.shared.resources.bk_error_read_failed
+import io.github.vandosketch.camgrid.shared.resources.bk_error_unreadable
+import io.github.vandosketch.camgrid.shared.resources.bk_error_write_failed
+import io.github.vandosketch.camgrid.shared.resources.bk_export_help
+import io.github.vandosketch.camgrid.shared.resources.bk_export_with_password
+import io.github.vandosketch.camgrid.shared.resources.bk_export_without_password
+import io.github.vandosketch.camgrid.shared.resources.bk_folder_empty
+import io.github.vandosketch.camgrid.shared.resources.bk_folder_files
+import io.github.vandosketch.camgrid.shared.resources.bk_folder_help
+import io.github.vandosketch.camgrid.shared.resources.bk_import_from_file
+import io.github.vandosketch.camgrid.shared.resources.bk_imported
+import io.github.vandosketch.camgrid.shared.resources.bk_password
+import io.github.vandosketch.camgrid.shared.resources.bk_password_repeat
+import io.github.vandosketch.camgrid.shared.resources.bk_plain_confirm
+import io.github.vandosketch.camgrid.shared.resources.bk_plain_message
+import io.github.vandosketch.camgrid.shared.resources.bk_plain_title
+import io.github.vandosketch.camgrid.shared.resources.bk_replace_confirm
+import io.github.vandosketch.camgrid.shared.resources.bk_replace_message
+import io.github.vandosketch.camgrid.shared.resources.bk_replace_title
+import io.github.vandosketch.camgrid.shared.resources.bk_saved
+import io.github.vandosketch.camgrid.shared.resources.bk_saved_plain_reminder
+import io.github.vandosketch.camgrid.shared.resources.bk_section_export
+import io.github.vandosketch.camgrid.shared.resources.bk_section_import
+import io.github.vandosketch.camgrid.shared.resources.bk_title
+import io.github.vandosketch.camgrid.shared.resources.bk_unlock
+import io.github.vandosketch.camgrid.shared.resources.bk_unlock_message
+import io.github.vandosketch.camgrid.shared.resources.bk_unlock_title
+import io.github.vandosketch.camgrid.shared.resources.bk_views
+import io.github.vandosketch.camgrid.shared.resources.bk_working
+import io.github.vandosketch.camgrid.shared.resources.bk_wrong_password
 
 /** Why "Export with password" did not start; shown under the password fields. */
 private enum class PasswordProblem { EMPTY, MISMATCH }
@@ -63,18 +94,20 @@ private class PendingExport {
 
 /**
  * Export of all settings to a (optionally password-encrypted) file and import from one. Uses
- * the system file picker; devices without one (Fire TV) fall back to the app's own folder at
- * [folderPath], filled with adb push. The work and its result live in the ViewModel ([state]).
+ * the platform's file picker from [files]; devices without one (Fire TV) fall back to the app's
+ * own folder at [folderPath], filled with adb push. The work and its result live in the
+ * ViewModel ([state]).
  */
 @Composable
 fun BackupScreen(
+    files: BackupFiles,
     state: BackupState,
-    folderPath: String,
+    folderPath: String?,
     suggestedName: String,
     listFolderFiles: () -> List<String>,
-    onExport: (uri: Uri, password: CharArray?) -> Unit,
+    onExport: (target: BackupDocument, password: CharArray?) -> Unit,
     onExportToFolder: (password: CharArray?) -> Unit,
-    onImport: (uri: Uri) -> Unit,
+    onImport: (source: BackupDocument) -> Unit,
     onImportFromFolder: (name: String) -> Unit,
     onSubmitPassword: (CharArray) -> Unit,
     onConfirmImport: () -> Unit,
@@ -92,21 +125,19 @@ fun BackupScreen(
     var folderFiles by remember { mutableStateOf<List<String>?>(null) }
     val pending = remember { PendingExport() }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
-    ) { uri ->
-        val chosen = pending.password
-        pending.password = null
-        if (uri != null) {
-            // The ViewModel wipes the password once the file is written.
-            onExport(uri, chosen)
-        } else {
-            chosen?.fill(' ')
-        }
-    }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) onImport(uri)
-    }
+    val pickers = files.rememberPickers(
+        onSaveChosen = { target ->
+            val chosen = pending.password
+            pending.password = null
+            if (target != null) {
+                // The ViewModel wipes the password once the file is written.
+                onExport(target, chosen)
+            } else {
+                chosen?.fill(' ')
+            }
+        },
+        onOpenChosen = { source -> if (source != null) onImport(source) },
+    )
 
     fun startExport(chosen: CharArray?) {
         lastExportPlain = chosen == null
@@ -114,9 +145,7 @@ fun BackupScreen(
         repeat = ""
         problem = null
         pending.password = chosen
-        try {
-            exportLauncher.launch(suggestedName)
-        } catch (e: ActivityNotFoundException) {
+        if (!pickers.launchSave(suggestedName)) {
             // No file picker (Fire TV): save into the app folder instead.
             pending.password = null
             onExportToFolder(chosen)
@@ -135,8 +164,8 @@ fun BackupScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ScreenHeader(
-            title = stringResource(R.string.bk_title),
-            actionLabel = stringResource(R.string.bk_back),
+            title = stringResource(Res.string.bk_title),
+            actionLabel = stringResource(Res.string.bk_back),
             onAction = onBack,
             actionRequester = backRequester,
         )
@@ -144,15 +173,15 @@ fun BackupScreen(
         // Progress and results sit right under the header, where they are seen without scrolling.
         StatusMessage(state = state, lastExportPlain = lastExportPlain)
 
-        SectionTitle(stringResource(R.string.bk_section_export))
-        HelpText(stringResource(R.string.bk_export_help))
+        SectionTitle(stringResource(Res.string.bk_section_export))
+        HelpText(stringResource(Res.string.bk_export_help))
         PasswordField(
             value = password,
             onValueChange = {
                 password = it
                 problem = null
             },
-            label = stringResource(R.string.bk_password),
+            label = stringResource(Res.string.bk_password),
             error = null,
             imeAction = ImeAction.Next,
         )
@@ -162,10 +191,10 @@ fun BackupScreen(
                 repeat = it
                 problem = null
             },
-            label = stringResource(R.string.bk_password_repeat),
+            label = stringResource(Res.string.bk_password_repeat),
             error = when (problem) {
-                PasswordProblem.EMPTY -> stringResource(R.string.bk_error_password_empty)
-                PasswordProblem.MISMATCH -> stringResource(R.string.bk_error_password_mismatch)
+                PasswordProblem.EMPTY -> stringResource(Res.string.bk_error_password_empty)
+                PasswordProblem.MISMATCH -> stringResource(Res.string.bk_error_password_mismatch)
                 null -> null
             },
             imeAction = ImeAction.Done,
@@ -183,36 +212,35 @@ fun BackupScreen(
                 },
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.bk_export_with_password))
+                Text(stringResource(Res.string.bk_export_with_password))
             }
             OutlinedButton(
                 onClick = { confirmPlain = true },
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.bk_export_without_password))
+                Text(stringResource(Res.string.bk_export_without_password))
             }
         }
 
-        SectionTitle(stringResource(R.string.bk_section_import))
+        SectionTitle(stringResource(Res.string.bk_section_import))
         Button(
             onClick = {
-                try {
-                    importLauncher.launch(IMPORT_MIME_TYPES)
-                } catch (e: ActivityNotFoundException) {
+                if (!pickers.launchOpen()) {
                     // No file picker (Fire TV): offer the files in the app folder instead.
                     folderFiles = listFolderFiles()
                 }
             },
             modifier = Modifier.focusBorder(shape = CircleShape),
         ) {
-            Text(stringResource(R.string.bk_import_from_file))
+            Text(stringResource(Res.string.bk_import_from_file))
         }
-        folderFiles?.let { files ->
-            if (files.isEmpty()) {
-                HelpText(stringResource(R.string.bk_folder_empty, folderPath))
+        folderFiles?.let { names ->
+            val folder = folderPath.orEmpty()
+            if (names.isEmpty()) {
+                HelpText(stringResource(Res.string.bk_folder_empty, folder))
             } else {
-                HelpText(stringResource(R.string.bk_folder_files, folderPath))
-                files.forEach { name ->
+                HelpText(stringResource(Res.string.bk_folder_files, folder))
+                names.forEach { name ->
                     OutlinedButton(
                         onClick = { onImportFromFolder(name) },
                         modifier = Modifier.focusBorder(shape = CircleShape),
@@ -222,15 +250,15 @@ fun BackupScreen(
                 }
             }
         }
-        HelpText(stringResource(R.string.bk_folder_help, folderPath))
+        if (folderPath != null) HelpText(stringResource(Res.string.bk_folder_help, folderPath))
     }
 
     if (confirmPlain) {
         val cancelRequester = remember { FocusRequester() }
         AlertDialog(
             onDismissRequest = { confirmPlain = false },
-            title = { Text(stringResource(R.string.bk_plain_title)) },
-            text = { Text(stringResource(R.string.bk_plain_message)) },
+            title = { Text(stringResource(Res.string.bk_plain_title)) },
+            text = { Text(stringResource(Res.string.bk_plain_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -239,7 +267,7 @@ fun BackupScreen(
                     },
                     modifier = Modifier.focusBorder(shape = CircleShape),
                 ) {
-                    Text(stringResource(R.string.bk_plain_confirm))
+                    Text(stringResource(Res.string.bk_plain_confirm))
                 }
             },
             dismissButton = {
@@ -251,7 +279,7 @@ fun BackupScreen(
                         .focusBorder(shape = CircleShape)
                         .focusRequester(cancelRequester),
                 ) {
-                    Text(stringResource(R.string.bk_cancel))
+                    Text(stringResource(Res.string.bk_cancel))
                 }
             },
         )
@@ -279,28 +307,28 @@ private fun StatusMessage(state: BackupState, lastExportPlain: Boolean) {
             // Deriving the key from the password takes about a second.
             CircularProgressIndicator(modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(12.dp))
-            Text(stringResource(R.string.bk_working))
+            Text(stringResource(Res.string.bk_working))
         }
         is BackupState.Exported -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = stringResource(R.string.bk_saved, state.where),
+                text = stringResource(Res.string.bk_saved, state.where),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
-            if (lastExportPlain) HelpText(stringResource(R.string.bk_saved_plain_reminder))
+            if (lastExportPlain) HelpText(stringResource(Res.string.bk_saved_plain_reminder))
         }
         BackupState.Imported -> Text(
-            text = stringResource(R.string.bk_imported),
+            text = stringResource(Res.string.bk_imported),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary,
         )
         is BackupState.Failed -> Text(
             text = stringResource(
                 when (state.error) {
-                    BackupError.UNREADABLE -> R.string.bk_error_unreadable
-                    BackupError.NEWER_VERSION -> R.string.bk_error_newer_version
-                    BackupError.READ_FAILED -> R.string.bk_error_read_failed
-                    BackupError.WRITE_FAILED -> R.string.bk_error_write_failed
+                    BackupError.UNREADABLE -> Res.string.bk_error_unreadable
+                    BackupError.NEWER_VERSION -> Res.string.bk_error_newer_version
+                    BackupError.READ_FAILED -> Res.string.bk_error_read_failed
+                    BackupError.WRITE_FAILED -> Res.string.bk_error_write_failed
                 },
             ),
             style = MaterialTheme.typography.bodyLarge,
@@ -325,17 +353,17 @@ private fun UnlockDialog(
     }
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text(stringResource(R.string.bk_unlock_title)) },
+        title = { Text(stringResource(Res.string.bk_unlock_title)) },
         text = {
             // The effect lives inside the dialog's content so the field exists when it runs.
             LaunchedEffect(Unit) { fieldRequester.requestFocusAfterLayout() }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.bk_unlock_message))
+                Text(stringResource(Res.string.bk_unlock_message))
                 PasswordField(
                     value = text,
                     onValueChange = { text = it },
-                    label = stringResource(R.string.bk_password),
-                    error = if (wrongPassword) stringResource(R.string.bk_wrong_password) else null,
+                    label = stringResource(Res.string.bk_password),
+                    error = if (wrongPassword) stringResource(Res.string.bk_wrong_password) else null,
                     imeAction = ImeAction.Done,
                     onDone = { submit() },
                     modifier = Modifier.focusRequester(fieldRequester),
@@ -347,7 +375,7 @@ private fun UnlockDialog(
                 onClick = { submit() },
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.bk_unlock))
+                Text(stringResource(Res.string.bk_unlock))
             }
         },
         dismissButton = {
@@ -355,7 +383,7 @@ private fun UnlockDialog(
                 onClick = onCancel,
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.bk_cancel))
+                Text(stringResource(Res.string.bk_cancel))
             }
         },
     )
@@ -370,15 +398,15 @@ private fun ReplaceDialog(
     val cancelRequester = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text(stringResource(R.string.bk_replace_title)) },
+        title = { Text(stringResource(Res.string.bk_replace_title)) },
         text = {
             Text(
                 stringResource(
-                    R.string.bk_replace_message,
-                    pluralStringResource(R.plurals.bk_cameras, state.cameraCount, state.cameraCount),
-                    pluralStringResource(R.plurals.bk_views, state.viewCount, state.viewCount),
-                    pluralStringResource(R.plurals.bk_cameras, state.currentCameraCount, state.currentCameraCount),
-                    pluralStringResource(R.plurals.bk_views, state.currentViewCount, state.currentViewCount),
+                    Res.string.bk_replace_message,
+                    pluralStringResource(Res.plurals.bk_cameras, state.cameraCount, state.cameraCount),
+                    pluralStringResource(Res.plurals.bk_views, state.viewCount, state.viewCount),
+                    pluralStringResource(Res.plurals.bk_cameras, state.currentCameraCount, state.currentCameraCount),
+                    pluralStringResource(Res.plurals.bk_views, state.currentViewCount, state.currentViewCount),
                 ),
             )
         },
@@ -387,7 +415,7 @@ private fun ReplaceDialog(
                 onClick = onConfirm,
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.bk_replace_confirm))
+                Text(stringResource(Res.string.bk_replace_confirm))
             }
         },
         dismissButton = {
@@ -399,7 +427,7 @@ private fun ReplaceDialog(
                     .focusBorder(shape = CircleShape)
                     .focusRequester(cancelRequester),
             ) {
-                Text(stringResource(R.string.bk_cancel))
+                Text(stringResource(Res.string.bk_cancel))
             }
         },
     )

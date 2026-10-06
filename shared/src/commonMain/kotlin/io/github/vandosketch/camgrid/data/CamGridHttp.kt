@@ -4,7 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.readBuffer
 import kotlinx.io.readByteArray
 
 /** Connect and read timeout for every request: go2rtc and the cameras are on the LAN. */
@@ -34,6 +34,6 @@ object CamGridHttp {
 
 /** Reads at most [maxBytes] from [channel] as UTF-8, or returns null when there is more. */
 internal suspend fun readLimited(channel: ByteReadChannel, maxBytes: Int): String? {
-    val bytes = channel.readRemaining(maxBytes + 1L).readByteArray()
+    val bytes = channel.readBuffer(maxBytes + 1L).readByteArray()
     return if (bytes.size > maxBytes) null else bytes.decodeToString()
 }

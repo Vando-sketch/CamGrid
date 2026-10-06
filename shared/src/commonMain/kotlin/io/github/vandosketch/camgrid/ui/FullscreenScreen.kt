@@ -38,14 +38,18 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.vandosketch.camgrid.R
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.fullscreen_hint
+import io.github.vandosketch.camgrid.shared.resources.fullscreen_position
+import io.github.vandosketch.camgrid.shared.resources.sound_off
+import io.github.vandosketch.camgrid.shared.resources.sound_on
 import io.github.vandosketch.camgrid.core.Camera
-import io.github.vandosketch.camgrid.player.StreamStatus
-import io.github.vandosketch.camgrid.player.LiveStreamSurface
-import io.github.vandosketch.camgrid.player.rememberLiveStream
+import io.github.vandosketch.camgrid.core.FitMode
+import io.github.vandosketch.camgrid.platform.StreamStatus
+import io.github.vandosketch.camgrid.platform.VideoPlatform
 import kotlinx.coroutines.delay
 
 private const val OVERLAY_TIMEOUT_MS = 4_000L
@@ -58,6 +62,7 @@ private const val OVERLAY_TIMEOUT_MS = 4_000L
  */
 @Composable
 fun FullscreenScreen(
+    video: VideoPlatform,
     cameras: List<Camera>,
     cameraId: String,
     onSwitchCamera: (String) -> Unit,
@@ -90,7 +95,7 @@ fun FullscreenScreen(
         }
     }
 
-    val stream = rememberLiveStream(camera.fullscreenUrl, camera.streamType, camera.name, audioEnabled = true)
+    val stream = video.rememberLiveStream(camera.fullscreenUrl, camera.streamType, camera.name, audioEnabled = true)
     SideEffect { stream?.setMuted(muted) }
 
     // The root box takes focus so it receives the D-pad keys.
@@ -155,7 +160,7 @@ fun FullscreenScreen(
                 )
             },
     ) {
-        LiveStreamSurface(stream, Modifier.fillMaxSize())
+        video.Surface(stream, Modifier.fillMaxSize(), FitMode.FIT)
         StreamStatusBadge(
             status = stream?.status ?: StreamStatus.Connecting,
             modifier = Modifier.align(Alignment.Center),
@@ -204,7 +209,7 @@ private fun FullscreenOverlay(
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = stringResource(R.string.fullscreen_position, position, count),
+                text = stringResource(Res.string.fullscreen_position, position, count),
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White.copy(alpha = 0.8f),
             )
@@ -215,14 +220,14 @@ private fun FullscreenOverlay(
                 modifier = Modifier.focusProperties { canFocus = false },
             ) {
                 Text(
-                    text = stringResource(if (muted) R.string.sound_off else R.string.sound_on),
+                    text = stringResource(if (muted) Res.string.sound_off else Res.string.sound_on),
                     color = Color.White,
                 )
             }
         }
         Spacer(Modifier.weight(1f))
         Text(
-            text = stringResource(R.string.fullscreen_hint),
+            text = stringResource(Res.string.fullscreen_hint),
             style = MaterialTheme.typography.labelMedium,
             color = Color.White,
             modifier = Modifier

@@ -1,6 +1,5 @@
 package io.github.vandosketch.camgrid.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -65,15 +64,70 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalWindowInfo
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.vandosketch.camgrid.R
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.ve_add_tile
+import io.github.vandosketch.camgrid.shared.resources.ve_arrow_down
+import io.github.vandosketch.camgrid.shared.resources.ve_arrow_left
+import io.github.vandosketch.camgrid.shared.resources.ve_arrow_right
+import io.github.vandosketch.camgrid.shared.resources.ve_arrow_up
+import io.github.vandosketch.camgrid.shared.resources.ve_camera
+import io.github.vandosketch.camgrid.shared.resources.ve_camera_missing
+import io.github.vandosketch.camgrid.shared.resources.ve_camera_next
+import io.github.vandosketch.camgrid.shared.resources.ve_camera_previous
+import io.github.vandosketch.camgrid.shared.resources.ve_cancel
+import io.github.vandosketch.camgrid.shared.resources.ve_columns
+import io.github.vandosketch.camgrid.shared.resources.ve_decrease
+import io.github.vandosketch.camgrid.shared.resources.ve_delete_confirm
+import io.github.vandosketch.camgrid.shared.resources.ve_delete_message
+import io.github.vandosketch.camgrid.shared.resources.ve_delete_title
+import io.github.vandosketch.camgrid.shared.resources.ve_delete_view
+import io.github.vandosketch.camgrid.shared.resources.ve_done
+import io.github.vandosketch.camgrid.shared.resources.ve_fill_empty
+import io.github.vandosketch.camgrid.shared.resources.ve_fit
+import io.github.vandosketch.camgrid.shared.resources.ve_fit_crop
+import io.github.vandosketch.camgrid.shared.resources.ve_fit_fit
+import io.github.vandosketch.camgrid.shared.resources.ve_help_camera_auto
+import io.github.vandosketch.camgrid.shared.resources.ve_help_fit_crop
+import io.github.vandosketch.camgrid.shared.resources.ve_help_fit_fit
+import io.github.vandosketch.camgrid.shared.resources.ve_hint_move
+import io.github.vandosketch.camgrid.shared.resources.ve_hint_resize
+import io.github.vandosketch.camgrid.shared.resources.ve_hint_select
+import io.github.vandosketch.camgrid.shared.resources.ve_increase
+import io.github.vandosketch.camgrid.shared.resources.ve_mode_current
+import io.github.vandosketch.camgrid.shared.resources.ve_mode_move
+import io.github.vandosketch.camgrid.shared.resources.ve_mode_resize
+import io.github.vandosketch.camgrid.shared.resources.ve_mode_select
+import io.github.vandosketch.camgrid.shared.resources.ve_name
+import io.github.vandosketch.camgrid.shared.resources.ve_name_hint
+import io.github.vandosketch.camgrid.shared.resources.ve_no_tiles
+import io.github.vandosketch.camgrid.shared.resources.ve_preset_grid_2x2
+import io.github.vandosketch.camgrid.shared.resources.ve_preset_grid_3x3
+import io.github.vandosketch.camgrid.shared.resources.ve_preset_one_big_five_small
+import io.github.vandosketch.camgrid.shared.resources.ve_preset_one_big_three_small
+import io.github.vandosketch.camgrid.shared.resources.ve_preset_side_by_side
+import io.github.vandosketch.camgrid.shared.resources.ve_preset_three_portrait
+import io.github.vandosketch.camgrid.shared.resources.ve_preset_two_portrait_two_landscape
+import io.github.vandosketch.camgrid.shared.resources.ve_preview_description
+import io.github.vandosketch.camgrid.shared.resources.ve_remove_tile
+import io.github.vandosketch.camgrid.shared.resources.ve_rows
+import io.github.vandosketch.camgrid.shared.resources.ve_section_canvas
+import io.github.vandosketch.camgrid.shared.resources.ve_section_presets
+import io.github.vandosketch.camgrid.shared.resources.ve_section_tile
+import io.github.vandosketch.camgrid.shared.resources.ve_stream_count
+import io.github.vandosketch.camgrid.shared.resources.ve_stream_warning
+import io.github.vandosketch.camgrid.shared.resources.ve_tile_auto
+import io.github.vandosketch.camgrid.shared.resources.ve_tile_number
+import io.github.vandosketch.camgrid.shared.resources.ve_title
+import io.github.vandosketch.camgrid.shared.resources.ve_view_id
 import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.Direction
@@ -156,7 +210,7 @@ fun ViewEditorScreen(
         return when (event.key) {
             Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                 // A held OK repeats KeyDown; only the first press switches the mode.
-                if (event.nativeKeyEvent.repeatCount == 0) mode = mode.next()
+                if (!event.isRepeat) mode = mode.next()
                 true
             }
             else -> event.key.toEditorDirection()?.let { arrow(it) } ?: false
@@ -257,13 +311,13 @@ fun ViewEditorScreen(
 private fun EditorHeader(view: CamView, onDone: () -> Unit) {
     Column {
         ScreenHeader(
-            title = stringResource(R.string.ve_title),
-            actionLabel = stringResource(R.string.ve_done),
+            title = stringResource(Res.string.ve_title),
+            actionLabel = stringResource(Res.string.ve_done),
             onAction = onDone,
         )
         // Shown because a later version selects views by id (for example per device).
         Text(
-            text = stringResource(R.string.ve_view_id, view.id),
+            text = stringResource(Res.string.ve_view_id, view.id),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp),
@@ -276,8 +330,8 @@ private fun NameField(name: String, onNameChange: (String) -> Unit) {
     OutlinedTextField(
         value = name,
         onValueChange = onNameChange,
-        label = { Text(stringResource(R.string.ve_name)) },
-        placeholder = { Text(stringResource(R.string.ve_name_hint)) },
+        label = { Text(stringResource(Res.string.ve_name)) },
+        placeholder = { Text(stringResource(Res.string.ve_name_hint)) },
         singleLine = true,
         modifier = Modifier
             .fillMaxWidth()
@@ -298,10 +352,10 @@ private fun LayoutPreview(
     onTapTile: (Int) -> Unit,
     onKey: (KeyEvent) -> Boolean,
 ) {
-    val configuration = LocalConfiguration.current
-    // The canvas is stretched over the whole screen, so the preview has the screen's shape.
-    val aspect = configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.coerceAtLeast(1)
-    val description = stringResource(R.string.ve_preview_description)
+    // The canvas is stretched over the whole window, so the preview has the window's shape.
+    val windowSize = LocalWindowInfo.current.containerSize
+    val aspect = windowSize.width.toFloat() / windowSize.height.coerceAtLeast(1)
+    val description = stringResource(Res.string.ve_preview_description)
     val lineColor = Color.White.copy(alpha = 0.15f)
     val columns = view.columns
     val rows = view.rows
@@ -397,7 +451,7 @@ private fun PreviewTile(tile: Tile, label: String, selected: Boolean, modifier: 
 private fun ModeLine(mode: EditMode) {
     Column {
         Text(
-            text = stringResource(R.string.ve_mode_current, stringResource(mode.labelRes)),
+            text = stringResource(Res.string.ve_mode_current, stringResource(mode.labelRes)),
             style = MaterialTheme.typography.titleSmall,
         )
         Text(
@@ -438,16 +492,16 @@ private fun ControlsPanel(
         }
         ArrowPad(onArrow)
 
-        SectionTitle(stringResource(R.string.ve_section_tile))
+        SectionTitle(stringResource(Res.string.ve_section_tile))
         if (tile == null) {
             Text(
-                text = stringResource(R.string.ve_no_tiles),
+                text = stringResource(Res.string.ve_no_tiles),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
             Text(
-                text = stringResource(R.string.ve_tile_number, selectedIndex + 1, view.tiles.size),
+                text = stringResource(Res.string.ve_tile_number, selectedIndex + 1, view.tiles.size),
                 style = MaterialTheme.typography.bodyMedium,
             )
             CameraCycler(
@@ -476,7 +530,7 @@ private fun ControlsPanel(
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
-                Text(stringResource(R.string.ve_add_tile), Modifier.padding(start = 4.dp))
+                Text(stringResource(Res.string.ve_add_tile), Modifier.padding(start = 4.dp))
             }
             OutlinedButton(
                 onClick = {
@@ -488,29 +542,29 @@ private fun ControlsPanel(
                 },
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.ve_remove_tile))
+                Text(stringResource(Res.string.ve_remove_tile))
             }
             OutlinedButton(
                 onClick = { onEdit(ViewEditor.fillEmpty(view)) },
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.ve_fill_empty))
+                Text(stringResource(Res.string.ve_fill_empty))
             }
         }
 
-        SectionTitle(stringResource(R.string.ve_section_canvas))
+        SectionTitle(stringResource(Res.string.ve_section_canvas))
         Stepper(
-            label = stringResource(R.string.ve_columns),
+            label = stringResource(Res.string.ve_columns),
             value = view.columns,
             onValueChange = { onEdit(ViewEditor.setCanvas(view, it, view.rows)) },
         )
         Stepper(
-            label = stringResource(R.string.ve_rows),
+            label = stringResource(Res.string.ve_rows),
             value = view.rows,
             onValueChange = { onEdit(ViewEditor.setCanvas(view, view.columns, it)) },
         )
 
-        SectionTitle(stringResource(R.string.ve_section_presets))
+        SectionTitle(stringResource(Res.string.ve_section_presets))
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -536,7 +590,7 @@ private fun ControlsPanel(
                     .focusBorder(shape = CircleShape),
             ) {
                 Icon(Icons.Filled.Delete, contentDescription = null)
-                Text(stringResource(R.string.ve_delete_view), Modifier.padding(start = 4.dp))
+                Text(stringResource(Res.string.ve_delete_view), Modifier.padding(start = 4.dp))
             }
         }
     }
@@ -546,17 +600,17 @@ private fun ControlsPanel(
 @Composable
 private fun ArrowPad(onArrow: (Direction) -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(R.string.ve_arrow_up)) { onArrow(Direction.UP) }
+        ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(Res.string.ve_arrow_up)) { onArrow(Direction.UP) }
         // The gap is one button wide, so the four buttons form a cross.
         Row(horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(R.string.ve_arrow_left), LEFT_DEGREES) {
+            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(Res.string.ve_arrow_left), LEFT_DEGREES) {
                 onArrow(Direction.LEFT)
             }
-            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(R.string.ve_arrow_right), RIGHT_DEGREES) {
+            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(Res.string.ve_arrow_right), RIGHT_DEGREES) {
                 onArrow(Direction.RIGHT)
             }
         }
-        ArrowButton(Icons.Filled.KeyboardArrowDown, stringResource(R.string.ve_arrow_down)) { onArrow(Direction.DOWN) }
+        ArrowButton(Icons.Filled.KeyboardArrowDown, stringResource(Res.string.ve_arrow_down)) { onArrow(Direction.DOWN) }
     }
 }
 
@@ -585,11 +639,11 @@ private fun CameraCycler(tile: Tile, cameras: List<Camera>, onSelect: (String?) 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = stringResource(R.string.ve_camera),
+                text = stringResource(Res.string.ve_camera),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.widthIn(min = 96.dp),
             )
-            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(R.string.ve_camera_previous), LEFT_DEGREES) { step(-1) }
+            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(Res.string.ve_camera_previous), LEFT_DEGREES) { step(-1) }
             Text(
                 text = cameraLabel(tile.camera, cameras),
                 style = MaterialTheme.typography.titleMedium,
@@ -598,10 +652,10 @@ private fun CameraCycler(tile: Tile, cameras: List<Camera>, onSelect: (String?) 
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false).widthIn(min = 96.dp),
             )
-            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(R.string.ve_camera_next), RIGHT_DEGREES) { step(1) }
+            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(Res.string.ve_camera_next), RIGHT_DEGREES) { step(1) }
         }
         Text(
-            text = stringResource(R.string.ve_help_camera_auto),
+            text = stringResource(Res.string.ve_help_camera_auto),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -612,7 +666,7 @@ private fun CameraCycler(tile: Tile, cameras: List<Camera>, onSelect: (String?) 
 @Composable
 private fun FitSelector(selected: FitMode, onSelect: (FitMode) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.ve_fit), style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(Res.string.ve_fit), style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (fit in listOf(FitMode.CROP, FitMode.FIT)) {
                 FilterChip(
@@ -634,8 +688,8 @@ private fun FitSelector(selected: FitMode, onSelect: (FitMode) -> Unit) {
 /** A labelled "−  value  +" control, clamped to the allowed canvas size. */
 @Composable
 private fun Stepper(label: String, value: Int, onValueChange: (Int) -> Unit) {
-    val decreaseDescription = stringResource(R.string.ve_decrease, label)
-    val increaseDescription = stringResource(R.string.ve_increase, label)
+    val decreaseDescription = stringResource(Res.string.ve_decrease, label)
+    val increaseDescription = stringResource(Res.string.ve_increase, label)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
@@ -675,12 +729,12 @@ private fun StreamCount(count: Int) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = pluralStringResource(R.plurals.ve_stream_count, count, count),
+            text = pluralStringResource(Res.plurals.ve_stream_count, count, count),
             style = MaterialTheme.typography.bodyMedium,
         )
         if (count > STICK_STREAM_LIMIT) {
             Text(
-                text = stringResource(R.string.ve_stream_warning),
+                text = stringResource(Res.string.ve_stream_warning),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -693,14 +747,14 @@ private fun DeleteViewDialog(viewName: String, onConfirm: () -> Unit, onDismiss:
     val cancelRequester = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ve_delete_title)) },
-        text = { Text(stringResource(R.string.ve_delete_message, viewName)) },
+        title = { Text(stringResource(Res.string.ve_delete_title)) },
+        text = { Text(stringResource(Res.string.ve_delete_message, viewName)) },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.ve_delete_confirm))
+                Text(stringResource(Res.string.ve_delete_confirm))
             }
         },
         dismissButton = {
@@ -713,7 +767,7 @@ private fun DeleteViewDialog(viewName: String, onConfirm: () -> Unit, onDismiss:
                     .focusBorder(shape = CircleShape)
                     .focusRequester(cancelRequester),
             ) {
-                Text(stringResource(R.string.ve_cancel))
+                Text(stringResource(Res.string.ve_cancel))
             }
         },
     )
@@ -723,9 +777,9 @@ private fun DeleteViewDialog(viewName: String, onConfirm: () -> Unit, onDismiss:
 @Composable
 private fun cameraLabel(cameraId: String?, cameras: List<Camera>): String =
     if (cameraId == null) {
-        stringResource(R.string.ve_tile_auto)
+        stringResource(Res.string.ve_tile_auto)
     } else {
-        cameras.firstOrNull { it.id == cameraId }?.name ?: stringResource(R.string.ve_camera_missing)
+        cameras.firstOrNull { it.id == cameraId }?.name ?: stringResource(Res.string.ve_camera_missing)
     }
 
 private fun Key.toEditorDirection(): Direction? = when (this) {
@@ -750,39 +804,39 @@ private val Direction.dy: Int
         else -> 0
     }
 
-private val EditMode.labelRes: Int
+private val EditMode.labelRes: StringResource
     get() = when (this) {
-        EditMode.SELECT -> R.string.ve_mode_select
-        EditMode.MOVE -> R.string.ve_mode_move
-        EditMode.RESIZE -> R.string.ve_mode_resize
+        EditMode.SELECT -> Res.string.ve_mode_select
+        EditMode.MOVE -> Res.string.ve_mode_move
+        EditMode.RESIZE -> Res.string.ve_mode_resize
     }
 
-private val EditMode.hintRes: Int
+private val EditMode.hintRes: StringResource
     get() = when (this) {
-        EditMode.SELECT -> R.string.ve_hint_select
-        EditMode.MOVE -> R.string.ve_hint_move
-        EditMode.RESIZE -> R.string.ve_hint_resize
+        EditMode.SELECT -> Res.string.ve_hint_select
+        EditMode.MOVE -> Res.string.ve_hint_move
+        EditMode.RESIZE -> Res.string.ve_hint_resize
     }
 
-private val FitMode.labelRes: Int
+private val FitMode.labelRes: StringResource
     get() = when (this) {
-        FitMode.CROP -> R.string.ve_fit_crop
-        FitMode.FIT -> R.string.ve_fit_fit
+        FitMode.CROP -> Res.string.ve_fit_crop
+        FitMode.FIT -> Res.string.ve_fit_fit
     }
 
-private val FitMode.helpRes: Int
+private val FitMode.helpRes: StringResource
     get() = when (this) {
-        FitMode.CROP -> R.string.ve_help_fit_crop
-        FitMode.FIT -> R.string.ve_help_fit_fit
+        FitMode.CROP -> Res.string.ve_help_fit_crop
+        FitMode.FIT -> Res.string.ve_help_fit_fit
     }
 
-private val ViewPreset.labelRes: Int
+private val ViewPreset.labelRes: StringResource
     get() = when (this) {
-        ViewPreset.GRID_2X2 -> R.string.ve_preset_grid_2x2
-        ViewPreset.GRID_3X3 -> R.string.ve_preset_grid_3x3
-        ViewPreset.SIDE_BY_SIDE -> R.string.ve_preset_side_by_side
-        ViewPreset.TWO_PORTRAIT_TWO_LANDSCAPE -> R.string.ve_preset_two_portrait_two_landscape
-        ViewPreset.ONE_BIG_THREE_SMALL -> R.string.ve_preset_one_big_three_small
-        ViewPreset.ONE_BIG_FIVE_SMALL -> R.string.ve_preset_one_big_five_small
-        ViewPreset.THREE_PORTRAIT -> R.string.ve_preset_three_portrait
+        ViewPreset.GRID_2X2 -> Res.string.ve_preset_grid_2x2
+        ViewPreset.GRID_3X3 -> Res.string.ve_preset_grid_3x3
+        ViewPreset.SIDE_BY_SIDE -> Res.string.ve_preset_side_by_side
+        ViewPreset.TWO_PORTRAIT_TWO_LANDSCAPE -> Res.string.ve_preset_two_portrait_two_landscape
+        ViewPreset.ONE_BIG_THREE_SMALL -> Res.string.ve_preset_one_big_three_small
+        ViewPreset.ONE_BIG_FIVE_SMALL -> Res.string.ve_preset_one_big_five_small
+        ViewPreset.THREE_PORTRAIT -> Res.string.ve_preset_three_portrait
     }

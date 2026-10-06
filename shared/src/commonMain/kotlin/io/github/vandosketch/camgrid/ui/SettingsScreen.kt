@@ -41,10 +41,30 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalInputModeManager
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.vandosketch.camgrid.R
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.add_camera
+import io.github.vandosketch.camgrid.shared.resources.add_view
+import io.github.vandosketch.camgrid.shared.resources.cancel
+import io.github.vandosketch.camgrid.shared.resources.delete
+import io.github.vandosketch.camgrid.shared.resources.delete_confirm
+import io.github.vandosketch.camgrid.shared.resources.delete_message
+import io.github.vandosketch.camgrid.shared.resources.delete_title
+import io.github.vandosketch.camgrid.shared.resources.done
+import io.github.vandosketch.camgrid.shared.resources.edit
+import io.github.vandosketch.camgrid.shared.resources.import_go2rtc
+import io.github.vandosketch.camgrid.shared.resources.move_down
+import io.github.vandosketch.camgrid.shared.resources.move_up
+import io.github.vandosketch.camgrid.shared.resources.no_cameras
+import io.github.vandosketch.camgrid.shared.resources.open_backup
+import io.github.vandosketch.camgrid.shared.resources.section_backup
+import io.github.vandosketch.camgrid.shared.resources.section_cameras
+import io.github.vandosketch.camgrid.shared.resources.section_views
+import io.github.vandosketch.camgrid.shared.resources.settings_title
+import io.github.vandosketch.camgrid.shared.resources.view_summary
+import io.github.vandosketch.camgrid.shared.resources.views_help
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
@@ -80,17 +100,17 @@ fun SettingsScreen(
     ) {
         item {
             ScreenHeader(
-                title = stringResource(R.string.settings_title),
-                actionLabel = stringResource(R.string.done),
+                title = stringResource(Res.string.settings_title),
+                actionLabel = stringResource(Res.string.done),
                 onAction = onDone,
                 actionRequester = doneRequester,
             )
         }
 
-        item { SectionTitle(stringResource(R.string.section_views)) }
+        item { SectionTitle(stringResource(Res.string.section_views)) }
         item {
             Text(
-                text = stringResource(R.string.views_help),
+                text = stringResource(Res.string.views_help),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -109,41 +129,41 @@ fun SettingsScreen(
                 onClick = onAddView,
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.add_view))
+                Text(stringResource(Res.string.add_view))
             }
         }
 
-        item { SectionTitle(stringResource(R.string.section_backup)) }
+        item { SectionTitle(stringResource(Res.string.section_backup)) }
         item {
             OutlinedButton(
                 onClick = onBackup,
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.open_backup))
+                Text(stringResource(Res.string.open_backup))
             }
         }
 
-        item { SectionTitle(stringResource(R.string.section_cameras)) }
+        item { SectionTitle(stringResource(Res.string.section_cameras)) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = { onEditCamera(null) },
                     modifier = Modifier.focusBorder(shape = CircleShape),
                 ) {
-                    Text(stringResource(R.string.add_camera))
+                    Text(stringResource(Res.string.add_camera))
                 }
                 OutlinedButton(
                     onClick = onImport,
                     modifier = Modifier.focusBorder(shape = CircleShape),
                 ) {
-                    Text(stringResource(R.string.import_go2rtc))
+                    Text(stringResource(Res.string.import_go2rtc))
                 }
             }
         }
         if (config.cameras.isEmpty()) {
             item {
                 Text(
-                    text = stringResource(R.string.no_cameras),
+                    text = stringResource(Res.string.no_cameras),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -165,8 +185,8 @@ fun SettingsScreen(
         val cancelRequester = remember { FocusRequester() }
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(R.string.delete_title)) },
-            text = { Text(stringResource(R.string.delete_message, camera.name)) },
+            title = { Text(stringResource(Res.string.delete_title)) },
+            text = { Text(stringResource(Res.string.delete_message, camera.name)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -175,7 +195,7 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.focusBorder(shape = CircleShape),
                 ) {
-                    Text(stringResource(R.string.delete_confirm))
+                    Text(stringResource(Res.string.delete_confirm))
                 }
             },
             dismissButton = {
@@ -188,7 +208,7 @@ fun SettingsScreen(
                         .focusBorder(shape = CircleShape)
                         .focusRequester(cancelRequester),
                 ) {
-                    Text(stringResource(R.string.cancel))
+                    Text(stringResource(Res.string.cancel))
                 }
             },
         )
@@ -228,10 +248,10 @@ private fun CameraRow(
             )
         }
         // Buttons stay enabled at the ends of the list: a disabled button would drop D-pad focus.
-        RowIconButton(onUp, Icons.Filled.KeyboardArrowUp, stringResource(R.string.move_up, camera.name))
-        RowIconButton(onDown, Icons.Filled.KeyboardArrowDown, stringResource(R.string.move_down, camera.name))
-        RowIconButton(onEdit, Icons.Filled.Edit, stringResource(R.string.edit, camera.name))
-        RowIconButton(onDelete, Icons.Filled.Delete, stringResource(R.string.delete, camera.name))
+        RowIconButton(onUp, Icons.Filled.KeyboardArrowUp, stringResource(Res.string.move_up, camera.name))
+        RowIconButton(onDown, Icons.Filled.KeyboardArrowDown, stringResource(Res.string.move_down, camera.name))
+        RowIconButton(onEdit, Icons.Filled.Edit, stringResource(Res.string.edit, camera.name))
+        RowIconButton(onDelete, Icons.Filled.Delete, stringResource(Res.string.delete, camera.name))
     }
 }
 
@@ -259,16 +279,16 @@ private fun ViewRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(R.string.view_summary, view.id, view.tiles.size, view.columns, view.rows),
+                text = stringResource(Res.string.view_summary, view.id, view.tiles.size, view.columns, view.rows),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        RowIconButton(onUp, Icons.Filled.KeyboardArrowUp, stringResource(R.string.move_up, name))
-        RowIconButton(onDown, Icons.Filled.KeyboardArrowDown, stringResource(R.string.move_down, name))
-        RowIconButton(onEdit, Icons.Filled.Edit, stringResource(R.string.edit, name))
+        RowIconButton(onUp, Icons.Filled.KeyboardArrowUp, stringResource(Res.string.move_up, name))
+        RowIconButton(onDown, Icons.Filled.KeyboardArrowDown, stringResource(Res.string.move_down, name))
+        RowIconButton(onEdit, Icons.Filled.Edit, stringResource(Res.string.edit, name))
     }
 }
 

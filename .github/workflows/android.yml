@@ -49,7 +49,7 @@ jobs:
           echo "CAMGRID_SIGNING=one-off" >> "$GITHUB_ENV"
 
       - name: Unit tests
-        run: ./gradlew test :core:jvmTest --stacktrace
+        run: ./gradlew test :core:jvmTest :shared:desktopTest --stacktrace
 
       - name: Lint
         run: ./gradlew :app:lintDebug --stacktrace

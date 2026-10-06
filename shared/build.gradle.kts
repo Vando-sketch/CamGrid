@@ -37,6 +37,8 @@ kotlin {
             api(libs.cmp.ui)
             api(libs.cmp.material3)
             implementation(libs.cmp.material.icons)
+            // Back key / gesture on desktop and iOS (Android uses androidx.activity's BackHandler).
+            implementation(libs.navigationevent.compose.mp)
             implementation(libs.cmp.resources)
             api(libs.lifecycle.viewmodel.compose.mp)
             implementation(libs.lifecycle.runtime.compose.mp)
@@ -47,9 +49,14 @@ kotlin {
         androidMain.dependencies {
             // HttpURLConnection underneath, like the app used before.
             implementation(libs.ktor.client.android)
+            implementation(libs.activity.compose)
         }
         getByName("desktopMain").dependencies {
             implementation(libs.ktor.client.java)
+        }
+        getByName("desktopTest").dependencies {
+            // Skiko's native library: Compose resources ask it for the system theme.
+            implementation(compose.desktop.currentOs)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

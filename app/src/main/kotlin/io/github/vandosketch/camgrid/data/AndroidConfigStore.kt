@@ -4,8 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Log
-import io.github.vandosketch.camgrid.core.CamGridConfig
-import io.github.vandosketch.camgrid.core.ConfigCodec
+import io.github.vandosketch.camgrid.platform.ConfigStore
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -14,49 +13,22 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
- * Holds the current [CamGridConfig] and persists it.
+ * The config JSON in `camgrid_config.bin` in the app's private files.
  *
  * Stream URLs can contain credentials, so the file is encrypted with an AES-GCM key that lives
  * in the AndroidKeyStore and never leaves the device. File layout: 12-byte IV, then ciphertext
- * (including the GCM tag). A missing, corrupt or undecryptable file yields the default config.
+ * (including the GCM tag). File name, key alias and layout are those of every earlier version,
+ * so an update keeps the user's config.
  */
-class ConfigRepository(context: Context) {
+class AndroidConfigStore(context: Context) : ConfigStore {
 
-    private val file = File(context.filesDir, FILE_NAME)
+    private val file = File(context.applicationContext.filesDir, FILE_NAME)
 
-    // Loaded synchronously: the file is tiny and the grid needs it before the first frame.
-    private val _config = MutableStateFlow(load())
-    val config: StateFlow<CamGridConfig> = _config.asStateFlow()
-
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val saveMutex = Mutex()
-
-    /**
-     * Applies [transform] to the current config and saves the result in the background.
-     * Exceptions thrown by [transform] propagate to the caller and nothing is changed.
-     */
-    fun update(transform: (CamGridConfig) -> CamGridConfig) {
-        _config.update(transform)
-        ioScope.launch {
-            // Always write the latest value, so the last save wins even if saves queue up.
-            saveMutex.withLock { save(_config.value) }
-        }
-    }
-
-    private fun load(): CamGridConfig {
-        if (!file.exists()) return CamGridConfig()
+    /** The decrypted JSON; null when there is no file or it cannot be decrypted (the app then starts empty). */
+    override fun read(): String? {
+        if (!file.exists()) return null
         return try {
             val bytes = file.readBytes()
             if (bytes.size <= IV_SIZE) throw IOException("Config file too short")
@@ -67,17 +39,17 @@ class ConfigRepository(context: Context) {
                 GCMParameterSpec(GCM_TAG_BITS, bytes, 0, IV_SIZE),
             )
             val plain = cipher.doFinal(bytes, IV_SIZE, bytes.size - IV_SIZE)
-            ConfigCodec.decodeOrDefault(String(plain, Charsets.UTF_8))
+            String(plain, Charsets.UTF_8)
         } catch (e: Exception) {
             // Only the exception type: messages could in theory contain config contents.
             Log.w(TAG, "Could not read config (${e.javaClass.simpleName}), using defaults")
-            CamGridConfig()
+            null
         }
     }
 
-    private fun save(config: CamGridConfig) {
+    override fun write(json: String) {
         try {
-            val plain = ConfigCodec.encode(config).toByteArray(Charsets.UTF_8)
+            val plain = json.toByteArray(Charsets.UTF_8)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             // The keystore generates a fresh random IV for every encryption.
             cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())

@@ -42,10 +42,17 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalInputModeManager
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.vandosketch.camgrid.R
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.empty_body
+import io.github.vandosketch.camgrid.shared.resources.empty_title
+import io.github.vandosketch.camgrid.shared.resources.open_settings
+import io.github.vandosketch.camgrid.shared.resources.page_indicator
+import io.github.vandosketch.camgrid.shared.resources.page_indicator_named
+import io.github.vandosketch.camgrid.shared.resources.status_connecting
+import io.github.vandosketch.camgrid.shared.resources.status_offline
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.Direction
@@ -53,9 +60,8 @@ import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.core.TileNavigator
 import io.github.vandosketch.camgrid.core.ViewPaging
-import io.github.vandosketch.camgrid.player.StreamStatus
-import io.github.vandosketch.camgrid.player.LiveStreamSurface
-import io.github.vandosketch.camgrid.player.rememberLiveStream
+import io.github.vandosketch.camgrid.platform.StreamStatus
+import io.github.vandosketch.camgrid.platform.VideoPlatform
 
 /**
  * The camera wall: the config's views one after the other, each as one or more pages of tiles
@@ -68,6 +74,7 @@ import io.github.vandosketch.camgrid.player.rememberLiveStream
  */
 @Composable
 fun GridScreen(
+    video: VideoPlatform,
     config: CamGridConfig,
     page: Int,
     focusIndex: Int,
@@ -166,6 +173,7 @@ fun GridScreen(
                     val camera = placed.camera
                     if (camera != null) {
                         CameraTile(
+                            video = video,
                             camera = camera,
                             fit = tile.fit,
                             focusRequester = tileRequesters[index],
@@ -179,11 +187,11 @@ fun GridScreen(
 
         if (pageCount > 1) {
             val viewName = gridPage.view.name
-            val position = stringResource(R.string.page_indicator, currentPage + 1, pageCount)
+            val position = stringResource(Res.string.page_indicator, currentPage + 1, pageCount)
             // Top centre: tile names sit bottom-left in every tile, so a bottom indicator would
             // cover the name of whichever tile ends there.
             Text(
-                text = if (viewName.isBlank()) position else stringResource(R.string.page_indicator_named, viewName, position),
+                text = if (viewName.isBlank()) position else stringResource(Res.string.page_indicator_named, viewName, position),
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
                 maxLines = 1,
@@ -219,7 +227,7 @@ fun GridScreen(
         ) {
             Icon(
                 imageVector = Icons.Filled.Settings,
-                contentDescription = stringResource(R.string.open_settings),
+                contentDescription = stringResource(Res.string.open_settings),
                 tint = Color.White,
             )
         }
@@ -228,13 +236,14 @@ fun GridScreen(
 
 @Composable
 private fun CameraTile(
+    video: VideoPlatform,
     camera: Camera,
     fit: FitMode,
     focusRequester: FocusRequester,
     onFocused: () -> Unit,
     onClick: () -> Unit,
 ) {
-    val stream = rememberLiveStream(camera.gridUrl, camera.streamType, camera.name, audioEnabled = false)
+    val stream = video.rememberLiveStream(camera.gridUrl, camera.streamType, camera.name, audioEnabled = false)
     Box(
         Modifier
             .fillMaxSize()
@@ -244,7 +253,7 @@ private fun CameraTile(
             .clickable(onClick = onClick)
             .background(Color.Black),
     ) {
-        LiveStreamSurface(stream, Modifier.fillMaxSize(), fit)
+        video.Surface(stream, Modifier.fillMaxSize(), fit)
         StreamStatusBadge(
             status = stream?.status ?: StreamStatus.Connecting,
             modifier = Modifier.align(Alignment.Center),
@@ -277,7 +286,7 @@ fun StreamStatusBadge(status: StreamStatus, modifier: Modifier = Modifier) {
         when (status) {
             is StreamStatus.Offline -> {
                 Text(
-                    text = stringResource(R.string.status_offline, status.retryInSeconds),
+                    text = stringResource(Res.string.status_offline, status.retryInSeconds),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -291,7 +300,7 @@ fun StreamStatusBadge(status: StreamStatus, modifier: Modifier = Modifier) {
                 )
             }
             else -> Text(
-                text = stringResource(R.string.status_connecting),
+                text = stringResource(Res.string.status_connecting),
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
             )
@@ -311,13 +320,13 @@ private fun EmptyGrid(onOpenSettings: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.empty_title),
+            text = stringResource(Res.string.empty_title),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = stringResource(R.string.empty_body),
+            text = stringResource(Res.string.empty_body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -328,7 +337,7 @@ private fun EmptyGrid(onOpenSettings: () -> Unit) {
                 .focusBorder(shape = CircleShape)
                 .focusRequester(buttonRequester),
         ) {
-            Text(stringResource(R.string.open_settings))
+            Text(stringResource(Res.string.open_settings))
         }
     }
 }

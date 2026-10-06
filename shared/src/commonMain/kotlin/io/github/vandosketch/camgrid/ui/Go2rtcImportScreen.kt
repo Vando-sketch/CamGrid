@@ -36,14 +36,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.ImportState
-import io.github.vandosketch.camgrid.R
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.back
+import io.github.vandosketch.camgrid.shared.resources.fetch
+import io.github.vandosketch.camgrid.shared.resources.field_go2rtc_url
+import io.github.vandosketch.camgrid.shared.resources.hint_go2rtc_url
+import io.github.vandosketch.camgrid.shared.resources.import_already_added
+import io.github.vandosketch.camgrid.shared.resources.import_empty
+import io.github.vandosketch.camgrid.shared.resources.import_error_http
+import io.github.vandosketch.camgrid.shared.resources.import_error_invalid_url
+import io.github.vandosketch.camgrid.shared.resources.import_error_network
+import io.github.vandosketch.camgrid.shared.resources.import_error_not_go2rtc
+import io.github.vandosketch.camgrid.shared.resources.import_go2rtc
+import io.github.vandosketch.camgrid.shared.resources.import_loading
+import io.github.vandosketch.camgrid.shared.resources.import_selected
+import io.github.vandosketch.camgrid.shared.resources.import_stream_type_hint
+import io.github.vandosketch.camgrid.shared.resources.url_detail
+import io.github.vandosketch.camgrid.shared.resources.url_detail_none
+import io.github.vandosketch.camgrid.shared.resources.url_grid
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.core.UrlRedactor
@@ -78,8 +95,8 @@ fun Go2rtcImportScreen(
     ) {
         item {
             ScreenHeader(
-                title = stringResource(R.string.import_go2rtc),
-                actionLabel = stringResource(R.string.back),
+                title = stringResource(Res.string.import_go2rtc),
+                actionLabel = stringResource(Res.string.back),
                 onAction = onBack,
             )
         }
@@ -87,8 +104,8 @@ fun Go2rtcImportScreen(
             OutlinedTextField(
                 value = baseUrl,
                 onValueChange = { baseUrl = it },
-                label = { Text(stringResource(R.string.field_go2rtc_url)) },
-                placeholder = { Text(stringResource(R.string.hint_go2rtc_url)) },
+                label = { Text(stringResource(Res.string.field_go2rtc_url)) },
+                placeholder = { Text(stringResource(Res.string.hint_go2rtc_url)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { onFetch(baseUrl) }),
@@ -101,7 +118,7 @@ fun Go2rtcImportScreen(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 StreamTypeSelector(selected = streamType, onSelect = onStreamTypeChange)
                 Text(
-                    text = stringResource(R.string.import_stream_type_hint),
+                    text = stringResource(Res.string.import_stream_type_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -117,7 +134,7 @@ fun Go2rtcImportScreen(
                     enabled = baseUrl.isNotBlank(),
                     modifier = Modifier.focusBorder(shape = CircleShape),
                 ) {
-                    Text(stringResource(R.string.fetch))
+                    Text(stringResource(Res.string.fetch))
                 }
                 if (state is ImportState.Loaded && state.cameras.isNotEmpty()) {
                     OutlinedButton(
@@ -125,7 +142,7 @@ fun Go2rtcImportScreen(
                         enabled = state.selected.isNotEmpty(),
                         modifier = Modifier.focusBorder(shape = CircleShape),
                     ) {
-                        Text(stringResource(R.string.import_selected, state.selected.size))
+                        Text(stringResource(Res.string.import_selected, state.selected.size))
                     }
                 }
             }
@@ -137,7 +154,7 @@ fun Go2rtcImportScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.import_loading))
+                    Text(stringResource(Res.string.import_loading))
                 }
             }
             is ImportState.Failed -> item {
@@ -149,7 +166,7 @@ fun Go2rtcImportScreen(
             }
             is ImportState.Loaded -> {
                 if (state.cameras.isEmpty()) {
-                    item { Text(stringResource(R.string.import_empty)) }
+                    item { Text(stringResource(Res.string.import_empty)) }
                 }
                 items(state.cameras, key = { it.id }) { camera ->
                     SuggestionRow(
@@ -169,10 +186,10 @@ private fun failureMessage(state: ImportState.Failed): String {
     // The detail is an HTTP status or exception type, never a URL; redact anyway to be safe.
     val detail = UrlRedactor.redact(state.detail)
     return when (state.reason) {
-        Go2rtcException.Reason.INVALID_URL -> stringResource(R.string.import_error_invalid_url)
-        Go2rtcException.Reason.NETWORK -> stringResource(R.string.import_error_network, detail)
-        Go2rtcException.Reason.HTTP_STATUS -> stringResource(R.string.import_error_http, detail)
-        Go2rtcException.Reason.NOT_GO2RTC -> stringResource(R.string.import_error_not_go2rtc)
+        Go2rtcException.Reason.INVALID_URL -> stringResource(Res.string.import_error_invalid_url)
+        Go2rtcException.Reason.NETWORK -> stringResource(Res.string.import_error_network, detail)
+        Go2rtcException.Reason.HTTP_STATUS -> stringResource(Res.string.import_error_http, detail)
+        Go2rtcException.Reason.NOT_GO2RTC -> stringResource(Res.string.import_error_not_go2rtc)
     }
 }
 
@@ -206,7 +223,7 @@ private fun SuggestionRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = if (alreadyAdded) {
-                    camera.name + " · " + stringResource(R.string.import_already_added)
+                    camera.name + " · " + stringResource(Res.string.import_already_added)
                 } else {
                     camera.name
                 },
@@ -215,7 +232,7 @@ private fun SuggestionRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(R.string.url_grid, UrlRedactor.redact(camera.gridUrl)),
+                text = stringResource(Res.string.url_grid, UrlRedactor.redact(camera.gridUrl)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -223,9 +240,9 @@ private fun SuggestionRow(
             )
             Text(
                 text = if (camera.detailUrl.isBlank()) {
-                    stringResource(R.string.url_detail_none)
+                    stringResource(Res.string.url_detail_none)
                 } else {
-                    stringResource(R.string.url_detail, UrlRedactor.redact(camera.detailUrl))
+                    stringResource(Res.string.url_detail, UrlRedactor.redact(camera.detailUrl))
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

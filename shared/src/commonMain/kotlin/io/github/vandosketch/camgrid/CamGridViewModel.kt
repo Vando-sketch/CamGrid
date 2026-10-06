@@ -1,13 +1,10 @@
 package io.github.vandosketch.camgrid
 
-import android.app.Application
-import android.net.Uri
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.BackupException
@@ -19,13 +16,18 @@ import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.core.ViewPaging
-import io.github.vandosketch.camgrid.data.BackupFiles
 import io.github.vandosketch.camgrid.data.ConfigRepository
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.Go2rtcException
-import kotlinx.coroutines.CancellationException
-import java.io.IOException
+import io.github.vandosketch.camgrid.platform.AppLog
+import io.github.vandosketch.camgrid.platform.BackupDocument
+import io.github.vandosketch.camgrid.platform.BackupFileException
+import io.github.vandosketch.camgrid.platform.BackupFiles
+import io.github.vandosketch.camgrid.platform.ConfigStore
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -53,11 +55,24 @@ sealed interface ImportState {
 
 /**
  * App state: the config (via [ConfigRepository]), the current [Screen], where the grid focus is,
- * and the go2rtc import flow. All config edits go through core's [ConfigEditor].
+ * the go2rtc import and the backup flow. All config edits go through core's [ConfigEditor].
+ *
+ * @param backupFiles the platform's backup file access; the backup screen also uses its pickers.
+ * @param ioDispatcher where blocking file IO (and the backup's key derivation) runs.
+ * @param computeDispatcher where backups are decrypted and parsed.
  */
-class CamGridViewModel(application: Application) : AndroidViewModel(application) {
+class CamGridViewModel(
+    private val repository: ConfigRepository,
+    val backupFiles: BackupFiles,
+    private val go2rtcClient: Go2rtcClient,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+) : ViewModel() {
 
-    private val repository = ConfigRepository(application)
+    /** Loads the config from [configStore] right away (synchronously). */
+    constructor(configStore: ConfigStore, backupFiles: BackupFiles, go2rtcClient: Go2rtcClient) :
+        this(ConfigRepository(configStore), backupFiles, go2rtcClient)
+
     val config: StateFlow<CamGridConfig> = repository.config
 
     var screen by mutableStateOf<Screen>(Screen.Grid)
@@ -211,19 +226,20 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         importState = ImportState.Loading
         fetchJob = viewModelScope.launch {
             importState = try {
-                val names = Go2rtcClient.fetchStreamNames(trimmed)
+                val names = go2rtcClient.fetchStreamNames(trimmed)
                 val loaded = ImportState.Loaded(trimmed, names, importStreamType, selected = emptySet())
                 val existing = config.value.cameras.map { it.id }.toSet()
                 loaded.copy(selected = loaded.cameras.map { it.id }.filterNot { it in existing }.toSet())
             } catch (e: Go2rtcException) {
-                Log.w(TAG, "go2rtc fetch failed: ${e.reason} ${e.detail}")
+                AppLog.w("go2rtc fetch failed: ${e.reason} ${e.detail}")
                 ImportState.Failed(e.reason, e.detail)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // Anything unexpected from parsing; the type is enough to report it.
-                Log.w(TAG, "go2rtc import failed: ${e.javaClass.simpleName}")
-                ImportState.Failed(Go2rtcException.Reason.NOT_GO2RTC, e.javaClass.simpleName)
+                val type = e::class.simpleName.orEmpty()
+                AppLog.w("go2rtc import failed: $type")
+                ImportState.Failed(Go2rtcException.Reason.NOT_GO2RTC, type)
             }
         }
     }
@@ -235,7 +251,7 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
             importState = state.copy(streamType = type)
         } catch (e: IllegalArgumentException) {
             // The base URL cannot form URLs of this type; keep the list as it was.
-            Log.w(TAG, "Import stream type not applicable: ${e.javaClass.simpleName}")
+            AppLog.w("Import stream type not applicable: ${e::class.simpleName}")
             importStreamType = state.streamType
         }
     }
@@ -256,8 +272,6 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
 
     // --- Backup (settings export / import) ---
 
-    private val backupFiles = BackupFiles(application)
-
     var backupState by mutableStateOf<BackupState>(BackupState.Idle)
         private set
 
@@ -266,8 +280,8 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
     private var pendingImport: CamGridConfig? = null
     private var backupJob: Job? = null
 
-    /** Folder used when the device has no file picker (Fire TV). */
-    val backupFolderPath: String get() = backupFiles.folder.absolutePath
+    /** Folder used when the device has no file picker (Fire TV); null where there always is one. */
+    val backupFolderPath: String? get() = backupFiles.folderPath
 
     fun suggestedBackupName(): String = backupFiles.suggestedName()
 
@@ -275,13 +289,16 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
     fun backupFolderFiles(): List<String> = backupFiles.listFolder()
 
     /** Exports to a file chosen with the system picker; [password] null means unencrypted. */
-    fun exportBackup(uri: Uri, password: CharArray?) =
-        runExport(password) { text -> backupFiles.write(uri, text); uri.lastPathSegment ?: uri.toString() }
+    fun exportBackup(target: BackupDocument, password: CharArray?) =
+        runExport(password) { text ->
+            target.write(text)
+            target.displayName
+        }
 
     /** Exports into [backupFolderPath], for devices without a file picker. */
     fun exportBackupToFolder(password: CharArray?) = runExport(password) { text -> backupFiles.writeToFolder(text) }
 
-    fun importBackup(uri: Uri) = runRead { backupFiles.read(uri) }
+    fun importBackup(source: BackupDocument) = runRead { source.read() }
 
     fun importBackupFromFolder(name: String) = runRead { backupFiles.readFromFolder(name) }
 
@@ -290,7 +307,7 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         val text = pendingImportText ?: return
         backupState = BackupState.Working
         backupJob = viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) { decode(text, password) }
+            val result = withContext(computeDispatcher) { decode(text, password) }
             password.fill(' ')
             backupState = result
         }
@@ -320,13 +337,11 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         val snapshot = config.value
         backupJob = viewModelScope.launch {
             backupState = try {
-                val where = withContext(Dispatchers.IO) { write(ConfigBackup.export(snapshot, password)) }
+                // Off the main thread: deriving the key from the password takes about a second.
+                val where = withContext(ioDispatcher) { write(ConfigBackup.export(snapshot, password)) }
                 BackupState.Exported(where)
-            } catch (e: IOException) {
-                Log.w(TAG, "Backup export failed: ${e.javaClass.simpleName}")
-                BackupState.Failed(BackupError.WRITE_FAILED)
-            } catch (e: SecurityException) {
-                Log.w(TAG, "Backup export failed: ${e.javaClass.simpleName}")
+            } catch (e: BackupFileException) {
+                AppLog.w("Backup export failed: ${e::class.simpleName}")
                 BackupState.Failed(BackupError.WRITE_FAILED)
             } finally {
                 password?.fill(' ')
@@ -341,14 +356,11 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         backupState = BackupState.Working
         backupJob = viewModelScope.launch {
             backupState = try {
-                val text = withContext(Dispatchers.IO) { read() }
+                val text = withContext(ioDispatcher) { read() }
                 pendingImportText = text
-                withContext(Dispatchers.Default) { decode(text, password = null) }
-            } catch (e: IOException) {
-                Log.w(TAG, "Backup read failed: ${e.javaClass.simpleName}")
-                BackupState.Failed(BackupError.READ_FAILED)
-            } catch (e: SecurityException) {
-                Log.w(TAG, "Backup read failed: ${e.javaClass.simpleName}")
+                withContext(computeDispatcher) { decode(text, password = null) }
+            } catch (e: BackupFileException) {
+                AppLog.w("Backup read failed: ${e::class.simpleName}")
                 BackupState.Failed(BackupError.READ_FAILED)
             }
         }
@@ -374,11 +386,7 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
             repository.update(transform)
         } catch (e: IllegalArgumentException) {
             // ConfigEditor rejects invalid edits (e.g. a camera deleted meanwhile); keep the config.
-            Log.w(TAG, "Config edit rejected: ${e.javaClass.simpleName}")
+            AppLog.w("Config edit rejected: ${e::class.simpleName}")
         }
-    }
-
-    private companion object {
-        const val TAG = "CamGrid"
     }
 }

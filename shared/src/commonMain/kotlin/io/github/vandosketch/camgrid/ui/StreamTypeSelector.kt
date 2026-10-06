@@ -9,9 +9,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.unit.dp
-import io.github.vandosketch.camgrid.R
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.help_stream_type_rtsp
+import io.github.vandosketch.camgrid.shared.resources.help_stream_type_webrtc
+import io.github.vandosketch.camgrid.shared.resources.stream_type
+import io.github.vandosketch.camgrid.shared.resources.stream_type_rtsp
+import io.github.vandosketch.camgrid.shared.resources.stream_type_webrtc
 import io.github.vandosketch.camgrid.core.StreamType
 
 /** "Stream type" with one chip per [StreamType] and a line on what the selected one means. */
@@ -22,7 +28,7 @@ fun StreamTypeSelector(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.stream_type), style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(Res.string.stream_type), style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (type in StreamType.entries) {
                 FilterChip(
@@ -41,14 +47,14 @@ fun StreamTypeSelector(
     }
 }
 
-private val StreamType.labelRes: Int
+private val StreamType.labelRes: StringResource
     get() = when (this) {
-        StreamType.RTSP -> R.string.stream_type_rtsp
-        StreamType.WEBRTC -> R.string.stream_type_webrtc
+        StreamType.RTSP -> Res.string.stream_type_rtsp
+        StreamType.WEBRTC -> Res.string.stream_type_webrtc
     }
 
-private val StreamType.helpRes: Int
+private val StreamType.helpRes: StringResource
     get() = when (this) {
-        StreamType.RTSP -> R.string.help_stream_type_rtsp
-        StreamType.WEBRTC -> R.string.help_stream_type_webrtc
+        StreamType.RTSP -> Res.string.help_stream_type_rtsp
+        StreamType.WEBRTC -> Res.string.help_stream_type_webrtc
     }

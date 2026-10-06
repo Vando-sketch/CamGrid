@@ -24,17 +24,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import io.github.vandosketch.camgrid.R
+import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.cancel
+import io.github.vandosketch.camgrid.shared.resources.editor_title_edit
+import io.github.vandosketch.camgrid.shared.resources.editor_title_new
+import io.github.vandosketch.camgrid.shared.resources.error_grid_url_blank
+import io.github.vandosketch.camgrid.shared.resources.error_name_blank
+import io.github.vandosketch.camgrid.shared.resources.error_url_invalid
+import io.github.vandosketch.camgrid.shared.resources.error_webrtc_url_invalid
+import io.github.vandosketch.camgrid.shared.resources.field_detail_url
+import io.github.vandosketch.camgrid.shared.resources.field_grid_url
+import io.github.vandosketch.camgrid.shared.resources.field_name
+import io.github.vandosketch.camgrid.shared.resources.help_detail_url
+import io.github.vandosketch.camgrid.shared.resources.hint_detail_url
+import io.github.vandosketch.camgrid.shared.resources.hint_detail_url_webrtc
+import io.github.vandosketch.camgrid.shared.resources.hint_grid_url
+import io.github.vandosketch.camgrid.shared.resources.hint_grid_url_webrtc
+import io.github.vandosketch.camgrid.shared.resources.hint_name
+import io.github.vandosketch.camgrid.shared.resources.save
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.CameraError
 import io.github.vandosketch.camgrid.core.CameraValidator
 import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.StreamType
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Add or edit one camera. [camera] null means a new camera (it gets a random UUID id).
@@ -48,7 +65,7 @@ fun CameraEditorScreen(
     onSave: (Camera) -> Unit,
     onCancel: () -> Unit,
 ) {
-    val id = rememberSaveable { camera?.id ?: UUID.randomUUID().toString() }
+    val id = rememberSaveable { camera?.id ?: Uuid.random().toString() }
     var name by rememberSaveable { mutableStateOf(camera?.name.orEmpty()) }
     var gridUrl by rememberSaveable { mutableStateOf(camera?.gridUrl.orEmpty()) }
     var detailUrl by rememberSaveable { mutableStateOf(camera?.detailUrl.orEmpty()) }
@@ -66,7 +83,7 @@ fun CameraEditorScreen(
         streamType = streamType,
     )
     val webrtc = streamType == StreamType.WEBRTC
-    val urlInvalidMessage = stringResource(if (webrtc) R.string.error_webrtc_url_invalid else R.string.error_url_invalid)
+    val urlInvalidMessage = stringResource(if (webrtc) Res.string.error_webrtc_url_invalid else Res.string.error_url_invalid)
     val errors = if (saveAttempted) CameraValidator.validate(draft) else emptySet()
 
     val nameRequester = remember { FocusRequester() }
@@ -81,18 +98,18 @@ fun CameraEditorScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ScreenHeader(
-            title = stringResource(if (camera == null) R.string.editor_title_new else R.string.editor_title_edit),
-            actionLabel = stringResource(R.string.cancel),
+            title = stringResource(if (camera == null) Res.string.editor_title_new else Res.string.editor_title_edit),
+            actionLabel = stringResource(Res.string.cancel),
             onAction = onCancel,
         )
 
         EditorField(
             value = name,
             onValueChange = { name = it },
-            label = stringResource(R.string.field_name),
-            hint = stringResource(R.string.hint_name),
+            label = stringResource(Res.string.field_name),
+            hint = stringResource(Res.string.hint_name),
             error = when {
-                CameraError.NAME_BLANK in errors -> stringResource(R.string.error_name_blank)
+                CameraError.NAME_BLANK in errors -> stringResource(Res.string.error_name_blank)
                 else -> null
             },
             keyboardType = KeyboardType.Text,
@@ -111,10 +128,10 @@ fun CameraEditorScreen(
         EditorField(
             value = gridUrl,
             onValueChange = { gridUrl = it },
-            label = stringResource(R.string.field_grid_url),
-            hint = stringResource(if (webrtc) R.string.hint_grid_url_webrtc else R.string.hint_grid_url),
+            label = stringResource(Res.string.field_grid_url),
+            hint = stringResource(if (webrtc) Res.string.hint_grid_url_webrtc else Res.string.hint_grid_url),
             error = when {
-                CameraError.GRID_URL_BLANK in errors -> stringResource(R.string.error_grid_url_blank)
+                CameraError.GRID_URL_BLANK in errors -> stringResource(Res.string.error_grid_url_blank)
                 CameraError.GRID_URL_INVALID in errors -> urlInvalidMessage
                 else -> null
             },
@@ -123,13 +140,13 @@ fun CameraEditorScreen(
         EditorField(
             value = detailUrl,
             onValueChange = { detailUrl = it },
-            label = stringResource(R.string.field_detail_url),
-            hint = stringResource(if (webrtc) R.string.hint_detail_url_webrtc else R.string.hint_detail_url),
+            label = stringResource(Res.string.field_detail_url),
+            hint = stringResource(if (webrtc) Res.string.hint_detail_url_webrtc else Res.string.hint_detail_url),
             error = when {
                 CameraError.DETAIL_URL_INVALID in errors -> urlInvalidMessage
                 else -> null
             },
-            help = stringResource(R.string.help_detail_url),
+            help = stringResource(Res.string.help_detail_url),
             keyboardType = KeyboardType.Uri,
         )
 
@@ -144,13 +161,13 @@ fun CameraEditorScreen(
                 },
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.save))
+                Text(stringResource(Res.string.save))
             }
             OutlinedButton(
                 onClick = onCancel,
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(R.string.cancel))
+                Text(stringResource(Res.string.cancel))
             }
         }
     }
