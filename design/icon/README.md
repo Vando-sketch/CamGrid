@@ -1,7 +1,7 @@
 # CamGrid icon
 
 A 2x2 grid of camera tiles with a lens in the middle; the red tile is the live camera.
-All artwork is original and released under the repository's MIT license. The wordmark uses
+All artwork is original and released under the repository's license (PolyForm Noncommercial 1.0.0). The wordmark uses
 [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1), baked into the SVGs as outlines.
 
 | File | Use |
