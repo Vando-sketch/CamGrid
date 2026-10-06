@@ -7,6 +7,7 @@
     <string name="empty_title">No cameras yet</string>
     <string name="empty_body">Add cameras in the settings, by hand or imported from go2rtc.</string>
     <string name="page_indicator">%1$d / %2$d</string>
+    <string name="page_indicator_named">%1$s · %2$s</string>
 
     <!-- Stream status -->
     <string name="status_connecting">Connecting…</string>
@@ -22,12 +23,10 @@
     <string name="settings_title">Settings</string>
     <string name="done">Done</string>
     <string name="back">Back</string>
-    <string name="section_layout">Grid layout</string>
-    <string name="columns">Columns</string>
-    <string name="rows">Rows</string>
-    <string name="decrease">Decrease %1$s</string>
-    <string name="increase">Increase %1$s</string>
-    <string name="tiles_per_page">Cameras per page: %1$d</string>
+    <string name="section_views">Views</string>
+    <string name="views_help">Views are shown one after the other. A view with more cameras than auto tiles continues on further pages.</string>
+    <string name="add_view">Add view</string>
+    <string name="view_summary">ID %1$s · %2$d tiles on %3$d×%4$d cells</string>
     <string name="section_cameras">Cameras</string>
     <string name="add_camera">Add camera</string>
     <string name="import_go2rtc">Import from go2rtc</string>

@@ -8,6 +8,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
@@ -64,7 +65,9 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
                 Screen.Settings -> SettingsScreen(
                     config = config,
                     onDone = viewModel::back,
-                    onLayoutChange = viewModel::setLayout,
+                    onEditView = viewModel::editView,
+                    onAddView = viewModel::addView,
+                    onMoveView = viewModel::moveView,
                     onMoveCamera = viewModel::moveCamera,
                     onEditCamera = viewModel::editCamera,
                     onDeleteCamera = viewModel::deleteCamera,
@@ -88,6 +91,24 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
                     onImport = viewModel::importSelected,
                     onBack = viewModel::back,
                 )
+                is Screen.EditView -> {
+                    val view = config.views.find { it.id == screen.viewId }
+                    if (view == null) {
+                        // Deleted meanwhile; nothing to edit.
+                        LaunchedEffect(screen.viewId) { viewModel.back() }
+                    } else {
+                        key(screen.viewId) {
+                            ViewEditorScreen(
+                                view = view,
+                                cameras = config.cameras,
+                                canDelete = config.views.size > 1,
+                                onChange = viewModel::updateView,
+                                onDelete = { viewModel.deleteView(view.id) },
+                                onDone = viewModel::back,
+                            )
+                        }
+                    }
+                }
             }
         }
     }

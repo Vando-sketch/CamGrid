@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -43,26 +42,25 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.R
 import io.github.vandosketch.camgrid.core.CamGridConfig
+import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
-import io.github.vandosketch.camgrid.core.GridLayout
 import io.github.vandosketch.camgrid.core.UrlRedactor
 
 /**
- * Settings, built for the D-pad: steppers instead of sliders, and Up/Down buttons instead of
- * drag-and-drop for the camera order.
+ * Settings, built for the D-pad: Up/Down buttons instead of drag-and-drop for the order of
+ * views and cameras. Each view's layout is edited on its own screen.
  */
 @Composable
 fun SettingsScreen(
     config: CamGridConfig,
     onDone: () -> Unit,
-    onLayoutChange: (columns: Int, rows: Int) -> Unit,
+    onEditView: (id: String) -> Unit,
+    onAddView: () -> Unit,
+    onMoveView: (id: String, delta: Int) -> Unit,
     onMoveCamera: (id: String, delta: Int) -> Unit,
     onEditCamera: (id: String?) -> Unit,
     onDeleteCamera: (id: String) -> Unit,
@@ -72,7 +70,6 @@ fun SettingsScreen(
     val doneRequester = remember { FocusRequester() }
     InitialFocus(doneRequester)
 
-    val layout = config.layout
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -89,27 +86,30 @@ fun SettingsScreen(
             )
         }
 
-        item { SectionTitle(stringResource(R.string.section_layout)) }
-        item {
-            Stepper(
-                label = stringResource(R.string.columns),
-                value = layout.columns,
-                onValueChange = { onLayoutChange(it, layout.rows) },
-            )
-        }
-        item {
-            Stepper(
-                label = stringResource(R.string.rows),
-                value = layout.rows,
-                onValueChange = { onLayoutChange(layout.columns, it) },
-            )
-        }
+        item { SectionTitle(stringResource(R.string.section_views)) }
         item {
             Text(
-                text = stringResource(R.string.tiles_per_page, layout.tilesPerPage),
+                text = stringResource(R.string.views_help),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        itemsIndexed(config.views, key = { _, view -> "view:" + view.id }) { index, view ->
+            ViewRow(
+                position = index + 1,
+                view = view,
+                onUp = { onMoveView(view.id, -1) },
+                onDown = { onMoveView(view.id, 1) },
+                onEdit = { onEditView(view.id) },
+            )
+        }
+        item {
+            OutlinedButton(
+                onClick = onAddView,
+                modifier = Modifier.focusBorder(shape = CircleShape),
+            ) {
+                Text(stringResource(R.string.add_view))
+            }
         }
 
         item { SectionTitle(stringResource(R.string.section_cameras)) }
@@ -225,48 +225,49 @@ private fun CameraRow(
 }
 
 @Composable
+private fun ViewRow(
+    position: Int,
+    view: CamView,
+    onUp: () -> Unit,
+    onDown: () -> Unit,
+    onEdit: () -> Unit,
+) {
+    val name = view.name.ifBlank { view.id }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = "$position. $name",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(R.string.view_summary, view.id, view.tiles.size, view.columns, view.rows),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        RowIconButton(onUp, Icons.Filled.KeyboardArrowUp, stringResource(R.string.move_up, name))
+        RowIconButton(onDown, Icons.Filled.KeyboardArrowDown, stringResource(R.string.move_down, name))
+        RowIconButton(onEdit, Icons.Filled.Edit, stringResource(R.string.edit, name))
+    }
+}
+
+@Composable
 private fun RowIconButton(onClick: () -> Unit, icon: ImageVector, description: String) {
     IconButton(
         onClick = onClick,
         modifier = Modifier.focusBorder(shape = CircleShape),
     ) {
         Icon(imageVector = icon, contentDescription = description)
-    }
-}
-
-/** A labelled "−  value  +" control; the value is clamped to the grid size limits. */
-@Composable
-private fun Stepper(label: String, value: Int, onValueChange: (Int) -> Unit) {
-    val decreaseDescription = stringResource(R.string.decrease, label)
-    val increaseDescription = stringResource(R.string.increase, label)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.widthIn(min = 120.dp),
-        )
-        OutlinedButton(
-            onClick = { onValueChange((value - 1).coerceAtLeast(GridLayout.MIN_SIZE)) },
-            modifier = Modifier
-                .focusBorder(shape = CircleShape)
-                .semantics { contentDescription = decreaseDescription },
-        ) {
-            Text("−")
-        }
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(56.dp),
-        )
-        OutlinedButton(
-            onClick = { onValueChange((value + 1).coerceAtMost(GridLayout.MAX_SIZE)) },
-            modifier = Modifier
-                .focusBorder(shape = CircleShape)
-                .semantics { contentDescription = increaseDescription },
-        ) {
-            Text("+")
-        }
     }
 }
 
