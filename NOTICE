@@ -2,7 +2,8 @@ CamGrid
 Copyright (c) the CamGrid contributors. Released under the MIT License (see LICENSE).
 
 CamGrid's own source code is MIT. The apps built from it include the third-party components
-below, each under its own license. Only the iOS app contains the GNU LGPL component (VLCKit).
+below, each under its own license. The iOS app contains VLCKit and the desktop app contains FFmpeg, both under the GNU LGPL
+(desktop details and how to replace FFmpeg: desktop/README.md).
 
 
 iOS app (iosApp/)

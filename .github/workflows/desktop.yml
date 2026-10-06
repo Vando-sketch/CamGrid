@@ -122,4 +122,4 @@ jobs:
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Desktop preview build ($GITHUB_REF_NAME)" \
-            --notes "Desktop test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info, Run anyway. Linux: .deb (Debian, Ubuntu) or .rpm (Fedora, openSUSE). Bundles FFmpeg (LGPL-2.1) and libwebrtc; see desktop/README.md for licences and sources."
+            --notes "Desktop test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info, Run anyway. Linux: .deb (Debian, Ubuntu) or .rpm (Fedora, openSUSE). Bundles FFmpeg (LGPL build) and libwebrtc; see desktop/README.md for licences and sources."
