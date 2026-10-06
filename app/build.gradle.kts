@@ -64,6 +64,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Compose UI tests run under Robolectric and need the app's string resources.
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -91,4 +96,7 @@ dependencies {
     implementation(libs.coroutines.android)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
 }

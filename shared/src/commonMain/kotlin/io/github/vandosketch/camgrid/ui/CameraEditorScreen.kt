@@ -2,7 +2,6 @@ package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,7 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -97,10 +95,16 @@ fun CameraEditorScreen(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Save sits in the header so it stays reachable without scrolling past the fields
+        // (the keyboard covers the bottom on phones). Cancel is the only button at the bottom.
         ScreenHeader(
             title = stringResource(if (camera == null) Res.string.editor_title_new else Res.string.editor_title_edit),
-            actionLabel = stringResource(Res.string.cancel),
-            onAction = onCancel,
+            actionLabel = stringResource(Res.string.save),
+            onAction = {
+                saveAttempted = true
+                if (CameraValidator.validate(draft).isEmpty()) onSave(draft)
+            },
+            primary = true,
         )
 
         EditorField(
@@ -150,25 +154,13 @@ fun CameraEditorScreen(
             keyboardType = KeyboardType.Uri,
         )
 
-        Row(
-            modifier = Modifier.padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        OutlinedButton(
+            onClick = onCancel,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .focusBorder(shape = CircleShape),
         ) {
-            Button(
-                onClick = {
-                    saveAttempted = true
-                    if (CameraValidator.validate(draft).isEmpty()) onSave(draft)
-                },
-                modifier = Modifier.focusBorder(shape = CircleShape),
-            ) {
-                Text(stringResource(Res.string.save))
-            }
-            OutlinedButton(
-                onClick = onCancel,
-                modifier = Modifier.focusBorder(shape = CircleShape),
-            ) {
-                Text(stringResource(Res.string.cancel))
-            }
+            Text(stringResource(Res.string.cancel))
         }
     }
 }

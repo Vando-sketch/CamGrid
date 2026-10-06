@@ -302,13 +302,17 @@ private fun RowIconButton(onClick: () -> Unit, icon: ImageVector, description: S
     }
 }
 
-/** Title row with one action button (Done / Back) on the right. */
+/**
+ * Title row with one action button (Done / Back / Save) on the right. [primary] draws it as a
+ * filled button, for the action that commits the screen.
+ */
 @Composable
 fun ScreenHeader(
     title: String,
     actionLabel: String,
     onAction: () -> Unit,
     actionRequester: FocusRequester? = null,
+    primary: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -325,13 +329,13 @@ fun ScreenHeader(
         Spacer(Modifier.width(16.dp))
         val requesterModifier =
             if (actionRequester != null) Modifier.focusRequester(actionRequester) else Modifier
-        OutlinedButton(
-            onClick = onAction,
-            modifier = Modifier
-                .focusBorder(shape = CircleShape)
-                .then(requesterModifier),
-        ) {
-            Text(actionLabel)
+        val buttonModifier = Modifier
+            .focusBorder(shape = CircleShape)
+            .then(requesterModifier)
+        if (primary) {
+            Button(onClick = onAction, modifier = buttonModifier) { Text(actionLabel) }
+        } else {
+            OutlinedButton(onClick = onAction, modifier = buttonModifier) { Text(actionLabel) }
         }
     }
 }
