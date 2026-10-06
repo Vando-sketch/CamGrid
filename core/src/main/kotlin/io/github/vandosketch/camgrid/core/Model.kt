@@ -36,39 +36,31 @@ data class Camera(
         get() = detailUrl.trim().ifEmpty { gridUrl.trim() }
 }
 
-/** Grid dimensions. Both values must be within [MIN_SIZE]..[MAX_SIZE], otherwise [IllegalArgumentException]. */
-@Serializable
-data class GridLayout(
-    val columns: Int = 2,
-    val rows: Int = 2,
-) {
-    init {
-        require(columns in MIN_SIZE..MAX_SIZE) { "columns must be in $MIN_SIZE..$MAX_SIZE, was $columns" }
-        require(rows in MIN_SIZE..MAX_SIZE) { "rows must be in $MIN_SIZE..$MAX_SIZE, was $rows" }
-    }
-
-    /** Number of tiles on one page: columns * rows. */
-    val tilesPerPage: Int
-        get() = columns * rows
-
-    companion object {
-        const val MIN_SIZE = 1
-        const val MAX_SIZE = 4
-    }
-}
-
 /**
- * The whole app configuration. Camera order in the grid is the order of [cameras].
- * [go2rtcBaseUrl] is optional and only used to import streams (for example http://192.0.2.10:1984).
+ * The whole app configuration. [views] are shown one after the other, each as one or more pages
+ * (see [ViewPaging]); there is always at least one, and view ids are unique. Auto tiles take
+ * cameras in the order of [cameras]. [go2rtcBaseUrl] is optional and only used to import streams
+ * (for example http://192.0.2.10:1984).
+ *
+ * Version history: 1 had a single uniform `layout` {columns, rows}; 2 replaced it with [views].
+ * [ConfigCodec] migrates older files.
  */
 @Serializable
 data class CamGridConfig(
-    val layout: GridLayout = GridLayout(),
+    val views: List<CamView> = listOf(CamView.uniform(DEFAULT_VIEW_ID, "", 2, 2)),
     val cameras: List<Camera> = emptyList(),
     val go2rtcBaseUrl: String = "",
     val version: Int = CURRENT_VERSION,
 ) {
+    init {
+        require(views.isNotEmpty()) { "At least one view is needed" }
+        require(views.map { it.id }.toSet().size == views.size) { "View ids must be unique" }
+    }
+
     companion object {
-        const val CURRENT_VERSION = 1
+        const val CURRENT_VERSION = 2
+
+        /** Id of the view a version 1 grid becomes. */
+        const val DEFAULT_VIEW_ID = "main"
     }
 }
