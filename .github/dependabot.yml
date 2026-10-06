@@ -1,0 +1,45 @@
+# Dependabot version updates. Security updates are switched on separately in the repo settings.
+# Updates are grouped so a weekly run opens a few PRs, not one per library.
+version: 2
+updates:
+  # gradle/libs.versions.toml, the build scripts and the Gradle wrapper.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Skip releases younger than a week; brand-new versions are where broken or hijacked
+    # releases show up first. Does not delay security updates.
+    cooldown:
+      default-days: 7
+    groups:
+      # Kotlin, its Compose/serialization plugins and AGP move together: a Kotlin bump
+      # often needs a matching AGP (and the other way round).
+      kotlin-and-agp:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "com.android*"
+      androidx:
+        patterns:
+          - "androidx.*"
+      kotlinx:
+        patterns:
+          - "org.jetbrains.kotlinx*"
+      test:
+        patterns:
+          - "junit:junit"
+          - "org.robolectric*"
+    # Not grouped: io.github.webrtc-sdk (native libwebrtc, test on a device) and the
+    # Gradle wrapper, each gets its own PR.
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"
