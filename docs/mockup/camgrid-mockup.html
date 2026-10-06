@@ -1,0 +1,500 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>CamGrid Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Sora:wght@600;700&display=swap">
+<style>
+/* Layout: page chrome around a 16:9 "TV" that runs the app mock; remote below. The TV is always dark (the app is dark-only). */
+:root {
+  --page: #eef1f5; --ink: #1b2330; --muted: #5a6677; --line: #d3dae4; --chip: #e2e7ee;
+  --remote: #222831; --remote-key: #343c48; --remote-ink: #e8edf3;
+  /* App tokens, copied from ui/Theme.kt and ui/FocusBorder.kt */
+  --app-bg: #000000; --app-surface: #121212; --app-variant: #1e2329; --app-on: #e6e6e6;
+  --app-on-variant: #b8c0ca; --app-primary: #8ab4f8; --app-on-primary: #002a5c;
+  --app-sec: #2a3440; --app-on-sec: #e3e8ef; --app-error: #ff8a80; --focus: #ffc107;
+  --scrim: rgba(0,0,0,.6);
+  --f-display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d1117; --ink: #e3e8ef; --muted: #8f9bab; --line: #273040; --chip: #1a212c;
+  --remote: #1a1f27; --remote-key: #2b323d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d1117; --ink: #e3e8ef; --muted: #8f9bab; --line: #273040; --chip: #1a212c;
+  --remote: #1a1f27; --remote-key: #2b323d; color-scheme: dark }
+
+html, body { background: var(--page); color: var(--ink); }
+body { font-family: var(--f-body); padding: 24px 16px 40px; }
+.wrap { max-width: 1060px; margin: 0 auto; display: grid; gap: 18px; }
+header h1 { font-family: var(--f-display); font-size: 1.6rem; margin: 0; letter-spacing: -.01em; }
+header p { margin: 6px 0 0; color: var(--muted); max-width: 68ch; line-height: 1.5; }
+.stage { display: grid; grid-template-columns: minmax(0,1fr) 210px; gap: 20px; align-items: start; }
+@media (max-width: 760px) { .stage { grid-template-columns: minmax(0,1fr); } }
+
+.tv { background: #0a0a0a; border-radius: 14px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.screen { position: relative; aspect-ratio: 16/9; max-width: 100%; background: var(--app-bg); color: var(--app-on);
+  overflow: hidden; border-radius: 4px; font-family: var(--f-body); font-size: clamp(9px, 1.35vw, 14px); container-type: inline-size; }
+.screen:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+/* Grid */
+.grid { position: absolute; inset: 0; display: grid; }
+.tile { position: relative; margin: 2px; background: #050505; cursor: pointer; overflow: hidden; border-radius: 4px; }
+.tile canvas { width: 100%; height: 100%; display: block; }
+.tile.focused::after { content: ""; position: absolute; inset: 0; border: 5px solid var(--focus); border-radius: 4px; pointer-events: none; }
+.label { position: absolute; left: 8px; bottom: 8px; background: var(--scrim); border-radius: 4px; padding: 2px 6px; font-size: .9em; }
+.status { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: var(--scrim); border-radius: 8px;
+  padding: 6px 12px; text-align: center; white-space: nowrap; }
+.status .err { color: var(--app-error); }
+.status small { display: block; color: var(--app-on-variant); font-family: var(--f-mono); font-size: .8em; margin-top: 2px; }
+.pager { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); background: var(--scrim); border-radius: 12px; padding: 4px 12px; font-variant-numeric: tabular-nums; }
+.gear { position: absolute; top: 8px; right: 8px; width: 2.6em; height: 2.6em; border-radius: 50%; border: 0; background: var(--scrim); color: var(--app-on); cursor: pointer; display: grid; place-items: center; }
+.gear.focused { box-shadow: 0 0 0 3px var(--focus); }
+.gear svg { width: 1.4em; height: 1.4em; fill: currentColor; }
+.empty { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; padding: 32px; }
+.empty h2 { margin: 0; font-size: 1.6em; font-weight: 500; }
+.empty p { margin: 0 0 16px; color: var(--app-on-variant); }
+
+/* Fullscreen */
+.full { position: absolute; inset: 0; }
+.full canvas { width: 100%; height: 100%; display: block; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; transition: opacity .3s; }
+.overlay.hidden { opacity: 0; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: linear-gradient(var(--scrim), transparent); }
+.topbar b { font-size: 1.3em; font-weight: 500; }
+.topbar .pos { color: var(--app-on-variant); font-variant-numeric: tabular-nums; }
+.topbar .snd { margin-left: auto; background: var(--app-sec); color: var(--app-on-sec); padding: 4px 12px; border-radius: 16px; }
+.hint { align-self: center; margin: 12px; background: var(--scrim); border-radius: 8px; padding: 4px 12px; color: var(--app-on-variant); font-size: .85em; }
+
+/* Settings-type screens */
+.page { position: absolute; inset: 0; background: var(--app-surface); overflow-y: auto; padding: 1.6em 2.2em; display: grid; align-content: start; gap: .9em; }
+.bar { display: flex; align-items: center; gap: 1em; }
+.bar h2 { margin: 0; font-size: 1.6em; font-weight: 500; flex: 1; }
+.sect { color: var(--app-primary); font-weight: 500; margin-top: .4em; }
+.btn { font: inherit; border-radius: 20px; padding: .45em 1.1em; cursor: pointer; border: 1px solid #5d6672; background: transparent; color: var(--app-primary); }
+.btn.fill { background: var(--app-primary); color: var(--app-on-primary); border-color: var(--app-primary); }
+.btn.text { border-color: transparent; }
+.btn.focused, .ibtn.focused, .field.focused input, .check.focused { box-shadow: 0 0 0 3px var(--focus); }
+.row { display: flex; align-items: center; gap: .8em; flex-wrap: wrap; }
+.stepper .v { min-width: 2ch; text-align: center; font-size: 1.2em; font-variant-numeric: tabular-nums; }
+.stepper .lbl { min-width: 6em; }
+.camrow { display: flex; align-items: center; gap: .4em; background: var(--app-variant); border-radius: 10px; padding: .5em .8em; }
+.camrow .txt { flex: 1; min-width: 0; }
+.camrow .txt div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.camrow .url { color: var(--app-on-variant); font-family: var(--f-mono); font-size: .8em; }
+.ibtn { width: 2.3em; height: 2.3em; border-radius: 50%; border: 0; background: transparent; color: var(--app-on); cursor: pointer; display: grid; place-items: center; }
+.ibtn svg { width: 1.3em; height: 1.3em; fill: currentColor; }
+.muted { color: var(--app-on-variant); }
+.field { display: grid; gap: .25em; }
+.field label { color: var(--app-on-variant); font-size: .85em; }
+.field input { font: inherit; font-family: var(--f-mono); font-size: .95em; background: transparent; color: var(--app-on); border: 1px solid #5d6672; border-radius: 4px; padding: .55em .7em; }
+.field .err { color: var(--app-error); font-size: .82em; }
+.field .help { color: var(--app-on-variant); font-size: .82em; }
+.check { display: flex; gap: .8em; align-items: center; background: var(--app-variant); border-radius: 10px; padding: .5em .8em; cursor: pointer; }
+.box { width: 1.1em; height: 1.1em; border: 2px solid var(--app-on-variant); border-radius: 3px; display: grid; place-items: center; flex: none; }
+.check.on .box { background: var(--app-primary); border-color: var(--app-primary); }
+.check.on .box::after { content: ""; width: .35em; height: .6em; border: solid var(--app-on-primary); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
+.check.dis { opacity: .55; cursor: default; }
+.dialog-back { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; }
+.dialog { background: #2b2f35; border-radius: 24px; padding: 1.5em; width: min(28em, 80%); display: grid; gap: .8em; }
+.dialog h3 { margin: 0; font-weight: 500; font-size: 1.3em; }
+
+/* Remote and side notes */
+.side { display: grid; gap: 16px; }
+.remote { background: var(--remote); border-radius: 26px; padding: 18px 16px; display: grid; gap: 12px; justify-items: center; color: var(--remote-ink); }
+.dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 4px; }
+.k { border: 0; border-radius: 12px; background: var(--remote-key); color: var(--remote-ink); font: 500 14px var(--f-body); cursor: pointer; }
+.k:active { filter: brightness(1.3); }
+.k:focus-visible { outline: 2px solid var(--focus); }
+.k.ok { border-radius: 50%; }
+.keys { display: flex; gap: 8px; }
+.keys .k { padding: 8px 12px; }
+.remote small { color: #9aa5b4; font-size: 11px; text-align: center; line-height: 1.4; }
+.notes { font-size: 13px; line-height: 1.5; color: var(--muted); display: grid; gap: 8px; }
+.notes b { color: var(--ink); font-weight: 500; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: 500 13px var(--f-body); cursor: pointer; }
+.tab[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
+kbd { font-family: var(--f-mono); font-size: 12px; background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+@media (prefers-reduced-motion: reduce) { .overlay { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>CamGrid Preview</h1>
+    <p>A clickable mock of the app's screens, built from its Compose code: same layout, colors and texts. Video is simulated and the cameras are examples. Click or tap like on a phone, or use the remote (or your arrow keys, Enter, Esc and M) like on the Fire TV.</p>
+  </header>
+
+  <div class="tabs" role="group" aria-label="Jump to a screen">
+    <button class="tab" data-jump="grid" aria-pressed="true">Grid</button>
+    <button class="tab" data-jump="full">Fullscreen</button>
+    <button class="tab" data-jump="settings">Settings</button>
+    <button class="tab" data-jump="editor">Camera editor</button>
+    <button class="tab" data-jump="import">go2rtc import</button>
+    <button class="tab" data-jump="empty">First start</button>
+  </div>
+
+  <div class="stage">
+    <div class="tv"><div class="screen" id="screen" tabindex="0" aria-label="CamGrid app screen"></div></div>
+    <div class="side">
+      <div class="remote" aria-label="Fire TV remote">
+        <div class="dpad">
+          <span></span><button class="k" data-key="UP" aria-label="Up">▲</button><span></span>
+          <button class="k" data-key="LEFT" aria-label="Left">◀</button><button class="k ok" data-key="OK">OK</button><button class="k" data-key="RIGHT" aria-label="Right">▶</button>
+          <span></span><button class="k" data-key="DOWN" aria-label="Down">▼</button><span></span>
+        </div>
+        <div class="keys"><button class="k" data-key="BACK">Back</button><button class="k" data-key="MENU">☰ Menu</button></div>
+        <small>Keyboard: <kbd>←↑→↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd> <kbd>M</kbd></small>
+      </div>
+      <div class="notes">
+        <div><b>Grid</b> plays each camera's grid URL, muted. Moving past the right or left edge flips the page.</div>
+        <div><b>Fullscreen</b> stops the grid streams first, then plays the detail URL with sound.</div>
+        <div><b>Tile states</b> come from the player: connecting, playing, or offline with a retry countdown.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const ICON = {
+    gear: '<svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.5 7.5 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.66 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.38.3.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.05.24.25.42.49.42h3.84c.25 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.48 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2Z"/></svg>',
+    up: '<svg viewBox="0 0 24 24"><path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>',
+    down: '<svg viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>',
+    edit: '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
+    del: '<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
+  };
+  const H = '192.0.2.10';
+  const rtsp = n => `rtsp://${H}:8554/${n}`;
+  const SAMPLE = [
+    ['kitchen', 'Kitchen', 0], ['front_door', 'Front door', 1], ['garden', 'Garden', 2], ['driveway', 'Driveway', 3],
+    ['garage', 'Garage', 4], ['hallway', 'Hallway', 5], ['terrace', 'Terrace', 6],
+  ].map(([s, name, i]) => ({ id: 'go2rtc:' + s, name, gridUrl: rtsp(s + '_medium'), detailUrl: rtsp(s + '_high'), scene: i }));
+
+  const S = {
+    screen: 'grid', cols: 2, rows: 2, cams: SAMPLE.slice(0, 6), page: 0, focus: 0, keyMode: false,
+    full: 0, muted: false, overlayUntil: 0, sel: 0, editing: null, form: null, errors: {}, del: null,
+    imp: { base: 'http://' + H + ':1984', state: 'idle', picks: new Set() },
+    status: {}, // per-camera simulated player status
+  };
+  const el = document.getElementById('screen');
+  const per = () => S.cols * S.rows;
+  const pageCount = () => Math.ceil(S.cams.length / per());
+  const pageCams = p => S.cams.slice(p * per(), (p + 1) * per());
+
+  // Port of core GridNavigator.move
+  function navMove(page, index, dir) {
+    const cols = S.cols, n = S.cams.length, pages = pageCount();
+    const onPage = p => Math.min(per(), n - p * per());
+    const row = Math.floor(index / cols), col = index % cols, cnt = onPage(page);
+    if (dir === 'UP') return index - cols >= 0 ? [page, index - cols] : [page, index];
+    if (dir === 'DOWN') return index + cols < cnt ? [page, index + cols] : [page, index];
+    if (dir === 'LEFT') {
+      if (col > 0) return [page, index - 1];
+      if (page === 0) return [page, index];
+      const t = row * cols + cols - 1; return [page - 1, Math.min(t, onPage(page - 1) - 1)];
+    }
+    if (col < cols - 1 && index + 1 < cnt) return [page, index + 1];
+    if (page + 1 >= pages) return [page, index];
+    return [page + 1, Math.min(row * cols, onPage(page + 1) - 1)];
+  }
+
+  // Simulated stream status: each camera connects, one example camera stays offline.
+  function startStreams(ids) {
+    const now = performance.now();
+    ids.forEach((id, i) => { S.status[id] = { kind: 'connecting', until: now + 700 + i * 350 }; });
+  }
+  function tickStatus(now) {
+    for (const [id, st] of Object.entries(S.status)) {
+      if (st.kind === 'connecting' && now > st.until) {
+        if (id === 'go2rtc:garage' && S.screen === 'grid') S.status[id] = { kind: 'offline', retryAt: now + 8000 };
+        else S.status[id] = { kind: 'playing' };
+      } else if (st.kind === 'offline' && now > st.retryAt) S.status[id] = { kind: 'connecting', until: now + 1200 };
+    }
+  }
+
+  // Fake camera picture: a simple scene per camera with grain and a running timestamp.
+  const SCENES = [
+    ['#3b3f45', '#6f6a60', 'counter'], ['#2c3a46', '#56616a', 'door'], ['#203826', '#3f5f37', 'lawn'],
+    ['#30343a', '#55585c', 'road'], ['#2b2b2e', '#4a4846', 'garage'], ['#3a3530', '#6b6155', 'hall'], ['#24313b', '#4f5b52', 'lawn'],
+  ];
+  function drawScene(cv, cam, t, hi) {
+    const r = cv.getBoundingClientRect(); const dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(r.width * dpr / (hi ? 1 : 1.6))), h = Math.max(1, Math.round(r.height * dpr / (hi ? 1 : 1.6)));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const c = cv.getContext('2d'); const [a, b, kind] = SCENES[cam.scene % SCENES.length];
+    const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, a); g.addColorStop(1, b); c.fillStyle = g; c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(0,0,0,.28)';
+    if (kind === 'counter') { c.fillRect(0, h * .62, w, h * .38); c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(w * .1, h * .2, w * .25, h * .3); c.fillRect(w * .6, h * .15, w * .3, h * .2); }
+    if (kind === 'door') { c.fillRect(w * .38, h * .18, w * .24, h * .82); c.fillStyle = 'rgba(255,255,255,.1)'; c.fillRect(0, h * .85, w, h * .15); }
+    if (kind === 'lawn') { c.fillStyle = 'rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(w * .75, h * .45, w * .14, h * .3, 0, 0, 7); c.fill(); c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(0, 0, w, h * .3); }
+    if (kind === 'road') { c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.moveTo(w * .35, 0); c.lineTo(w * .65, 0); c.lineTo(w, h); c.lineTo(0, h); c.fill();
+      const x = ((t / 60) % (w + 200)) - 100; c.fillStyle = 'rgba(210,215,220,.35)'; c.fillRect(x, h * .62, w * .12, h * .1); }
+    if (kind === 'garage') { for (let i = 0; i < 6; i++) { c.fillStyle = `rgba(255,255,255,${.03 + i * .01})`; c.fillRect(w * .2, h * (.2 + i * .1), w * .6, h * .07); } }
+    if (kind === 'hall') { c.fillRect(w * .15, 0, w * .1, h); c.fillRect(w * .75, 0, w * .1, h); c.fillStyle = 'rgba(255,240,200,.08)'; c.fillRect(w * .3, h * .1, w * .4, h * .9); }
+    // sensor grain
+    const n = Math.round(w * h / 90);
+    for (let i = 0; i < n; i++) { c.fillStyle = Math.random() < .5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.07)'; c.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5); }
+    const d = new Date(); const ts = d.toLocaleDateString('en-CA') + ' ' + d.toLocaleTimeString('en-GB');
+    c.font = `${Math.max(9, Math.round(h / (hi ? 24 : 14)))}px ui-monospace, Menlo, monospace`; c.fillStyle = 'rgba(255,255,255,.8)';
+    c.fillText(ts, w * .03, h * .09);
+  }
+
+  const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+  // ---------- rendering ----------
+  let focusables = []; // for list screens: array of {el, act}
+  function render() {
+    document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.jump === S.screen)));
+    focusables = [];
+    if (S.screen === 'grid') return renderGrid();
+    if (S.screen === 'full') return renderFull();
+    if (S.screen === 'settings') return renderSettings();
+    if (S.screen === 'editor') return renderEditor();
+    if (S.screen === 'import') return renderImport();
+  }
+
+  function renderGrid() {
+    if (!S.cams.length) {
+      el.innerHTML = `<div class="empty"><h2>No cameras yet</h2><p>Add cameras in the settings, by hand or imported from go2rtc.</p><div><button class="btn fill" id="emptyBtn">Settings</button></div></div>`;
+      const b = el.querySelector('#emptyBtn'); focusables = [{ el: b, act: () => go('settings') }]; b.onclick = () => go('settings'); S.sel = 0; paintFocus(); return;
+    }
+    S.page = Math.min(S.page, pageCount() - 1);
+    const cams = pageCams(S.page);
+    S.focus = Math.min(S.focus, cams.length - 1);
+    let html = `<div class="grid" style="grid-template-columns:repeat(${S.cols},1fr);grid-template-rows:repeat(${S.rows},1fr)">`;
+    for (let i = 0; i < per(); i++) {
+      const cam = cams[i];
+      html += cam ? `<div class="tile${S.keyMode && S.focus === i && S.focus >= 0 ? ' focused' : ''}" data-i="${i}" role="button" aria-label="${esc(cam.name)}"><canvas></canvas><div class="status-slot"></div><div class="label">${esc(cam.name)}</div></div>` : '<div></div>';
+    }
+    html += '</div>';
+    if (pageCount() > 1) html += `<div class="pager">${S.page + 1} / ${pageCount()}</div>`;
+    html += `<button class="gear${S.keyMode && S.focus === -1 ? ' focused' : ''}" aria-label="Settings">${ICON.gear}</button>`;
+    el.innerHTML = html;
+    el.querySelectorAll('.tile').forEach(t => t.onclick = () => { S.keyMode = false; openFull(S.page * per() + +t.dataset.i); });
+    el.querySelector('.gear').onclick = () => go('settings');
+    // swipe to change page
+    let sx = null; el.onpointerdown = e => { sx = e.clientX; };
+    el.onpointerup = e => { if (sx == null || S.screen !== 'grid') return; const dx = e.clientX - sx; sx = null;
+      if (Math.abs(dx) > 60) { const p = S.page + (dx < 0 ? 1 : -1); if (p >= 0 && p < pageCount()) { S.page = p; startStreams(pageCams(p).map(c => c.id)); render(); } } };
+  }
+
+  function openFull(idx) {
+    S.full = idx; S.screen = 'full'; S.muted = false; S.overlayUntil = performance.now() + 4000;
+    S.status = {}; startStreams([S.cams[idx].id]); render();
+  }
+  function renderFull() {
+    const cam = S.cams[S.full];
+    el.innerHTML = `<div class="full"><canvas></canvas><div class="status-slot"></div>
+      <div class="overlay" id="ov"><div class="topbar"><b>${esc(cam.name)}</b><span class="pos">${S.full + 1} / ${S.cams.length}</span><span class="snd">${S.muted ? 'Muted' : 'Sound on'}</span></div>
+      <div class="hint">◀ ▶ or swipe: switch camera · OK: sound on/off · Back: grid</div></div></div>`;
+    el.onpointerdown = e => { el._sx = e.clientX; };
+    el.onpointerup = e => { const dx = e.clientX - (el._sx ?? e.clientX); el._sx = null;
+      if (Math.abs(dx) > 60) switchCam(dx < 0 ? 1 : -1); else { S.overlayUntil = performance.now() + 4000; } };
+  }
+  function switchCam(d) { const n = S.cams.length; S.full = (S.full + d + n) % n; S.overlayUntil = performance.now() + 4000; S.status = {}; startStreams([S.cams[S.full].id]); render(); }
+
+  function wire() {
+    focusables = [...el.querySelectorAll('[data-f]')].map(n => ({ el: n, act: () => n.click() }));
+    S.sel = Math.min(S.sel, focusables.length - 1);
+    paintFocus();
+  }
+  function paintFocus() {
+    focusables.forEach((f, i) => f.el.classList.toggle('focused', S.keyMode && i === S.sel));
+    const f = focusables[S.sel]; if (S.keyMode && f) f.el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function renderSettings() {
+    const rows = S.cams.map((c, i) => `<div class="camrow"><div class="txt"><div>${esc(c.name)}</div><div class="url">Grid: ${esc(c.gridUrl)}</div><div class="url">${c.detailUrl ? 'Detail: ' + esc(c.detailUrl) : 'Detail: same as grid'}</div></div>
+      <button class="ibtn" data-f data-a="up" data-i="${i}" aria-label="Move ${esc(c.name)} up">${ICON.up}</button>
+      <button class="ibtn" data-f data-a="down" data-i="${i}" aria-label="Move ${esc(c.name)} down">${ICON.down}</button>
+      <button class="ibtn" data-f data-a="edit" data-i="${i}" aria-label="Edit ${esc(c.name)}">${ICON.edit}</button>
+      <button class="ibtn" data-f data-a="del" data-i="${i}" aria-label="Delete ${esc(c.name)}">${ICON.del}</button></div>`).join('');
+    el.innerHTML = `<div class="page" id="pg">
+      <div class="bar"><h2>Settings</h2><button class="btn text" data-f data-a="done">Done</button></div>
+      <div class="sect">Grid layout</div>
+      <div class="row stepper"><span class="lbl">Columns</span><button class="btn" data-f data-a="c-" aria-label="Decrease Columns">−</button><span class="v">${S.cols}</span><button class="btn" data-f data-a="c+" aria-label="Increase Columns">+</button></div>
+      <div class="row stepper"><span class="lbl">Rows</span><button class="btn" data-f data-a="r-" aria-label="Decrease Rows">−</button><span class="v">${S.rows}</span><button class="btn" data-f data-a="r+" aria-label="Increase Rows">+</button></div>
+      <div class="muted">Cameras per page: ${per()}</div>
+      <div class="sect">Cameras</div>
+      <div class="row"><button class="btn fill" data-f data-a="add">Add camera</button><button class="btn" data-f data-a="import">Import from go2rtc</button></div>
+      ${rows || '<div class="muted">No cameras configured.</div>'}
+    </div>${S.del != null ? `<div class="dialog-back"><div class="dialog"><h3>Delete camera?</h3><div class="muted">"${esc(S.cams[S.del].name)}" will be removed from the grid.</div>
+      <div class="row" style="justify-content:flex-end"><button class="btn text" data-f data-a="cancel">Cancel</button><button class="btn text" data-f data-a="delok">Delete</button></div></div></div>` : ''}`;
+    el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => settingsAct(b.dataset.a, +b.dataset.i));
+    if (S.del != null) { [...el.querySelectorAll('#pg [data-f]')].forEach(n => n.removeAttribute('data-f')); }
+    wire();
+  }
+  function settingsAct(a, i) {
+    const clamp = v => Math.max(1, Math.min(4, v));
+    if (a === 'done') return go('grid');
+    if (a === 'c-') S.cols = clamp(S.cols - 1); if (a === 'c+') S.cols = clamp(S.cols + 1);
+    if (a === 'r-') S.rows = clamp(S.rows - 1); if (a === 'r+') S.rows = clamp(S.rows + 1);
+    if (a === 'up' && i > 0) { [S.cams[i - 1], S.cams[i]] = [S.cams[i], S.cams[i - 1]]; }
+    if (a === 'down' && i < S.cams.length - 1) { [S.cams[i + 1], S.cams[i]] = [S.cams[i], S.cams[i + 1]]; }
+    if (a === 'edit') return openEditor(S.cams[i]);
+    if (a === 'add') return openEditor(null);
+    if (a === 'import') { S.imp.state = 'idle'; S.imp.picks = new Set(); return go('import'); }
+    if (a === 'del') { S.del = i; S.sel = 0; }
+    if (a === 'cancel') { S.del = null; }
+    if (a === 'delok') { S.cams.splice(S.del, 1); S.del = null; S.sel = 0; }
+    render();
+  }
+
+  function openEditor(cam) {
+    S.editing = cam ? cam.id : null;
+    S.form = cam ? { name: cam.name, gridUrl: cam.gridUrl, detailUrl: cam.detailUrl } : { name: '', gridUrl: '', detailUrl: '' };
+    S.errors = {}; go('editor');
+  }
+  const validUrl = u => /^(rtsps?|https?):\/\/(?:[^\s/@]*@)?[^\s/:@?#]+(?::\d+)?(?:[/?#]\S*)?$/i.test(u.trim());
+  function renderEditor() {
+    const f = S.form, e = S.errors;
+    const field = (k, label, hint, help) => `<div class="field" data-field="${k}"><label for="f-${k}">${label}</label>
+      <input id="f-${k}" data-f value="${esc(f[k])}" placeholder="${esc(hint)}" autocomplete="off" spellcheck="false">
+      ${e[k] ? `<div class="err">${e[k]}</div>` : help ? `<div class="help">${help}</div>` : ''}</div>`;
+    el.innerHTML = `<div class="page">
+      <div class="bar"><button class="btn text" data-f data-a="back">Back</button><h2>${S.editing ? 'Edit camera' : 'Add camera'}</h2><button class="btn fill" data-f data-a="save">Save</button></div>
+      ${field('name', 'Name', 'Kitchen')}
+      ${field('gridUrl', 'Grid URL (low resolution, muted)', rtsp('kitchen_medium'))}
+      ${field('detailUrl', 'Detail URL (high resolution, optional)', rtsp('kitchen_high'), 'Played in fullscreen with sound. Leave empty to use the grid URL.')}
+    </div>`;
+    el.querySelectorAll('input').forEach(inp => inp.oninput = () => { S.form[inp.id.slice(2)] = inp.value; });
+    el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => b.dataset.a === 'back' ? go('settings') : save());
+    wire();
+  }
+  function save() {
+    const f = S.form, e = {};
+    if (!f.name.trim()) e.name = 'Enter a name.';
+    if (!f.gridUrl.trim()) e.gridUrl = 'Enter the grid stream URL.'; else if (!validUrl(f.gridUrl)) e.gridUrl = 'Use rtsp://, rtsps://, http:// or https:// with a host and no spaces.';
+    if (f.detailUrl.trim() && !validUrl(f.detailUrl)) e.detailUrl = 'Use rtsp://, rtsps://, http:// or https:// with a host and no spaces.';
+    S.errors = e; if (Object.keys(e).length) return render();
+    const cam = { name: f.name.trim(), gridUrl: f.gridUrl.trim(), detailUrl: f.detailUrl.trim() };
+    if (S.editing) Object.assign(S.cams.find(c => c.id === S.editing), cam);
+    else S.cams.push({ ...cam, id: 'cam-' + Math.random().toString(36).slice(2, 8), scene: S.cams.length });
+    go('settings');
+  }
+
+  // go2rtc import: example server answer, paired the same way as core Go2rtc.suggestCameras.
+  const SERVER = ['kitchen_medium', 'kitchen_high', 'front_door_medium', 'front_door_high', 'garden_medium', 'garden_high',
+    'driveway_medium', 'driveway_high', 'garage_medium', 'garage_high', 'hallway_medium', 'hallway_high', 'terrace_medium', 'terrace_high', 'doorbell'];
+  function suggestions() {
+    const by = new Map();
+    for (const n of SERVER) {
+      const m = n.match(/^(.+)[_.-]([^_.-]+)$/); let base = n, kind = 'plain';
+      if (m && /^(medium|med|low|sub|sd|lq|small|grid)$/i.test(m[2])) { base = m[1]; kind = 'grid'; }
+      else if (m && /^(high|main|hd|hq|full|detail)$/i.test(m[2])) { base = m[1]; kind = 'detail'; }
+      if (!by.has(base)) by.set(base, {}); const e = by.get(base); if (!e[kind]) e[kind] = n;
+    }
+    return [...by].map(([b, e]) => { const g = e.grid || e.plain || e.detail; const d = e.detail || (e.plain && e.plain !== g ? e.plain : '');
+      return { id: 'go2rtc:' + b, name: b, gridUrl: rtsp(g), detailUrl: d ? rtsp(d) : '' }; });
+  }
+  function renderImport() {
+    const I = S.imp; const have = new Set(S.cams.map(c => c.id));
+    let body = '';
+    if (I.state === 'loading') body = '<div class="muted">Fetching streams…</div>';
+    if (I.state === 'done') body = suggestions().map(s => { const added = have.has(s.id); const on = I.picks.has(s.id);
+      return `<div class="check${on ? ' on' : ''}${added ? ' dis' : ''}" ${added ? '' : 'data-f'} data-id="${s.id}"><span class="box"></span><div class="txt" style="min-width:0"><div>${esc(s.name)}${added ? ' <span class="muted">· Already added</span>' : ''}</div><div class="url" style="color:var(--app-on-variant);font-family:var(--f-mono);font-size:.8em">Grid: ${esc(s.gridUrl)}</div><div class="url" style="color:var(--app-on-variant);font-family:var(--f-mono);font-size:.8em">${s.detailUrl ? 'Detail: ' + esc(s.detailUrl) : 'Detail: same as grid'}</div></div></div>`; }).join('');
+    el.innerHTML = `<div class="page">
+      <div class="bar"><button class="btn text" data-f data-a="back">Back</button><h2>Import from go2rtc</h2></div>
+      <div class="field"><label for="f-base">go2rtc address</label><input id="f-base" data-f value="${esc(I.base)}" placeholder="http://${H}:1984" spellcheck="false"></div>
+      <div class="row"><button class="btn" data-f data-a="fetch">Fetch streams</button>${I.state === 'done' ? `<button class="btn fill" data-f data-a="imp">Import selected (${I.picks.size})</button>` : ''}</div>
+      ${body}</div>`;
+    el.querySelector('#f-base').oninput = e => { I.base = e.target.value; };
+    el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+      if (b.dataset.a === 'back') return go('settings');
+      if (b.dataset.a === 'fetch') { I.state = 'loading'; render(); setTimeout(() => { I.state = 'done'; render(); }, 700); return; }
+      if (b.dataset.a === 'imp') { suggestions().filter(s => I.picks.has(s.id)).forEach(s => S.cams.push({ ...s, scene: S.cams.length })); go('settings'); }
+    });
+    el.querySelectorAll('.check[data-id]').forEach(c => c.onclick = () => { if (c.classList.contains('dis')) return; const id = c.dataset.id; I.picks.has(id) ? I.picks.delete(id) : I.picks.add(id); render(); });
+    wire();
+  }
+
+  function go(screen) {
+    S.screen = screen; S.sel = 0; S.del = null;
+    if (screen === 'grid') { S.status = {}; startStreams(S.cams.length ? pageCams(Math.min(S.page, Math.max(0, pageCount() - 1))).map(c => c.id) : []); }
+    render();
+  }
+
+  // ---------- input ----------
+  function key(k) {
+    S.keyMode = true;
+    if (S.screen === 'grid') {
+      if (!S.cams.length) { if (k === 'OK' || k === 'MENU') go('settings'); return; }
+      if (k === 'MENU') return go('settings');
+      if (k === 'BACK') return;
+      if (S.focus === -1) { // settings button
+        if (k === 'DOWN' || k === 'LEFT') S.focus = 0; else if (k === 'OK') return go('settings');
+        return render();
+      }
+      if (k === 'OK') return openFull(S.page * per() + S.focus);
+      if (k === 'UP' && S.focus < S.cols) { S.focus = -1; return render(); }
+      const [p, i] = navMove(S.page, S.focus, k);
+      if (p !== S.page) { S.page = p; startStreams(pageCams(p).map(c => c.id)); }
+      S.focus = i; return render();
+    }
+    if (S.screen === 'full') {
+      if (k === 'BACK') { S.focus = S.full % per(); S.page = Math.floor(S.full / per()); return go('grid'); }
+      if (k === 'LEFT') return switchCam(-1);
+      if (k === 'RIGHT') return switchCam(1);
+      if (k === 'OK') { S.muted = !S.muted; S.overlayUntil = performance.now() + 4000; return render(); }
+      S.overlayUntil = performance.now() + 4000; return;
+    }
+    // list screens
+    if (k === 'BACK') { if (S.screen === 'settings') { if (S.del != null) { S.del = null; return render(); } return go('grid'); } return go('settings'); }
+    if (k === 'MENU') return;
+    if (k === 'DOWN' || k === 'RIGHT') S.sel = Math.min(focusables.length - 1, S.sel + 1);
+    if (k === 'UP' || k === 'LEFT') S.sel = Math.max(0, S.sel - 1);
+    if (k === 'OK') { const f = focusables[S.sel]; if (f) { if (f.el.tagName === 'INPUT') f.el.focus(); else f.act(); } return; }
+    paintFocus();
+  }
+  document.querySelectorAll('[data-key]').forEach(b => b.addEventListener('click', () => key(b.dataset.key)));
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') { if (e.key === 'Escape' || e.key === 'Enter') { e.target.blur(); e.preventDefault(); } return; }
+    const map = { ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', Enter: 'OK', Escape: 'BACK', Backspace: 'BACK', m: 'MENU', M: 'MENU' };
+    const k = map[e.key]; if (!k) return;
+    if (e.target.closest && e.target.closest('.tabs')) return;
+    e.preventDefault(); key(k);
+  });
+  el.addEventListener('pointerdown', () => { if (S.keyMode) { S.keyMode = false; if (S.screen === 'grid') render(); else paintFocus(); } });
+
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+    const j = b.dataset.jump;
+    if (j === 'empty') { S.cams = []; S.page = 0; return go('grid'); }
+    if (!S.cams.length) S.cams = SAMPLE.slice(0, 6).map(c => ({ ...c }));
+    if (j === 'full') return openFull(0);
+    if (j === 'editor') { S.screen = 'settings'; return openEditor(S.cams[0]); }
+    if (j === 'import') { S.imp.state = 'done'; S.imp.picks = new Set(['go2rtc:terrace']); S.screen = 'import'; S.sel = 0; return render(); }
+    go(j);
+  });
+
+  // ---------- animation loop ----------
+  let last = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (now - last < 90) return; last = now; // ~11 fps is plenty for a mock
+    tickStatus(now);
+    if (S.screen === 'grid' && S.cams.length) {
+      const cams = pageCams(S.page);
+      el.querySelectorAll('.tile').forEach(t => {
+        const cam = cams[+t.dataset.i]; const st = S.status[cam.id] || { kind: 'connecting' };
+        const cv = t.querySelector('canvas'); const slot = t.querySelector('.status-slot');
+        if (st.kind === 'playing') { drawScene(cv, cam, now, false); slot.innerHTML = ''; }
+        else { const c = cv.getContext('2d'); c.fillStyle = '#050505'; c.fillRect(0, 0, cv.width, cv.height);
+          slot.innerHTML = st.kind === 'offline'
+            ? `<div class="status"><span class="err">Offline · retry in ${Math.max(1, Math.ceil((st.retryAt - now) / 1000))} s</span><small>CONNECTION_REFUSED</small></div>`
+            : '<div class="status">Connecting…</div>'; }
+      });
+    }
+    if (S.screen === 'full') {
+      const cam = S.cams[S.full]; const st = S.status[cam.id] || { kind: 'connecting' };
+      const cv = el.querySelector('.full canvas'); const slot = el.querySelector('.full .status-slot');
+      if (cv) { if (st.kind === 'playing') { drawScene(cv, cam, now, true); slot.innerHTML = ''; }
+        else { const c = cv.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, cv.width, cv.height); slot.innerHTML = '<div class="status">Connecting…</div>'; } }
+      const ov = el.querySelector('#ov'); if (ov) ov.classList.toggle('hidden', now > S.overlayUntil);
+    }
+  }
+  go('grid');
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
