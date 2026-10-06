@@ -1,7 +1,8 @@
 name: iOS
+run-name: "iOS build ${{ github.run_number }} on ${{ github.ref_name }}"
 
 # The iOS app: Kotlin tests in the simulator, a simulator build, and an UNSIGNED device .ipa
-# (artifact camgrid-ios-unsigned) to sign with your own Apple ID, see docs/ios.md. No signing
+# (CamGrid-iOS-unsigned.ipa on the preview-ios release) to sign with your own Apple ID, see docs/ios.md. No signing
 # identity, team or provisioning profile is used or stored here.
 on:
   push:
@@ -17,10 +18,13 @@ concurrency:
 
 jobs:
   ios:
+    name: iOS
     # A branch of this repository already runs on push; its pull request would run everything twice.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: macos-latest
     timeout-minutes: 90
+    permissions:
+      contents: write # to publish the .ipa as a release
     env:
       PROJECT: iosApp/CamGrid.xcodeproj
       PACKAGES: ${{ github.workspace }}/.spm
@@ -106,21 +110,35 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
           cp -R "$RUNNER_TEMP/CamGrid.xcarchive/Products/Applications/CamGrid.app" "$RUNNER_TEMP/ipa/Payload/"
-          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/CamGrid-unsigned.ipa" Payload)
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/CamGrid-iOS-unsigned.ipa" Payload)
           ls -l dist
 
       - name: Upload the unsigned .ipa
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v5
         with:
-          name: camgrid-ios-unsigned
-          path: dist/CamGrid-unsigned.ipa
+          name: CamGrid-iOS-unsigned-build-${{ github.run_number }}
+          path: dist/CamGrid-iOS-unsigned.ipa
+
+      # A plain download link next to the Android and desktop ones (artifacts need a GitHub login).
+      - name: Publish iOS preview release
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview-ios; else tag="preview-ios-${GITHUB_REF_NAME##*/}"; fi
+          gh release delete "$tag" --cleanup-tag --yes || true
+          gh release create "$tag" dist/CamGrid-iOS-unsigned.ipa \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "CamGrid iOS build ${{ github.run_number }} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
+            --notes "Unsigned iPhone/iPad test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. Sign CamGrid-iOS-unsigned.ipa with your own Apple ID (Sideloadly or AltStore), see docs/ios.md. Bundles VLCKit (LGPL) and WebRTC; see NOTICE."
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: ios-test-reports
+          name: iOS-test-reports
           path: |
             core/build/reports/
             shared/build/reports/

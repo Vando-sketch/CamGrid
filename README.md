@@ -46,7 +46,7 @@ The mockups predate views, backup and the stream type setting. All mockup grids 
 
 CI builds an APK on every push to `main` and publishes it as the `preview` pre-release:
 
-**https://github.com/Vando-sketch/CamGrid/releases/download/preview/camgrid-debug.apk**
+**https://github.com/Vando-sketch/CamGrid/releases/download/preview/CamGrid-Android.apk**
 
 ### Phone
 
@@ -59,16 +59,16 @@ Open the link above on the phone, download the APK and install it. Android asks 
 3. On a computer with `adb` installed, on the same network:
 
    ```sh
-   curl -LO https://github.com/Vando-sketch/CamGrid/releases/download/preview/camgrid-debug.apk
+   curl -LO https://github.com/Vando-sketch/CamGrid/releases/download/preview/CamGrid-Android.apk
    adb connect <fire-tv-ip>:5555
-   adb install -r camgrid-debug.apk
+   adb install -r CamGrid-Android.apk
    ```
 
    Confirm the debugging prompt on the TV the first time. CamGrid then appears in the apps list.
 
 ### Desktop (macOS, Windows, Linux)
 
-CI builds installers on every push to `main` and publishes them as the `preview-desktop` pre-release: a `.dmg` (Apple Silicon), an `.msi`, and `.deb` / `.rpm`. They are not signed: on macOS right-click the app and choose Open the first time, on Windows choose "More info", "Run anyway". F11 toggles fullscreen. See [desktop/README.md](desktop/README.md).
+CI builds installers on every push to `main` and publishes them as the `preview-desktop` pre-release: `CamGrid-macOS-AppleSilicon.dmg`, `CamGrid-Windows-x64.msi`, and `CamGrid-Linux-x64.deb` / `.rpm`. They are not signed: on macOS right-click the app and choose Open the first time, on Windows choose "More info", "Run anyway". F11 toggles fullscreen. See [desktop/README.md](desktop/README.md).
 
 ### iPhone and iPad
 
@@ -76,7 +76,7 @@ Not in the App Store: build it with Xcode and your own Apple ID, or sign the uns
 
 ### Updating
 
-Android installs a new APK over the old one only when both are signed with the same key and the new one has a higher version code. Once the repository has its signing key set up (see [CI and signing](#ci-and-signing)), both are true for every CI build: install the new APK over the old one on a phone, or run `adb install -r camgrid-debug.apk` again on the Fire TV. Settings are kept.
+Android installs a new APK over the old one only when both are signed with the same key and the new one has a higher version code. Once the repository has its signing key set up (see [CI and signing](#ci-and-signing)), both are true for every CI build: install the new APK over the old one on a phone, or run `adb install -r CamGrid-Android.apk` again on the Fire TV. Settings are kept.
 
 The release notes of each preview say which key the build was signed with: `stable` (installs over the previous build) or `one-off` (no signing key was set; uninstall the old app first with `adb uninstall io.github.vandosketch.camgrid`).
 
@@ -100,7 +100,7 @@ The release notes of each preview say which key the build was signed with: `stab
 
 From then on, every new build installs over the old one.
 
-Each CI build's version code is its workflow run number, so a newer build is always a higher version. Installing an *older* build over a newer one is a downgrade, which Android refuses; `adb install -r -d camgrid-debug.apk` allows it for the debug APK. A local build without `CAMGRID_BUILD_NUMBER` has version code 1 and is signed with your local debug key, so it cannot replace a CI build either.
+Each CI build's version code is its workflow run number, so a newer build is always a higher version. Installing an *older* build over a newer one is a downgrade, which Android refuses; `adb install -r -d CamGrid-Android.apk` allows it. A local build without `CAMGRID_BUILD_NUMBER` has version code 1 and is signed with your local debug key, so it cannot replace a CI build either.
 
 ## Setup with go2rtc
 
@@ -235,9 +235,9 @@ The APK contains native libwebrtc for `armeabi-v7a`, `arm64-v8a` and `x86_64` (t
 
 ### CI and signing
 
-`.github/workflows/android.yml` runs unit tests, lint and both APK builds on every push to `main` and `claude/**` branches, on pull requests and on manual runs. The APKs are uploaded as the `camgrid-apks` workflow artifact. On a push, they are also published as a pre-release: `preview` for `main`, `preview-<last part of the branch name>` for other branches. Each push replaces the previous pre-release of the same tag.
+`.github/workflows/android.yml` runs unit tests, lint and both APK builds on every push to `main` and `claude/**` branches, on pull requests and on manual runs. Both APKs are uploaded as the `CamGrid-Android-build-<n>` workflow artifact (`CamGrid-Android.apk` to install, plus the minified `CamGrid-Android-minified.apk`). On a push or manual run, `CamGrid-Android.apk` is also published as a pre-release: `preview` for `main`, `preview-<last part of the branch name>` for other branches. Each push replaces the previous pre-release of the same tag.
 
-`.github/workflows/desktop.yml` runs the desktop tests (including end-to-end playback against a real go2rtc on Linux) and builds the installers on macOS, Windows and Linux; on a push they are published as `preview-desktop` (`main`) or `preview-desktop-<branch>`. `.github/workflows/ios.yml` runs the shared tests in the iOS simulator and builds the app for the simulator; the unsigned device `.ipa` is built on `main` and on manual runs. Pull requests from branches of this repository don't repeat the push runs.
+`.github/workflows/desktop.yml` runs the desktop tests (including end-to-end playback against a real go2rtc on Linux) and builds the installers on macOS, Windows and Linux; on a push they are published as `preview-desktop` (`main`) or `preview-desktop-<branch>`. `.github/workflows/ios.yml` runs the shared tests in the iOS simulator and builds the app for the simulator; the unsigned device app `CamGrid-iOS-unsigned.ipa` is built on `main` and on manual runs and published as `preview-ios` (`main`) or `preview-ios-<branch>`. Pull requests from branches of this repository don't repeat the push runs.
 
 Each build gets the workflow run number as its version code (version name `0.2.<run number>`), so every build is an upgrade of the one before.
 

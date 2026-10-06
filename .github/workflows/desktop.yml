@@ -1,4 +1,5 @@
 name: Desktop
+run-name: "Desktop build ${{ github.run_number }} on ${{ github.ref_name }}"
 
 # The desktop app on all three OSes: tests (on Linux also end to end against a real go2rtc),
 # then the installers, each built on its own OS with only that OS's native libraries.
@@ -15,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    name: Desktop ${{ matrix.name }}
     # A branch of this repository already runs on push; its pull request would run everything twice.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     strategy:
@@ -22,18 +24,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            name: linux
+            name: Linux
           - os: windows-latest
-            name: windows
+            name: Windows
           - os: macos-latest
-            name: macos
+            name: macOS
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
       CAMGRID_BUILD_NUMBER: ${{ github.run_number }}
       # Also test the real OS credential store (Keychain, DPAPI); Linux runners have no
       # Secret Service, so the key file vault is what is tested there.
-      CAMGRID_TEST_OS_VAULT: ${{ matrix.name != 'linux' && '1' || '' }}
+      CAMGRID_TEST_OS_VAULT: ${{ matrix.name != 'Linux' && '1' || '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -48,7 +50,7 @@ jobs:
           cache-read-only: false
 
       - name: go2rtc and test streams (Linux)
-        if: matrix.name == 'linux'
+        if: matrix.name == 'Linux'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg rpm
@@ -71,9 +73,10 @@ jobs:
         run: |
           mkdir -p dist
           arch=$(uname -m | sed 's/aarch64/arm64/; s/x86_64/x64/')
+          if [ "${{ matrix.name }}" = macOS ] && [ "$arch" = arm64 ]; then arch=AppleSilicon; fi
           for f in desktop/build/compose/binaries/main/*/*.{deb,rpm,msi,dmg}; do
             [ -f "$f" ] || continue
-            cp "$f" "dist/camgrid-desktop-${{ matrix.name }}-$arch.${f##*.}"
+            cp "$f" "dist/CamGrid-${{ matrix.name }}-$arch.${f##*.}"
           done
           ls -l dist
 
@@ -81,7 +84,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: desktop-test-reports-${{ matrix.name }}
+          name: Desktop-test-reports-${{ matrix.name }}
           path: |
             desktop/build/reports/
             desktop/build/e2e/
@@ -90,7 +93,7 @@ jobs:
       - name: Upload installers
         uses: actions/upload-artifact@v5
         with:
-          name: camgrid-desktop-${{ matrix.name }}
+          name: CamGrid-${{ matrix.name }}-build-${{ github.run_number }}
           path: dist/*
           if-no-files-found: error
 
@@ -98,6 +101,7 @@ jobs:
   # deleted and recreated on every Android build, which would race with uploads from here and
   # drop the installers. One job collects all three OSes and replaces the release in one go.
   publish:
+    name: Publish desktop release
     needs: build
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -106,7 +110,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v5
         with:
-          pattern: camgrid-desktop-*
+          pattern: CamGrid-*
           path: dist
           merge-multiple: true
 
@@ -121,5 +125,5 @@ jobs:
           gh release create "$tag" dist/* \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Desktop preview build ($GITHUB_REF_NAME)" \
-            --notes "Desktop test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info, Run anyway. Linux: .deb (Debian, Ubuntu) or .rpm (Fedora, openSUSE). Bundles FFmpeg (LGPL build) and libwebrtc; see desktop/README.md for licences and sources."
+            --title "CamGrid Desktop build ${{ github.run_number }} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
+            --notes "Desktop test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. macOS: CamGrid-macOS-AppleSilicon.dmg. Windows: CamGrid-Windows-x64.msi. Unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info, Run anyway. Linux: .deb (Debian, Ubuntu) or .rpm (Fedora, openSUSE). Bundles FFmpeg (LGPL build) and libwebrtc; see desktop/README.md for licences and sources."
