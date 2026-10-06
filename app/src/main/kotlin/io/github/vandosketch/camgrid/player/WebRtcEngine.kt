@@ -2,6 +2,8 @@ package io.github.vandosketch.camgrid.player
 
 import android.content.Context
 import android.media.AudioAttributes
+import io.github.vandosketch.camgrid.core.H264OfferOrder
+import io.github.vandosketch.camgrid.core.VideoCodecSpec
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.EglBase
 import org.webrtc.PeerConnection
@@ -40,7 +42,7 @@ class WebRtcEngine private constructor(context: Context) {
             .createAudioDeviceModule()
         factory = PeerConnectionFactory.builder()
             .setAudioDeviceModule(audioDeviceModule)
-            .setVideoDecoderFactory(H264ProfilesDecoderFactory(DefaultVideoDecoderFactory(eglBase.eglBaseContext)))
+            .setVideoDecoderFactory(Go2rtcVideoDecoderFactory(DefaultVideoDecoderFactory(eglBase.eglBaseContext)))
             .createPeerConnectionFactory()
         // The factory keeps its own reference to the module.
         audioDeviceModule.release()
@@ -68,12 +70,12 @@ class WebRtcEngine private constructor(context: Context) {
 }
 
 /**
- * libwebrtc advertises H264 High profile only for a few chip vendors (Qualcomm, Exynos), so on a
- * MediaTek Fire TV the offer would list Constrained Baseline only, and a camera's High or Main
- * profile stream may not negotiate. MediaCodec decodes those profiles fine, so this factory adds
- * them to the advertised H264 variants and decodes them with the same hardware decoder.
+ * Offers H264 the way go2rtc needs it (see [H264OfferOrder]): Constrained Baseline first, so
+ * go2rtc sends on a payload type that its answer accepts, plus High and Main, which libwebrtc
+ * only advertises on Qualcomm and Exynos. The hardware decoder handles every profile; a profile
+ * the delegate has no decoder entry for is decoded by its first H264 decoder.
  */
-internal class H264ProfilesDecoderFactory(private val delegate: VideoDecoderFactory) : VideoDecoderFactory {
+internal class Go2rtcVideoDecoderFactory(private val delegate: VideoDecoderFactory) : VideoDecoderFactory {
 
     override fun createDecoder(info: VideoCodecInfo): VideoDecoder? =
         delegate.createDecoder(info) ?: if (info.name.equals(H264, ignoreCase = true)) {
@@ -83,27 +85,14 @@ internal class H264ProfilesDecoderFactory(private val delegate: VideoDecoderFact
         }
 
     override fun getSupportedCodecs(): Array<VideoCodecInfo> {
-        val codecs = delegate.supportedCodecs.toMutableList()
+        val codecs = delegate.supportedCodecs.toList()
         val template = codecs.firstOrNull { it.name.equals(H264, ignoreCase = true) } ?: return codecs.toTypedArray()
-        val advertisedProfiles = codecs
-            .filter { it.name.equals(H264, ignoreCase = true) }
-            .mapNotNull { it.params[VideoCodecInfo.H264_FMTP_PROFILE_LEVEL_ID]?.take(PROFILE_CHARS)?.lowercase() }
-            .toSet()
-        for (profileLevelId in EXTRA_PROFILE_LEVEL_IDS) {
-            if (profileLevelId.take(PROFILE_CHARS) in advertisedProfiles) continue
-            val params = template.params + (VideoCodecInfo.H264_FMTP_PROFILE_LEVEL_ID to profileLevelId)
-            codecs += VideoCodecInfo(template.name, params, template.scalabilityModes)
-        }
-        return codecs.toTypedArray()
+        val h264 = H264OfferOrder.apply(listOf(VideoCodecSpec(template.name, template.params)))
+            .map { VideoCodecInfo(it.name, it.params, template.scalabilityModes) }
+        return (h264 + codecs.filterNot { it.name.equals(H264, ignoreCase = true) }).toTypedArray()
     }
 
     private companion object {
         const val H264 = "H264"
-
-        /** profile_idc and profile_iop; the level (last two hex digits) does not affect matching. */
-        const val PROFILE_CHARS = 4
-
-        /** Constrained High, High and Main, all at level 3.1. */
-        val EXTRA_PROFILE_LEVEL_IDS = listOf("640c1f", "64001f", "4d001f")
     }
 }
