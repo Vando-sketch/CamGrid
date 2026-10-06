@@ -48,6 +48,8 @@ CI builds an APK on every push to `main` and publishes it as the `preview` pre-r
 
 **https://github.com/Vando-sketch/CamGrid/releases/download/preview/CamGrid-Android.apk**
 
+The old link `…/preview/camgrid-debug.apk` still works for now: CI publishes the same APK under that name too, for a transition period.
+
 ### Phone
 
 Open the link above on the phone, download the APK and install it. Android asks you to allow installs from your browser the first time.

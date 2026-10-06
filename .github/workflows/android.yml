@@ -68,6 +68,9 @@ jobs:
           # CamGrid-Android.apk is the one to install (phone and Fire TV). The minified release
           # build is only in the workflow artifact, so the release page offers one obvious file.
           cp app/build/outputs/apk/debug/app-debug.apk dist/CamGrid-Android.apk
+          # Transition copy under the old name, so saved links and Fire TV Downloader entries for
+          # .../preview/camgrid-debug.apk keep working. Remove once everyone uses the new link.
+          cp dist/CamGrid-Android.apk dist/camgrid-debug.apk
           mkdir -p dist-extra
           cp app/build/outputs/apk/release/app-release.apk dist-extra/CamGrid-Android-minified.apk
 
@@ -84,7 +87,7 @@ jobs:
         with:
           name: CamGrid-Android-build-${{ github.run_number }}
           path: |
-            dist/*.apk
+            dist/CamGrid-Android.apk
             dist-extra/*.apk
 
       # A plain .apk link that works in a phone browser (workflow artifacts are zipped and need
@@ -99,8 +102,8 @@ jobs:
         run: |
           if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview; else tag="preview-${GITHUB_REF_NAME##*/}"; fi
           gh release delete "$tag" --cleanup-tag --yes || true
-          gh release create "$tag" dist/CamGrid-Android.apk \
+          gh release create "$tag" dist/CamGrid-Android.apk dist/camgrid-debug.apk \
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "CamGrid Android build ${CAMGRID_BUILD_NUMBER} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
-            --notes "Android and Fire TV test build ${CAMGRID_BUILD_NUMBER} (version 0.2.${CAMGRID_BUILD_NUMBER}) from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. Install CamGrid-Android.apk. Signing key: ${CAMGRID_SIGNING} (one-off means it cannot update an installed CamGrid; uninstall first)."
+            --notes "Android and Fire TV test build ${CAMGRID_BUILD_NUMBER} (version 0.2.${CAMGRID_BUILD_NUMBER}) from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. Install CamGrid-Android.apk (camgrid-debug.apk is the same file under its old name, kept for old links). Signing key: ${CAMGRID_SIGNING} (one-off means it cannot update an installed CamGrid; uninstall first)."
