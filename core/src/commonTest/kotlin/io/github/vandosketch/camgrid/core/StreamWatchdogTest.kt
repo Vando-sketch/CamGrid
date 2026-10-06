@@ -1,8 +1,8 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.Test
 
 class StreamWatchdogTest {
 
@@ -17,8 +17,8 @@ class StreamWatchdogTest {
 
     @Test
     fun rejectsNonPositiveTimeouts() {
-        assertThrows(IllegalArgumentException::class.java) { StreamWatchdog(connectTimeoutMillis = 0) }
-        assertThrows(IllegalArgumentException::class.java) { StreamWatchdog(stallTimeoutMillis = -1) }
+        assertFailsWith<IllegalArgumentException> { StreamWatchdog(connectTimeoutMillis = 0) }
+        assertFailsWith<IllegalArgumentException> { StreamWatchdog(stallTimeoutMillis = -1) }
     }
 
     @Test

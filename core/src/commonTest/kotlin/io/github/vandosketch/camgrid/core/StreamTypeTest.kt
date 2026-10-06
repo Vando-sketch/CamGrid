@@ -1,9 +1,9 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 /** Per-camera stream type: model default, config storage and URL validation. */
 class StreamTypeTest {
@@ -39,7 +39,7 @@ class StreamTypeTest {
     @Test
     fun streamTypeIsStoredByName() {
         val json = ConfigCodec.encode(CamGridConfig(cameras = listOf(Camera("a", "A", webrtcUrl, streamType = StreamType.WEBRTC))))
-        assertTrue(json, "\"streamType\": \"WEBRTC\"" in json)
+        assertTrue("\"streamType\": \"WEBRTC\"" in json, json)
     }
 
     @Test

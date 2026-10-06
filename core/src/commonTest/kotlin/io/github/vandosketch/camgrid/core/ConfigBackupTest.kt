@@ -1,11 +1,11 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 class ConfigBackupTest {
 
@@ -29,7 +29,7 @@ class ConfigBackupTest {
     private fun import(text: String, password: String?) = ConfigBackup.import(text, password?.toCharArray())
 
     private fun reason(block: () -> Unit): BackupException.Reason =
-        assertThrows(BackupException::class.java) { block() }.reason
+        assertFailsWith<BackupException> { block() }.reason
 
     // without password
 
@@ -64,7 +64,7 @@ class ConfigBackupTest {
         val text = export("pw")
         assertTrue(ConfigBackup.isEncrypted(text))
         for (secret in listOf("secret", "192.0.2.10", "rtsp", "door", "Kitchen")) {
-            assertFalse(secret, text.contains(secret))
+            assertFalse(text.contains(secret), secret)
         }
     }
 
@@ -96,7 +96,7 @@ class ConfigBackupTest {
 
     @Test
     fun export_rejectsAnEmptyPassword() {
-        assertThrows(IllegalArgumentException::class.java) { export("") }
+        assertFailsWith<IllegalArgumentException> { export("") }
     }
 
     @Test
@@ -142,12 +142,12 @@ class ConfigBackupTest {
 
     @Test
     fun isEncrypted_unreadableThrows() {
-        assertThrows(BackupException::class.java) { ConfigBackup.isEncrypted("nope") }
+        assertFailsWith<BackupException> { ConfigBackup.isEncrypted("nope") }
     }
 
     @Test
     fun exceptionMessagesNeverQuoteTheInput() {
-        val e = assertThrows(BackupException::class.java) { import("rtsp://viewer:secret@192.0.2.10", null) }
+        val e = assertFailsWith<BackupException> { import("rtsp://viewer:secret@192.0.2.10", null) }
         assertFalse(e.message.orEmpty().contains("secret"))
         assertEquals(null, e.cause)
     }

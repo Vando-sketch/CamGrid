@@ -1,15 +1,15 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.Test
 
 class WebRtcSignalingTest {
 
     private val sdp = "v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\n"
 
     private fun failure(block: () -> Unit): SignalingException =
-        assertThrows(SignalingException::class.java) { block() }
+        assertFailsWith<SignalingException> { block() }
 
     @Test
     fun requestContentType() {

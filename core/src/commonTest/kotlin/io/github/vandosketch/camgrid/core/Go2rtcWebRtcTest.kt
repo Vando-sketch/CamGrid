@@ -1,8 +1,8 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.Test
 
 /** go2rtc helpers for WebRTC: endpoint URLs, import and converting a camera between types. */
 class Go2rtcWebRtcTest {

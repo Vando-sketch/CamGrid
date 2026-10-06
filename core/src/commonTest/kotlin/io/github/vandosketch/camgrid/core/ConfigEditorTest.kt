@@ -1,8 +1,8 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.Test
 
 class ConfigEditorTest {
 
@@ -31,7 +31,7 @@ class ConfigEditorTest {
 
     @Test
     fun addCamera_duplicateIdThrows() {
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> {
             ConfigEditor.addCamera(config("a", "b"), cam("b", name = "Other"))
         }
     }
@@ -68,14 +68,14 @@ class ConfigEditorTest {
 
     @Test
     fun updateCamera_unknownIdThrows() {
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> {
             ConfigEditor.updateCamera(config("a", "b"), cam("x"))
         }
     }
 
     @Test
     fun updateCamera_unknownIdOnEmptyConfigThrows() {
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> {
             ConfigEditor.updateCamera(CamGridConfig(), cam("x"))
         }
     }
@@ -258,7 +258,7 @@ class ConfigEditorTest {
 
     @Test
     fun addView_duplicateIdThrows() {
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> {
             ConfigEditor.addView(config(), view(CamGridConfig.DEFAULT_VIEW_ID))
         }
     }
@@ -273,7 +273,7 @@ class ConfigEditorTest {
 
     @Test
     fun updateView_unknownIdThrows() {
-        assertThrows(IllegalArgumentException::class.java) { ConfigEditor.updateView(config(), view("x")) }
+        assertFailsWith<IllegalArgumentException> { ConfigEditor.updateView(config(), view("x")) }
     }
 
     @Test

@@ -1,7 +1,7 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.Test
 
 /**
  * go2rtc sends video with the payload type of the FIRST H264 entry in the offer, but its answer

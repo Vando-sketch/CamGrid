@@ -1,7 +1,7 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.Test
 
 class UrlRedactorTest {
 
@@ -49,9 +49,9 @@ class UrlRedactorTest {
     fun redactsEachListedQueryParameter() {
         for (name in listOf("password", "pass", "pwd", "token", "user", "username", "auth")) {
             assertEquals(
-                name,
                 "http://cam.example.com/snap?$name=***",
                 UrlRedactor.redact("http://cam.example.com/snap?$name=secret"),
+                name,
             )
         }
     }

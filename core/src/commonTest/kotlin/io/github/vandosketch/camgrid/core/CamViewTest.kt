@@ -1,10 +1,10 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 class CamViewTest {
 
@@ -24,7 +24,7 @@ class CamViewTest {
 
     @Test
     fun uniform_rejectsMoreThanMaxTiles() {
-        assertThrows(IllegalArgumentException::class.java) { CamView.uniform("v", "", 5, 4) }
+        assertFailsWith<IllegalArgumentException> { CamView.uniform("v", "", 5, 4) }
     }
 
     @Test
@@ -40,42 +40,42 @@ class CamViewTest {
 
     @Test
     fun rejectsOverlap() {
-        assertThrows(IllegalArgumentException::class.java) { view(2, 2, Tile(0, 0, 2, 2), Tile(1, 1)) }
-        assertThrows(IllegalArgumentException::class.java) { view(2, 2, Tile(0, 0), Tile(0, 0)) }
+        assertFailsWith<IllegalArgumentException> { view(2, 2, Tile(0, 0, 2, 2), Tile(1, 1)) }
+        assertFailsWith<IllegalArgumentException> { view(2, 2, Tile(0, 0), Tile(0, 0)) }
     }
 
     @Test
     fun rejectsTilesOutsideTheCanvas() {
-        assertThrows(IllegalArgumentException::class.java) { view(2, 2, Tile(2, 0)) }
-        assertThrows(IllegalArgumentException::class.java) { view(2, 2, Tile(0, 1, 1, 2)) }
-        assertThrows(IllegalArgumentException::class.java) { view(2, 2, Tile(1, 0, 2, 1)) }
+        assertFailsWith<IllegalArgumentException> { view(2, 2, Tile(2, 0)) }
+        assertFailsWith<IllegalArgumentException> { view(2, 2, Tile(0, 1, 1, 2)) }
+        assertFailsWith<IllegalArgumentException> { view(2, 2, Tile(1, 0, 2, 1)) }
     }
 
     @Test
     fun rejectsBadTileGeometry() {
-        assertThrows(IllegalArgumentException::class.java) { Tile(-1, 0) }
-        assertThrows(IllegalArgumentException::class.java) { Tile(0, -1) }
-        assertThrows(IllegalArgumentException::class.java) { Tile(0, 0, 0, 1) }
-        assertThrows(IllegalArgumentException::class.java) { Tile(0, 0, 1, 0) }
+        assertFailsWith<IllegalArgumentException> { Tile(-1, 0) }
+        assertFailsWith<IllegalArgumentException> { Tile(0, -1) }
+        assertFailsWith<IllegalArgumentException> { Tile(0, 0, 0, 1) }
+        assertFailsWith<IllegalArgumentException> { Tile(0, 0, 1, 0) }
     }
 
     @Test
     fun rejectsCanvasOutsideBounds() {
-        assertThrows(IllegalArgumentException::class.java) { view(0, 1) }
-        assertThrows(IllegalArgumentException::class.java) { view(1, 0) }
-        assertThrows(IllegalArgumentException::class.java) { view(CamView.MAX_CELLS + 1, 1) }
+        assertFailsWith<IllegalArgumentException> { view(0, 1) }
+        assertFailsWith<IllegalArgumentException> { view(1, 0) }
+        assertFailsWith<IllegalArgumentException> { view(CamView.MAX_CELLS + 1, 1) }
         view(CamView.MAX_CELLS, CamView.MAX_CELLS)
     }
 
     @Test
     fun rejectsTooManyTiles() {
         val tiles = (0 until CamView.MAX_TILES + 1).map { Tile(it % 12, it / 12) }
-        assertThrows(IllegalArgumentException::class.java) { view(12, 2, *tiles.toTypedArray()) }
+        assertFailsWith<IllegalArgumentException> { view(12, 2, *tiles.toTypedArray()) }
     }
 
     @Test
     fun rejectsBlankId() {
-        assertThrows(IllegalArgumentException::class.java) { CamView(" ", "", 1, 1, emptyList()) }
+        assertFailsWith<IllegalArgumentException> { CamView(" ", "", 1, 1, emptyList()) }
     }
 
     @Test
@@ -87,8 +87,8 @@ class CamViewTest {
 
     @Test
     fun config_rejectsNoViewsAndDuplicateIds() {
-        assertThrows(IllegalArgumentException::class.java) { CamGridConfig(views = emptyList()) }
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> { CamGridConfig(views = emptyList()) }
+        assertFailsWith<IllegalArgumentException> {
             CamGridConfig(views = listOf(CamView.uniform("a", "", 1, 1), CamView.uniform("a", "", 2, 2)))
         }
     }

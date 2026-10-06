@@ -1,9 +1,9 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 class Go2rtcTest {
 
@@ -80,22 +80,22 @@ class Go2rtcTest {
 
     @Test
     fun parseStreamNames_rejectsArray() {
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("""["front", "back"]""") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("""["front", "back"]""") }
     }
 
     @Test
     fun parseStreamNames_rejectsPrimitives() {
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("\"front\"") }
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("42") }
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("null") }
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("true") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("\"front\"") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("42") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("null") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("true") }
     }
 
     @Test
     fun parseStreamNames_rejectsMalformed() {
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("") }
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("{") }
-        assertThrows(IllegalArgumentException::class.java) { Go2rtc.parseStreamNames("<html>502 Bad Gateway</html>") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("{") }
+        assertFailsWith<IllegalArgumentException> { Go2rtc.parseStreamNames("<html>502 Bad Gateway</html>") }
     }
 
     // rtspUrl
@@ -314,9 +314,9 @@ class Go2rtcTest {
     fun suggest_everyGridSuffixRecognised() {
         for (suffix in Go2rtc.GRID_SUFFIXES) {
             assertEquals(
-                suffix,
                 listOf(Camera("go2rtc:cam", "cam", rtsp + "cam_$suffix", rtsp + "cam")),
                 Go2rtc.suggestCameras(base, listOf("cam", "cam_$suffix")),
+                suffix,
             )
         }
     }
@@ -325,9 +325,9 @@ class Go2rtcTest {
     fun suggest_everyDetailSuffixRecognised() {
         for (suffix in Go2rtc.DETAIL_SUFFIXES) {
             assertEquals(
-                suffix,
                 listOf(Camera("go2rtc:cam", "cam", rtsp + "cam", rtsp + "cam_$suffix")),
                 Go2rtc.suggestCameras(base, listOf("cam", "cam_$suffix")),
+                suffix,
             )
         }
     }

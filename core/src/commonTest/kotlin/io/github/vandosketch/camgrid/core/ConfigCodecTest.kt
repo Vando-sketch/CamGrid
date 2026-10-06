@@ -1,8 +1,8 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.Test
 
 class ConfigCodecTest {
 
@@ -145,20 +145,20 @@ class ConfigCodecTest {
 
     @Test
     fun decodeMalformedJsonThrows() {
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("{") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("not json at all") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"cameras": [}""") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("{") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("not json at all") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("""{"cameras": [}""") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("") }
     }
 
     @Test
     fun decodeInvalidLayoutThrows() {
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":0,"rows":2}}""") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":2,"rows":0}}""") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":5,"rows":2}}""") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":2,"rows":5}}""") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":-1,"rows":2}}""") }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":"wide"}""") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("""{"layout":{"columns":0,"rows":2}}""") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("""{"layout":{"columns":2,"rows":0}}""") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("""{"layout":{"columns":5,"rows":2}}""") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("""{"layout":{"columns":2,"rows":5}}""") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("""{"layout":{"columns":-1,"rows":2}}""") }
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode("""{"layout":"wide"}""") }
     }
 
     @Test
@@ -184,14 +184,14 @@ class ConfigCodecTest {
     fun decodeInvalidViewsThrow() {
         fun v2(views: String) = """{"version":2,"views":$views}"""
         // Overlapping tiles, a tile outside the canvas, an empty view list, duplicate ids.
-        assertThrows(ConfigFormatException::class.java) {
+        assertFailsWith<ConfigFormatException> {
             ConfigCodec.decode(v2("""[{"id":"v","columns":2,"rows":1,"tiles":[{"x":0,"y":0,"w":2},{"x":1,"y":0}]}]"""))
         }
-        assertThrows(ConfigFormatException::class.java) {
+        assertFailsWith<ConfigFormatException> {
             ConfigCodec.decode(v2("""[{"id":"v","columns":2,"rows":1,"tiles":[{"x":1,"y":0,"w":2}]}]"""))
         }
-        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode(v2("[]")) }
-        assertThrows(ConfigFormatException::class.java) {
+        assertFailsWith<ConfigFormatException> { ConfigCodec.decode(v2("[]")) }
+        assertFailsWith<ConfigFormatException> {
             ConfigCodec.decode(v2("""[{"id":"v","columns":1,"rows":1,"tiles":[]},{"id":"v","columns":1,"rows":1,"tiles":[]}]"""))
         }
     }

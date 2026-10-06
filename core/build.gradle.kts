@@ -1,23 +1,28 @@
-// Pure Kotlin module: config model, go2rtc helpers and grid logic. No Android dependencies,
-// so its unit tests run on any JVM.
+// Shared Kotlin Multiplatform module: config model, go2rtc helpers, grid logic and the backup
+// format. No Android dependencies. The JVM target serves both the Android app and the desktop
+// app; iOS targets are compiled for the iOS app. commonMain must stay free of java.* so the
+// planned web target can be added without rewrites.
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    id("org.jetbrains.kotlin.jvm")
+    id("org.jetbrains.kotlin.multiplatform")
     alias(libs.plugins.kotlin.serialization)
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
-
 kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    jvm {
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
     }
-}
 
-dependencies {
-    // api: the app uses the @Serializable model classes.
-    api(libs.serialization.json)
-    testImplementation(libs.junit)
+    sourceSets {
+        commonMain.dependencies {
+            // api: the apps use the @Serializable model classes.
+            api(libs.serialization.json)
+            implementation(libs.coroutines.core)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.coroutines.test)
+        }
+    }
 }

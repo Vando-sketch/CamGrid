@@ -27,6 +27,7 @@ media3-exoplayer-rtsp = { module = "androidx.media3:media3-exoplayer-rtsp", vers
 media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 junit = { module = "junit:junit", version.ref = "junit" }
 webrtc = { module = "io.github.webrtc-sdk:android", version.ref = "webrtc" }

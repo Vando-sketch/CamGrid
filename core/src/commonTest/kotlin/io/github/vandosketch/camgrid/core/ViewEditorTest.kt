@@ -1,8 +1,8 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertSame
+import kotlin.test.Test
 
 class ViewEditorTest {
 
@@ -124,7 +124,7 @@ class ViewEditorTest {
         for (preset in ViewPreset.entries) {
             val view = preset.build("p", "")
             val area = view.tiles.sumOf { it.w * it.h }
-            assertEquals(preset.name, view.columns * view.rows, area)
+            assertEquals(view.columns * view.rows, area, preset.name)
         }
     }
 

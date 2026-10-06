@@ -1,8 +1,8 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.Test
 
 class ReconnectPolicyTest {
 
@@ -74,13 +74,13 @@ class ReconnectPolicyTest {
 
     @Test
     fun rejectsNonPositiveInitialDelay() {
-        assertThrows(IllegalArgumentException::class.java) { ReconnectPolicy(initialDelayMillis = 0) }
-        assertThrows(IllegalArgumentException::class.java) { ReconnectPolicy(initialDelayMillis = -1) }
+        assertFailsWith<IllegalArgumentException> { ReconnectPolicy(initialDelayMillis = 0) }
+        assertFailsWith<IllegalArgumentException> { ReconnectPolicy(initialDelayMillis = -1) }
     }
 
     @Test
     fun rejectsMaxBelowInitial() {
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> {
             ReconnectPolicy(initialDelayMillis = 2_000, maxDelayMillis = 1_999)
         }
     }

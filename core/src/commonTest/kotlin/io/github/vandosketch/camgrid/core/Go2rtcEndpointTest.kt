@@ -1,8 +1,8 @@
 package io.github.vandosketch.camgrid.core
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.Test
 
 /**
  * The URL that "works in the browser" is usually go2rtc's player page, not its signalling
@@ -21,7 +21,7 @@ class Go2rtcEndpointTest {
     @Test
     fun playerPages() {
         for (page in listOf("stream.html", "webrtc.html", "links.html")) {
-            assertEquals(page, expected, Go2rtc.webrtcEndpoint("http://192.0.2.10:1984/$page?src=front_sub"))
+            assertEquals(expected, Go2rtc.webrtcEndpoint("http://192.0.2.10:1984/$page?src=front_sub"), page)
         }
     }
 
@@ -36,7 +36,7 @@ class Go2rtcEndpointTest {
     @Test
     fun otherApiEndpoints() {
         for (path in listOf("api/ws", "api/stream.mp4", "api/stream.m3u8", "api/frame.jpeg", "api/stream.mjpeg")) {
-            assertEquals(path, expected, Go2rtc.webrtcEndpoint("http://192.0.2.10:1984/$path?src=front_sub"))
+            assertEquals(expected, Go2rtc.webrtcEndpoint("http://192.0.2.10:1984/$path?src=front_sub"), path)
         }
     }
 
