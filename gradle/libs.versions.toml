@@ -8,6 +8,8 @@ lifecycle = "2.11.0"
 coroutines = "1.11.0"
 serialization = "1.11.0"
 junit = "4.13.2"
+# Runs the Compose UI tests of :app on the JVM (MIT).
+robolectric = "4.17"
 # Prebuilt Google libwebrtc (BSD-3-Clause), packaged by the LiveKit team on Maven Central.
 webrtc = "150.7871.01"
 
@@ -29,6 +31,8 @@ coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", ve
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 junit = { module = "junit:junit", version.ref = "junit" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 webrtc = { module = "io.github.webrtc-sdk:android", version.ref = "webrtc" }
 
 [plugins]
