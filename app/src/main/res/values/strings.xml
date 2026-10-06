@@ -55,11 +55,22 @@
     <string name="error_name_blank">Enter a name.</string>
     <string name="error_grid_url_blank">Enter the grid stream URL.</string>
     <string name="error_url_invalid">Use rtsp://, rtsps://, http:// or https:// with a host and no spaces.</string>
+    <string name="error_webrtc_url_invalid">Use the http:// or https:// signalling URL with a host and no spaces.</string>
+    <string name="hint_grid_url_webrtc">http://192.0.2.10:1984/api/webrtc?src=kitchen_medium</string>
+    <string name="hint_detail_url_webrtc">http://192.0.2.10:1984/api/webrtc?src=kitchen_high</string>
+
+    <!-- Stream type -->
+    <string name="stream_type">Stream type</string>
+    <string name="stream_type_rtsp">RTSP</string>
+    <string name="stream_type_webrtc">WebRTC</string>
+    <string name="help_stream_type_rtsp">Reliable over TCP. About a second of delay.</string>
+    <string name="help_stream_type_webrtc">Lower delay. Needs H264 video; sound only with Opus or G.711 audio.</string>
 
     <!-- go2rtc import -->
     <string name="field_go2rtc_url">go2rtc address</string>
     <string name="hint_go2rtc_url">http://192.0.2.10:1984</string>
     <string name="fetch">Fetch streams</string>
+    <string name="import_stream_type_hint">Imported cameras use this stream type. You can change it per camera later.</string>
     <string name="import_loading">Fetching streams…</string>
     <string name="import_selected">Import selected (%1$d)</string>
     <string name="import_empty">The server has no streams.</string>

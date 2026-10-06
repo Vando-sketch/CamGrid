@@ -8,6 +8,8 @@ lifecycle = "2.11.0"
 coroutines = "1.11.0"
 serialization = "1.11.0"
 junit = "4.13.2"
+# Prebuilt Google libwebrtc (BSD-3-Clause), packaged by the LiveKit team on Maven Central.
+webrtc = "150.7871.01"
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -27,6 +29,7 @@ coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", ve
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 junit = { module = "junit:junit", version.ref = "junit" }
+webrtc = { module = "io.github.webrtc-sdk:android", version.ref = "webrtc" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

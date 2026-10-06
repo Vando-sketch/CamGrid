@@ -32,12 +32,15 @@ import io.github.vandosketch.camgrid.R
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.CameraError
 import io.github.vandosketch.camgrid.core.CameraValidator
+import io.github.vandosketch.camgrid.core.Go2rtc
+import io.github.vandosketch.camgrid.core.StreamType
 import java.util.UUID
 
 /**
  * Add or edit one camera. [camera] null means a new camera (it gets a random UUID id).
  * Validation uses core's [CameraValidator]; errors appear under the fields after the first
- * Save attempt and update live from then on.
+ * Save attempt and update live from then on. Switching the stream type rewrites go2rtc URLs
+ * to the same stream in the other type (see [Go2rtc.convertUrl]); other URLs stay as typed.
  */
 @Composable
 fun CameraEditorScreen(
@@ -49,9 +52,18 @@ fun CameraEditorScreen(
     var name by rememberSaveable { mutableStateOf(camera?.name.orEmpty()) }
     var gridUrl by rememberSaveable { mutableStateOf(camera?.gridUrl.orEmpty()) }
     var detailUrl by rememberSaveable { mutableStateOf(camera?.detailUrl.orEmpty()) }
+    var streamType by rememberSaveable { mutableStateOf(camera?.streamType ?: StreamType.RTSP) }
     var saveAttempted by rememberSaveable { mutableStateOf(false) }
 
-    val draft = Camera(id = id, name = name.trim(), gridUrl = gridUrl.trim(), detailUrl = detailUrl.trim())
+    val draft = Camera(
+        id = id,
+        name = name.trim(),
+        gridUrl = gridUrl.trim(),
+        detailUrl = detailUrl.trim(),
+        streamType = streamType,
+    )
+    val webrtc = streamType == StreamType.WEBRTC
+    val urlInvalidMessage = stringResource(if (webrtc) R.string.error_webrtc_url_invalid else R.string.error_url_invalid)
     val errors = if (saveAttempted) CameraValidator.validate(draft) else emptySet()
 
     val nameRequester = remember { FocusRequester() }
@@ -83,14 +95,24 @@ fun CameraEditorScreen(
             keyboardType = KeyboardType.Text,
             modifier = Modifier.focusRequester(nameRequester),
         )
+        StreamTypeSelector(
+            selected = streamType,
+            onSelect = { type ->
+                if (type != streamType) {
+                    streamType = type
+                    gridUrl = Go2rtc.convertUrl(gridUrl, type) ?: gridUrl
+                    detailUrl = Go2rtc.convertUrl(detailUrl, type) ?: detailUrl
+                }
+            },
+        )
         EditorField(
             value = gridUrl,
             onValueChange = { gridUrl = it },
             label = stringResource(R.string.field_grid_url),
-            hint = stringResource(R.string.hint_grid_url),
+            hint = stringResource(if (webrtc) R.string.hint_grid_url_webrtc else R.string.hint_grid_url),
             error = when {
                 CameraError.GRID_URL_BLANK in errors -> stringResource(R.string.error_grid_url_blank)
-                CameraError.GRID_URL_INVALID in errors -> stringResource(R.string.error_url_invalid)
+                CameraError.GRID_URL_INVALID in errors -> urlInvalidMessage
                 else -> null
             },
             keyboardType = KeyboardType.Uri,
@@ -99,9 +121,9 @@ fun CameraEditorScreen(
             value = detailUrl,
             onValueChange = { detailUrl = it },
             label = stringResource(R.string.field_detail_url),
-            hint = stringResource(R.string.hint_detail_url),
+            hint = stringResource(if (webrtc) R.string.hint_detail_url_webrtc else R.string.hint_detail_url),
             error = when {
-                CameraError.DETAIL_URL_INVALID in errors -> stringResource(R.string.error_url_invalid)
+                CameraError.DETAIL_URL_INVALID in errors -> urlInvalidMessage
                 else -> null
             },
             help = stringResource(R.string.help_detail_url),

@@ -4,13 +4,9 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -31,15 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.media3.common.util.Log as Media3Log
 
-/** What a stream is doing, shown on its tile or in fullscreen. */
-sealed interface StreamStatus {
-    data object Connecting : StreamStatus
-    data object Playing : StreamStatus
-
-    /** Playback failed or ended; the next attempt starts in [retryInSeconds]. */
-    data class Offline(val reason: String, val retryInSeconds: Int) : StreamStatus
-}
-
 /**
  * One ExoPlayer playing one live stream, reconnecting with [ReconnectPolicy] backoff after
  * errors. Must be created and used on the main thread; call [release] when done.
@@ -54,13 +41,13 @@ class StreamPlayer(
     url: String,
     private val label: String,
     audioEnabled: Boolean,
-) {
+) : LiveStream {
     val player: ExoPlayer = ExoPlayer.Builder(context)
         .setLoadControl(lowLatencyLoadControl())
         .build()
 
     /** Current state; Compose snapshot state, so composables reading it recompose on change. */
-    var status by mutableStateOf<StreamStatus>(StreamStatus.Connecting)
+    override var status by mutableStateOf<StreamStatus>(StreamStatus.Connecting)
         private set
 
     private val reconnectPolicy = ReconnectPolicy()
@@ -107,11 +94,11 @@ class StreamPlayer(
         player.prepare()
     }
 
-    fun setMuted(muted: Boolean) {
+    override fun setMuted(muted: Boolean) {
         player.volume = if (muted) 0f else 1f
     }
 
-    fun release() {
+    override fun release() {
         if (released) return
         released = true
         scope.cancel()
@@ -184,24 +171,4 @@ class StreamPlayer(
                 .setForceUseRtpTcp(true)
                 .setTimeoutMs(RTSP_TIMEOUT_MS)
     }
-}
-
-/**
- * A [StreamPlayer] for [url] that exists only while the lifecycle is STARTED: it is released
- * when the activity stops (screen off) or the composable leaves the composition, and recreated
- * on the next start. Returns null while there is no player.
- */
-@Composable
-fun rememberStreamPlayer(url: String, label: String, audioEnabled: Boolean): StreamPlayer? {
-    val context = LocalContext.current.applicationContext
-    var streamPlayer by remember { mutableStateOf<StreamPlayer?>(null) }
-    LifecycleStartEffect(url, audioEnabled) {
-        val created = StreamPlayer(context, url, label, audioEnabled)
-        streamPlayer = created
-        onStopOrDispose {
-            streamPlayer = null
-            created.release()
-        }
-    }
-    return streamPlayer
 }

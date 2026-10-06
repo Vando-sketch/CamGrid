@@ -11,9 +11,11 @@ import androidx.lifecycle.viewModelScope
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.ConfigEditor
+import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.GridLayout
 import io.github.vandosketch.camgrid.core.GridPaging
 import io.github.vandosketch.camgrid.core.GridPosition
+import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.data.ConfigRepository
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.Go2rtcException
@@ -28,8 +30,18 @@ sealed interface ImportState {
     data object Loading : ImportState
     data class Failed(val reason: Go2rtcException.Reason, val detail: String) : ImportState
 
-    /** Suggestions from the server; [selected] holds the ids ticked for import. */
-    data class Loaded(val cameras: List<Camera>, val selected: Set<String>) : ImportState
+    /**
+     * Suggestions from the server; [selected] holds the ids ticked for import. [cameras] are
+     * built from [streamNames] for [streamType], so switching the type keeps the selection.
+     */
+    data class Loaded(
+        val baseUrl: String,
+        val streamNames: List<String>,
+        val streamType: StreamType,
+        val selected: Set<String>,
+    ) : ImportState {
+        val cameras: List<Camera> = Go2rtc.suggestCameras(baseUrl, streamNames, streamType = streamType)
+    }
 }
 
 /**
@@ -51,6 +63,10 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         private set
 
     var importState by mutableStateOf<ImportState>(ImportState.Idle)
+        private set
+
+    /** Stream type for imported cameras; kept while the app runs. */
+    var importStreamType by mutableStateOf(StreamType.RTSP)
         private set
     private var fetchJob: Job? = null
 
@@ -155,12 +171,10 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         importState = ImportState.Loading
         fetchJob = viewModelScope.launch {
             importState = try {
-                val suggestions = Go2rtcClient.fetchCameras(trimmed)
+                val names = Go2rtcClient.fetchStreamNames(trimmed)
+                val loaded = ImportState.Loaded(trimmed, names, importStreamType, selected = emptySet())
                 val existing = config.value.cameras.map { it.id }.toSet()
-                ImportState.Loaded(
-                    cameras = suggestions,
-                    selected = suggestions.map { it.id }.filterNot { it in existing }.toSet(),
-                )
+                loaded.copy(selected = loaded.cameras.map { it.id }.filterNot { it in existing }.toSet())
             } catch (e: Go2rtcException) {
                 Log.w(TAG, "go2rtc fetch failed: ${e.reason} ${e.detail}")
                 ImportState.Failed(e.reason, e.detail)
@@ -171,6 +185,17 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
                 Log.w(TAG, "go2rtc import failed: ${e.javaClass.simpleName}")
                 ImportState.Failed(Go2rtcException.Reason.NOT_GO2RTC, e.javaClass.simpleName)
             }
+        }
+    }
+
+    fun setImportStreamType(type: StreamType) {
+        importStreamType = type
+        val state = importState as? ImportState.Loaded ?: return
+        importState = try {
+            state.copy(streamType = type)
+        } catch (e: IllegalArgumentException) {
+            // The base URL cannot form URLs of this type; report it like a failed fetch.
+            ImportState.Failed(Go2rtcException.Reason.INVALID_URL, e.javaClass.simpleName)
         }
     }
 

@@ -53,8 +53,8 @@ import io.github.vandosketch.camgrid.core.GridNavigator
 import io.github.vandosketch.camgrid.core.GridPaging
 import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.player.StreamStatus
-import io.github.vandosketch.camgrid.player.VideoSurface
-import io.github.vandosketch.camgrid.player.rememberStreamPlayer
+import io.github.vandosketch.camgrid.player.LiveStreamSurface
+import io.github.vandosketch.camgrid.player.rememberLiveStream
 
 /**
  * The camera wall: `columns x rows` tiles per page, muted low-res streams.
@@ -158,7 +158,7 @@ fun GridScreen(
                                 .padding(2.dp),
                         ) {
                             // A slot showing a different camera after a page switch restarts its
-                            // player, because rememberStreamPlayer is keyed by the URL.
+                            // player, because rememberLiveStream is keyed by the URL.
                             if (camera != null) {
                                 CameraTile(
                                     camera = camera,
@@ -223,7 +223,7 @@ private fun CameraTile(
     onFocused: () -> Unit,
     onClick: () -> Unit,
 ) {
-    val stream = rememberStreamPlayer(camera.gridUrl, camera.name, audioEnabled = false)
+    val stream = rememberLiveStream(camera.gridUrl, camera.streamType, camera.name, audioEnabled = false)
     Box(
         Modifier
             .fillMaxSize()
@@ -233,7 +233,7 @@ private fun CameraTile(
             .clickable(onClick = onClick)
             .background(Color.Black),
     ) {
-        VideoSurface(stream?.player, Modifier.fillMaxSize())
+        LiveStreamSurface(stream, Modifier.fillMaxSize())
         StreamStatusBadge(
             status = stream?.status ?: StreamStatus.Connecting,
             modifier = Modifier.align(Alignment.Center),
@@ -270,7 +270,7 @@ fun StreamStatusBadge(status: StreamStatus, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.error,
                 )
-                // Already redacted by StreamPlayer; it is an error code, not a URL.
+                // An error code from the player, never a URL.
                 Text(
                     text = status.reason,
                     style = MaterialTheme.typography.labelSmall,
