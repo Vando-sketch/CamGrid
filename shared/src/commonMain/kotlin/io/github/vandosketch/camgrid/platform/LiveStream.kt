@@ -27,7 +27,8 @@ interface LiveStream {
 
 /**
  * The platform's video players. Android/Fire TV: ExoPlayer for RTSP and libwebrtc for WebRTC.
- * Desktop and iOS: WebRTC only; RTSP cameras are played through go2rtc's WebRTC endpoint
+ * iOS: VLCKit for RTSP and Google's WebRTC framework for WebRTC (`IosVideoPlatform`).
+ * Desktop: WebRTC only; RTSP cameras are played through go2rtc's WebRTC endpoint
  * (see `PlaybackSource`).
  */
 interface VideoPlatform {
