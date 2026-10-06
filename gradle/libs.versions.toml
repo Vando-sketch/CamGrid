@@ -18,6 +18,14 @@ composeMultiplatform = "1.12.1"
 composeMaterial3 = "1.9.0"
 composeMaterialIcons = "1.7.3"
 lifecycleMultiplatform = "2.11.0"
+# Desktop WebRTC: Java bindings for Google's libwebrtc (Apache-2.0; the natives bundle libwebrtc
+# with its BSD-3-Clause parts and Chromium's LGPL-2.1 FFmpeg build for H.264 decoding).
+webrtcJava = "0.19.0"
+# Desktop RTSP: FFmpeg via JavaCPP presets, LGPL build only (never the "-gpl" classifier).
+bytedecoFfmpeg = "8.1.2-1.5.14"
+javacpp = "1.5.14"
+# Desktop config key on Windows (DPAPI). Dual Apache-2.0 / LGPL-2.1; used under Apache-2.0.
+jna = "5.19.1"
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -48,6 +56,10 @@ cmp-material-icons = { module = "org.jetbrains.compose.material:material-icons-c
 lifecycle-viewmodel-compose-mp = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleMultiplatform" }
 lifecycle-runtime-compose-mp = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleMultiplatform" }
 coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
+webrtc-java = { module = "dev.onvoid.webrtc:webrtc-java", version.ref = "webrtcJava" }
+bytedeco-ffmpeg = { module = "org.bytedeco:ffmpeg", version.ref = "bytedecoFfmpeg" }
+bytedeco-javacpp = { module = "org.bytedeco:javacpp", version.ref = "javacpp" }
+jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
 cryptography-provider-optimal = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }
 
