@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.ReconnectPolicy
 import io.github.vandosketch.camgrid.core.SignalingException
@@ -331,12 +332,13 @@ class WebRtcStream(
 }
 
 /**
- * Renders [stream] letterboxed and centred in [modifier]'s bounds, like [VideoSurface] does for
- * ExoPlayer. The renderer measures itself to the video's aspect ratio within the loose
- * constraints the Box gives it.
+ * Renders [stream] centred in [modifier]'s bounds, letterboxed or cropped per [fit], like
+ * [VideoSurface] does for ExoPlayer. For [FitMode.FIT] the renderer measures itself to the
+ * video's aspect ratio within the loose constraints the Box gives it; for [FitMode.CROP] it
+ * fills them and crops the frame itself while drawing, so nothing reaches past the bounds.
  */
 @Composable
-fun WebRtcSurface(stream: WebRtcStream, modifier: Modifier = Modifier) {
+fun WebRtcSurface(stream: WebRtcStream, modifier: Modifier = Modifier, fit: FitMode = FitMode.FIT) {
     Box(modifier, contentAlignment = Alignment.Center) {
         // A new renderer per stream, so a reused view never keeps receiving an old stream.
         key(stream) {
@@ -344,12 +346,13 @@ fun WebRtcSurface(stream: WebRtcStream, modifier: Modifier = Modifier) {
                 factory = { context ->
                     SurfaceViewRenderer(context).apply {
                         init(WebRtcEngine.get(context).eglBase.eglBaseContext, null)
-                        setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+                        setScalingType(fit.scalingType())
                         // Lets the display hardware scale the frame instead of the GPU.
                         setEnableHardwareScaler(true)
                         stream.attachRenderer(this)
                     }
                 },
+                update = { renderer -> renderer.setScalingType(fit.scalingType()) },
                 onRelease = { renderer ->
                     stream.detachRenderer(renderer)
                     renderer.release()
@@ -357,4 +360,9 @@ fun WebRtcSurface(stream: WebRtcStream, modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+private fun FitMode.scalingType() = when (this) {
+    FitMode.FIT -> RendererCommon.ScalingType.SCALE_ASPECT_FIT
+    FitMode.CROP -> RendererCommon.ScalingType.SCALE_ASPECT_FILL
 }

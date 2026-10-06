@@ -9,13 +9,13 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.vandosketch.camgrid.core.CamGridConfig
+import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.ConfigEditor
 import io.github.vandosketch.camgrid.core.Go2rtc
-import io.github.vandosketch.camgrid.core.GridLayout
-import io.github.vandosketch.camgrid.core.GridPaging
 import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.core.StreamType
+import io.github.vandosketch.camgrid.core.ViewPaging
 import io.github.vandosketch.camgrid.data.ConfigRepository
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.Go2rtcException
@@ -114,28 +114,52 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
                 Screen.Grid
             }
             Screen.Settings -> Screen.Grid
-            is Screen.EditCamera, Screen.Go2rtcImport -> Screen.Settings
+            is Screen.EditCamera, Screen.Go2rtcImport, is Screen.EditView -> Screen.Settings
         }
     }
 
-    /** Points the grid focus at [cameraId], so returning from fullscreen lands on that tile. */
+    /**
+     * Points the grid focus at [cameraId], so returning from fullscreen lands on that tile:
+     * on the current page if it shows the camera, otherwise where it first appears.
+     */
     private fun focusCameraInGrid(cameraId: String) {
-        val current = config.value
-        val page = GridPaging.pageOf(current, cameraId) ?: return
-        val index = current.cameras.indexOfFirst { it.id == cameraId }
-        gridPage = page
-        gridFocusIndex = (index - page * current.layout.tilesPerPage).coerceAtLeast(0)
+        val position = ViewPaging.locate(ViewPaging.pages(config.value), cameraId, preferPage = gridPage) ?: return
+        setGridPosition(position)
+    }
+
+    // --- Views ---
+
+    fun editView(viewId: String) {
+        screen = Screen.EditView(viewId)
+    }
+
+    /** Adds a new 2x2 view at the end and opens it in the editor. */
+    fun addView() {
+        val id = ConfigEditor.newViewId(config.value)
+        edit { ConfigEditor.addView(it, CamView.uniform(id, "", 2, 2)) }
+        screen = Screen.EditView(id)
+    }
+
+    /** Saves an edited view (matched by id). */
+    fun updateView(view: CamView) {
+        edit { ConfigEditor.updateView(it, view) }
+    }
+
+    /** Deletes a view (never the last one) and returns to settings. */
+    fun deleteView(viewId: String) {
+        edit { ConfigEditor.removeView(it, viewId) }
+        screen = Screen.Settings
+    }
+
+    /** Moves a view [delta] places in the order (negative = towards the start). */
+    fun moveView(viewId: String, delta: Int) {
+        edit { current ->
+            val index = current.views.indexOfFirst { it.id == viewId }
+            if (index < 0) current else ConfigEditor.moveView(current, viewId, index + delta)
+        }
     }
 
     // --- Config edits ---
-
-    fun setLayout(columns: Int, rows: Int) {
-        val c = columns.coerceIn(GridLayout.MIN_SIZE, GridLayout.MAX_SIZE)
-        val r = rows.coerceIn(GridLayout.MIN_SIZE, GridLayout.MAX_SIZE)
-        edit { ConfigEditor.setLayout(it, c, r) }
-        gridPage = 0
-        gridFocusIndex = 0
-    }
 
     /** Moves a camera [delta] places in the order (negative = towards the start). */
     fun moveCamera(cameraId: String, delta: Int) {

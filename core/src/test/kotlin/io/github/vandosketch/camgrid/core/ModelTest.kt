@@ -1,7 +1,6 @@
 package io.github.vandosketch.camgrid.core
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class ModelTest {
@@ -46,74 +45,12 @@ class ModelTest {
     }
 
     @Test
-    fun gridLayout_defaultsToTwoByTwo() {
-        val layout = GridLayout()
-        assertEquals(2, layout.columns)
-        assertEquals(2, layout.rows)
-        assertEquals(4, layout.tilesPerPage)
-    }
-
-    @Test
-    fun gridLayout_tilesPerPageIsColumnsTimesRows() {
-        assertEquals(1, GridLayout(1, 1).tilesPerPage)
-        assertEquals(6, GridLayout(3, 2).tilesPerPage)
-        assertEquals(12, GridLayout(4, 3).tilesPerPage)
-        assertEquals(16, GridLayout(4, 4).tilesPerPage)
-    }
-
-    @Test
-    fun gridLayout_acceptsBounds() {
-        GridLayout(GridLayout.MIN_SIZE, GridLayout.MIN_SIZE)
-        GridLayout(GridLayout.MAX_SIZE, GridLayout.MAX_SIZE)
-        GridLayout(1, 4)
-        GridLayout(4, 1)
-    }
-
-    @Test
-    fun gridLayout_boundsConstants() {
-        assertEquals(1, GridLayout.MIN_SIZE)
-        assertEquals(4, GridLayout.MAX_SIZE)
-    }
-
-    @Test
-    fun gridLayout_rejectsZeroColumns() {
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(0, 2) }
-    }
-
-    @Test
-    fun gridLayout_rejectsZeroRows() {
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(2, 0) }
-    }
-
-    @Test
-    fun gridLayout_rejectsFiveColumns() {
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(5, 2) }
-    }
-
-    @Test
-    fun gridLayout_rejectsFiveRows() {
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(2, 5) }
-    }
-
-    @Test
-    fun gridLayout_rejectsNegative() {
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(-1, 2) }
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(2, -1) }
-    }
-
-    @Test
-    fun gridLayout_copyOutsideBoundsThrows() {
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(2, 2).copy(columns = 5) }
-        assertThrows(IllegalArgumentException::class.java) { GridLayout(2, 2).copy(rows = 0) }
-    }
-
-    @Test
     fun camGridConfig_defaults() {
         val config = CamGridConfig()
-        assertEquals(GridLayout(), config.layout)
+        assertEquals(listOf(CamView.uniform(CamGridConfig.DEFAULT_VIEW_ID, "", 2, 2)), config.views)
         assertEquals(emptyList<Camera>(), config.cameras)
         assertEquals("", config.go2rtcBaseUrl)
         assertEquals(CamGridConfig.CURRENT_VERSION, config.version)
-        assertEquals(1, CamGridConfig.CURRENT_VERSION)
+        assertEquals(2, CamGridConfig.CURRENT_VERSION)
     }
 }

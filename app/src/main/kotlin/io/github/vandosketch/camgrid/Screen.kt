@@ -12,4 +12,7 @@ sealed interface Screen {
     data class EditCamera(val cameraId: String?) : Screen
 
     data object Go2rtcImport : Screen
+
+    /** Layout editor for the view with [viewId]. */
+    data class EditView(val viewId: String) : Screen
 }

@@ -47,9 +47,9 @@ class ConfigEditorTest {
 
     @Test
     fun addCamera_keepsOtherFields() {
-        val original = config("a").copy(layout = GridLayout(3, 2))
+        val original = config("a").copy(views = listOf(CamView.uniform("v", "V", 3, 2)))
         val result = ConfigEditor.addCamera(original, cam("b"))
-        assertEquals(GridLayout(3, 2), result.layout)
+        assertEquals(original.views, result.views)
         assertEquals(original.go2rtcBaseUrl, result.go2rtcBaseUrl)
         assertEquals(original.version, result.version)
     }
@@ -183,48 +183,6 @@ class ConfigEditorTest {
         assertEquals(listOf("a", "b", "c"), ids(original))
     }
 
-    // setLayout
-
-    @Test
-    fun setLayout_setsColumnsAndRows() {
-        val result = ConfigEditor.setLayout(config("a", "b"), columns = 3, rows = 2)
-        assertEquals(GridLayout(3, 2), result.layout)
-        assertEquals(listOf("a", "b"), ids(result))
-    }
-
-    @Test
-    fun setLayout_acceptsBounds() {
-        assertEquals(GridLayout(1, 1), ConfigEditor.setLayout(config(), 1, 1).layout)
-        assertEquals(GridLayout(4, 4), ConfigEditor.setLayout(config(), 4, 4).layout)
-        assertEquals(GridLayout(1, 4), ConfigEditor.setLayout(config(), 1, 4).layout)
-    }
-
-    @Test
-    fun setLayout_rejectsZero() {
-        assertThrows(IllegalArgumentException::class.java) { ConfigEditor.setLayout(config(), 0, 2) }
-        assertThrows(IllegalArgumentException::class.java) { ConfigEditor.setLayout(config(), 2, 0) }
-    }
-
-    @Test
-    fun setLayout_rejectsFive() {
-        assertThrows(IllegalArgumentException::class.java) { ConfigEditor.setLayout(config(), 5, 2) }
-        assertThrows(IllegalArgumentException::class.java) { ConfigEditor.setLayout(config(), 2, 5) }
-    }
-
-    @Test
-    fun setLayout_rejectsNegative() {
-        assertThrows(IllegalArgumentException::class.java) { ConfigEditor.setLayout(config(), -1, 2) }
-    }
-
-    @Test
-    fun setLayout_leavesReceiverUntouched() {
-        val original = config("a")
-        val snapshot = original.copy()
-        ConfigEditor.setLayout(original, 4, 3)
-        assertEquals(snapshot, original)
-        assertEquals(GridLayout(), original.layout)
-    }
-
     // importCameras
 
     @Test
@@ -272,5 +230,76 @@ class ConfigEditorTest {
         ConfigEditor.importCameras(original, listOf(cam("b")))
         assertEquals(snapshot, original)
         assertEquals(listOf("a"), ids(original))
+    }
+
+    // removeCamera and views
+
+    @Test
+    fun removeCamera_turnsTilesShowingItIntoAutoTiles() {
+        val view = CamView(
+            id = "v", columns = 2, rows = 1,
+            tiles = listOf(Tile(0, 0, camera = "a"), Tile(1, 0, camera = "b")),
+        )
+        val result = ConfigEditor.removeCamera(config("a", "b").copy(views = listOf(view)), "a")
+        assertEquals(listOf(null, "b"), result.views.single().tiles.map { it.camera })
+    }
+
+    // views
+
+    private fun view(id: String) = CamView.uniform(id, "View $id", 2, 2)
+
+    private fun viewIds(config: CamGridConfig) = config.views.map { it.id }
+
+    @Test
+    fun addView_appendsAtEnd() {
+        val result = ConfigEditor.addView(config(), view("second"))
+        assertEquals(listOf(CamGridConfig.DEFAULT_VIEW_ID, "second"), viewIds(result))
+    }
+
+    @Test
+    fun addView_duplicateIdThrows() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ConfigEditor.addView(config(), view(CamGridConfig.DEFAULT_VIEW_ID))
+        }
+    }
+
+    @Test
+    fun updateView_replacesKeepingPosition() {
+        val start = ConfigEditor.addView(config(), view("second"))
+        val changed = CamView.uniform(CamGridConfig.DEFAULT_VIEW_ID, "Renamed", 3, 1)
+        val result = ConfigEditor.updateView(start, changed)
+        assertEquals(listOf(changed, view("second")), result.views)
+    }
+
+    @Test
+    fun updateView_unknownIdThrows() {
+        assertThrows(IllegalArgumentException::class.java) { ConfigEditor.updateView(config(), view("x")) }
+    }
+
+    @Test
+    fun removeView_removesById() {
+        val start = ConfigEditor.addView(config(), view("second"))
+        assertEquals(listOf("second"), viewIds(ConfigEditor.removeView(start, CamGridConfig.DEFAULT_VIEW_ID)))
+    }
+
+    @Test
+    fun removeView_keepsTheLastView() {
+        val start = config()
+        assertEquals(start, ConfigEditor.removeView(start, CamGridConfig.DEFAULT_VIEW_ID))
+    }
+
+    @Test
+    fun moveView_clampsTarget() {
+        val start = ConfigEditor.addView(ConfigEditor.addView(config(), view("b")), view("c"))
+        assertEquals(listOf("b", "c", CamGridConfig.DEFAULT_VIEW_ID), viewIds(ConfigEditor.moveView(start, CamGridConfig.DEFAULT_VIEW_ID, 99)))
+        assertEquals(listOf("c", CamGridConfig.DEFAULT_VIEW_ID, "b"), viewIds(ConfigEditor.moveView(start, "c", -5)))
+    }
+
+    @Test
+    fun newViewId_isUnused() {
+        val start = ConfigEditor.addView(config(), view("view-2"))
+        val id = ConfigEditor.newViewId(start)
+        assert(id !in viewIds(start)) { id }
+        assertEquals("view-3", id)
     }
 }

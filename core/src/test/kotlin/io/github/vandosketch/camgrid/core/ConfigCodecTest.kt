@@ -7,7 +7,21 @@ import org.junit.Test
 class ConfigCodecTest {
 
     private val fullConfig = CamGridConfig(
-        layout = GridLayout(columns = 3, rows = 2),
+        views = listOf(
+            CamView.uniform("main", "Main", 3, 2),
+            CamView(
+                id = "kitchen",
+                name = "Kitchen wall",
+                columns = 4,
+                rows = 2,
+                tiles = listOf(
+                    Tile(0, 0, 1, 2, camera = "go2rtc:front", fit = FitMode.CROP),
+                    Tile(1, 0, 1, 2, camera = "garage", fit = FitMode.CROP),
+                    Tile(2, 0, 2, 1),
+                    Tile(2, 1, 2, 1, camera = "yard"),
+                ),
+            ),
+        ),
         cameras = listOf(
             Camera(
                 id = "go2rtc:front",
@@ -35,11 +49,19 @@ class ConfigCodecTest {
     }
 
     @Test
-    fun roundTripBoundaryLayouts() {
-        val small = CamGridConfig(layout = GridLayout(1, 1))
-        val large = CamGridConfig(layout = GridLayout(4, 4))
+    fun roundTripBoundaryViews() {
+        val small = CamGridConfig(views = listOf(CamView.uniform("v", "", 1, 1)))
+        val large = CamGridConfig(views = listOf(CamView.uniform("v", "", 4, 4)))
         assertEquals(small, ConfigCodec.decode(ConfigCodec.encode(small)))
         assertEquals(large, ConfigCodec.decode(ConfigCodec.encode(large)))
+    }
+
+    @Test
+    fun encodedViewsReferenceCamerasOnlyById() {
+        // Views are meant to be served from elsewhere later; they must never carry stream URLs.
+        val views = Regex("\"views\"(.*?)\"cameras\"", RegexOption.DOT_MATCHES_ALL)
+            .find(ConfigCodec.encode(fullConfig))!!.groupValues[1]
+        assert("rtsp" !in views && "secret" !in views && "http" !in views) { views }
     }
 
     @Test
@@ -57,7 +79,7 @@ class ConfigCodecTest {
     // decode
 
     @Test
-    fun decodeExplicitJson() {
+    fun decodeVersion1MigratesLayoutToUniformView() {
         val json = """
             {
               "layout": {"columns": 4, "rows": 3},
@@ -69,10 +91,10 @@ class ConfigCodecTest {
             }
         """.trimIndent()
         val expected = CamGridConfig(
-            layout = GridLayout(4, 3),
+            views = listOf(CamView.uniform(CamGridConfig.DEFAULT_VIEW_ID, "", 4, 3)),
             cameras = listOf(Camera("a", "A", "rtsp://192.0.2.1/sub", "rtsp://192.0.2.1/main")),
             go2rtcBaseUrl = "http://192.0.2.10:1984",
-            version = 1,
+            version = CamGridConfig.CURRENT_VERSION,
         )
         assertEquals(expected, ConfigCodec.decode(json))
     }
@@ -94,7 +116,7 @@ class ConfigCodecTest {
             }
         """.trimIndent()
         val expected = CamGridConfig(
-            layout = GridLayout(3, 1),
+            views = listOf(CamView.uniform(CamGridConfig.DEFAULT_VIEW_ID, "", 3, 1)),
             cameras = listOf(Camera("a", "A", "rtsp://192.0.2.1/sub")),
         )
         assertEquals(expected, ConfigCodec.decode(json))
@@ -109,7 +131,7 @@ class ConfigCodecTest {
     fun decodeMissingKeysTakeDefaults() {
         val json = """{"cameras":[{"id":"a","name":"A","gridUrl":"rtsp://192.0.2.1/sub"}]}"""
         val decoded = ConfigCodec.decode(json)
-        assertEquals(GridLayout(), decoded.layout)
+        assertEquals(CamGridConfig().views, decoded.views)
         assertEquals("", decoded.go2rtcBaseUrl)
         assertEquals(CamGridConfig.CURRENT_VERSION, decoded.version)
         assertEquals(listOf(Camera("a", "A", "rtsp://192.0.2.1/sub", "")), decoded.cameras)
@@ -117,8 +139,8 @@ class ConfigCodecTest {
 
     @Test
     fun decodeMissingLayoutFieldTakesDefault() {
-        assertEquals(GridLayout(columns = 3, rows = 2), ConfigCodec.decode("""{"layout":{"columns":3}}""").layout)
-        assertEquals(GridLayout(columns = 2, rows = 4), ConfigCodec.decode("""{"layout":{"rows":4}}""").layout)
+        assertEquals(listOf(CamView.uniform("main", "", 3, 2)), ConfigCodec.decode("""{"layout":{"columns":3}}""").views)
+        assertEquals(listOf(CamView.uniform("main", "", 2, 4)), ConfigCodec.decode("""{"layout":{"rows":4}}""").views)
     }
 
     @Test
@@ -136,6 +158,42 @@ class ConfigCodecTest {
         assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":5,"rows":2}}""") }
         assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":2,"rows":5}}""") }
         assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":{"columns":-1,"rows":2}}""") }
+        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode("""{"layout":"wide"}""") }
+    }
+
+    @Test
+    fun decodeVersion2IgnoresLegacyLayout() {
+        val json = """{"version":2,"layout":{"columns":4,"rows":4},"views":[{"id":"v","columns":1,"rows":1,"tiles":[{"x":0,"y":0}]}]}"""
+        assertEquals(listOf(CamView("v", "", 1, 1, listOf(Tile(0, 0)))), ConfigCodec.decode(json).views)
+    }
+
+    @Test
+    fun decodeTileDefaults() {
+        val json = """{"version":2,"views":[{"id":"v","columns":2,"rows":1,"tiles":[{"x":1,"y":0}]}]}"""
+        val tile = ConfigCodec.decode(json).views.single().tiles.single()
+        assertEquals(Tile(x = 1, y = 0, w = 1, h = 1, camera = null, fit = FitMode.FIT), tile)
+    }
+
+    @Test
+    fun decodeUnknownFitModeFallsBackToFit() {
+        val json = """{"version":2,"views":[{"id":"v","columns":1,"rows":1,"tiles":[{"x":0,"y":0,"fit":"STRETCH"}]}]}"""
+        assertEquals(FitMode.FIT, ConfigCodec.decode(json).views.single().tiles.single().fit)
+    }
+
+    @Test
+    fun decodeInvalidViewsThrow() {
+        fun v2(views: String) = """{"version":2,"views":$views}"""
+        // Overlapping tiles, a tile outside the canvas, an empty view list, duplicate ids.
+        assertThrows(ConfigFormatException::class.java) {
+            ConfigCodec.decode(v2("""[{"id":"v","columns":2,"rows":1,"tiles":[{"x":0,"y":0,"w":2},{"x":1,"y":0}]}]"""))
+        }
+        assertThrows(ConfigFormatException::class.java) {
+            ConfigCodec.decode(v2("""[{"id":"v","columns":2,"rows":1,"tiles":[{"x":1,"y":0,"w":2}]}]"""))
+        }
+        assertThrows(ConfigFormatException::class.java) { ConfigCodec.decode(v2("[]")) }
+        assertThrows(ConfigFormatException::class.java) {
+            ConfigCodec.decode(v2("""[{"id":"v","columns":1,"rows":1,"tiles":[]},{"id":"v","columns":1,"rows":1,"tiles":[]}]"""))
+        }
     }
 
     // decodeOrDefault

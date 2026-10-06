@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleStartEffect
+import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
 
 /** What a stream is doing, shown on its tile or in fullscreen. */
@@ -59,12 +60,12 @@ fun rememberLiveStream(url: String, type: StreamType, label: String, audioEnable
     return stream
 }
 
-/** Renders [stream] letterboxed and centred in [modifier]'s bounds; black while it is null. */
+/** Renders [stream] centred in [modifier]'s bounds, letterboxed or cropped per [fit]; black while it is null. */
 @Composable
-fun LiveStreamSurface(stream: LiveStream?, modifier: Modifier = Modifier) {
+fun LiveStreamSurface(stream: LiveStream?, modifier: Modifier = Modifier, fit: FitMode = FitMode.FIT) {
     when (stream) {
-        is WebRtcStream -> WebRtcSurface(stream, modifier)
-        is StreamPlayer -> VideoSurface(stream.player, modifier)
-        else -> VideoSurface(null, modifier)
+        is WebRtcStream -> WebRtcSurface(stream, modifier, fit)
+        is StreamPlayer -> VideoSurface(stream.player, modifier, fit)
+        else -> VideoSurface(null, modifier, fit)
     }
 }

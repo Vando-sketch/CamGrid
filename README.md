@@ -13,7 +13,9 @@ A personal camera wall for Android phones and Fire TV: live camera streams in a 
 ## Features
 
 - One APK for phones and Fire TV (Android 7.1 / Fire OS 6 and newer, minSdk 25).
-- Configurable grid from 1x1 up to 4x4. More cameras than tiles spill onto further pages.
+- Free layouts ("views"): tiles on a cell canvas of up to 12x12 cells may span several cells, so portrait and landscape tiles can sit side by side (for example two portrait tiles next to two stacked landscape tiles). Up to 16 tiles per view, several views one after the other.
+- Each tile shows a fixed camera or is an auto tile that takes the next camera in the camera order; more cameras than auto tiles spill onto further pages. Each tile either crops the picture to fill the tile or fits it with black bars.
+- A layout editor that works with the Fire TV remote (select, move and resize tiles with the arrows, OK switches mode) and by touch, with presets for common layouts.
 - Grid tiles play a low-resolution stream with no audio. Tap or OK opens the camera fullscreen with its high-resolution stream and sound.
 - Only one screen plays at a time: the grid's streams are released before fullscreen starts its own.
 - Full D-pad navigation for the Fire TV remote, touch and swipe on phones.
@@ -29,7 +31,7 @@ A personal camera wall for Android phones and Fire TV: live camera streams in a 
 <table>
   <tr>
     <td width="50%"><img src="docs/images/fullscreen.png" alt="Fullscreen camera (UI mockup)"><br>Fullscreen: one camera, high-resolution stream with sound. Left/right switch camera, OK toggles sound.</td>
-    <td width="50%"><img src="docs/images/settings.png" alt="Settings (UI mockup)"><br>Settings: grid size, camera order, add, edit and delete cameras.</td>
+    <td width="50%"><img src="docs/images/settings.png" alt="Settings (UI mockup)"><br>Settings: grid size, camera order, add, edit and delete cameras. (The mockup predates views: grid size is now set per view in the layout editor.)</td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/go2rtc-import.png" alt="go2rtc import (UI mockup)"><br>Import from go2rtc: fetch the stream list, tick cameras, import.</td>
