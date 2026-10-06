@@ -66,6 +66,10 @@ Open the link above on the phone, download the APK and install it. Android asks 
 
    Confirm the debugging prompt on the TV the first time. CamGrid then appears in the apps list.
 
+### iPhone and iPad
+
+Not in the App Store: build it with Xcode and your own Apple ID, or sign the unsigned `.ipa` that CI builds with Sideloadly or AltStore. See [docs/ios.md](docs/ios.md).
+
 ### Updating
 
 Android installs a new APK over the old one only when both are signed with the same key and the new one has a higher version code. Once the repository has its signing key set up (see [CI and signing](#ci-and-signing)), both are true for every CI build: install the new APK over the old one on a phone, or run `adb install -r camgrid-debug.apk` again on the Fire TV. Settings are kept.
@@ -296,4 +300,5 @@ Third-party components:
 
 - [AndroidX Media3](https://github.com/androidx/media) (ExoPlayer), Apache License 2.0.
 - Google's libwebrtc, BSD 3-Clause License, via the prebuilt [`io.github.webrtc-sdk:android`](https://github.com/webrtc-sdk/android) package.
+- iOS app: [VLCKit](https://code.videolan.org/videolan/VLCKit) (libVLC), GNU LGPL 2.1 or later, and Google's libwebrtc, BSD 3-Clause License, via [stasel/WebRTC](https://github.com/stasel/WebRTC). See [NOTICE](NOTICE), including how to rebuild with a modified VLCKit.
 - The wordmark in the icon set uses [Inter](https://github.com/rsms/inter), SIL Open Font License 1.1, embedded as outlines (see [design/icon/README.md](design/icon/README.md)).
