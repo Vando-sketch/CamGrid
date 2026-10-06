@@ -35,6 +35,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
         with:
+          # v6 defaults to a closed-source cache under Gradle's terms of use; keep the MIT one.
+          cache-provider: basic
           # GitHub cannot read Gradle files for Dependabot security alerts, so main submits the
           # resolved dependency graph. PRs don't, they lack the write permission from forks.
           dependency-graph: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'generate-and-submit' || 'disabled' }}
