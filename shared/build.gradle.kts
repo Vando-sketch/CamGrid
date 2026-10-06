@@ -10,6 +10,10 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.addAll("kotlin.uuid.ExperimentalUuidApi", "kotlin.io.encoding.ExperimentalEncodingApi")
+    }
+
     android {
         namespace = "io.github.vandosketch.camgrid.shared"
         compileSdk = 37
@@ -37,10 +41,23 @@ kotlin {
             api(libs.lifecycle.viewmodel.compose.mp)
             implementation(libs.lifecycle.runtime.compose.mp)
             implementation(libs.coroutines.core)
+            // api: the Android app's WebRTC player uses WhepClient with the shared HttpClient.
+            api(libs.ktor.client.core)
+        }
+        androidMain.dependencies {
+            // HttpURLConnection underneath, like the app used before.
+            implementation(libs.ktor.client.android)
+        }
+        getByName("desktopMain").dependencies {
+            implementation(libs.ktor.client.java)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
     }
 }
