@@ -55,11 +55,14 @@ fun CameraEditorScreen(
     var streamType by rememberSaveable { mutableStateOf(camera?.streamType ?: StreamType.RTSP) }
     var saveAttempted by rememberSaveable { mutableStateOf(false) }
 
+    // A go2rtc player URL pasted from the browser becomes its WebRTC signalling URL.
+    fun playable(url: String) =
+        if (streamType == StreamType.WEBRTC) Go2rtc.webrtcEndpoint(url) ?: url.trim() else url.trim()
     val draft = Camera(
         id = id,
         name = name.trim(),
-        gridUrl = gridUrl.trim(),
-        detailUrl = detailUrl.trim(),
+        gridUrl = playable(gridUrl),
+        detailUrl = playable(detailUrl),
         streamType = streamType,
     )
     val webrtc = streamType == StreamType.WEBRTC

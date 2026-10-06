@@ -63,6 +63,34 @@ object Go2rtc {
     fun webrtcUrl(baseUrl: String, streamName: String): String =
         withScheme(baseUrl).trimEnd('/') + "$WEBRTC_PATH?src=" + encodeName(streamName)
 
+    /** go2rtc pages and API endpoints that take `?src=<name>`, relative to go2rtc's root. */
+    private val STREAM_PATHS = setOf(
+        "api/webrtc", "stream.html", "webrtc.html", "links.html",
+        "api/ws", "api/stream.mp4", "api/stream.m3u8", "api/frame.jpeg", "api/stream.mjpeg",
+    )
+
+    /**
+     * The WebRTC signalling URL (`<root>/api/webrtc?src=<name>`) for any go2rtc page or API URL
+     * of a stream, such as the browser player `http://host:1984/stream.html?src=<name>`, or null
+     * when [url] is not one. Scheme (ws becomes http, wss https), user-info, port and any path
+     * prefix in front of go2rtc's root (a reverse proxy) are kept; other parameters are dropped.
+     */
+    fun webrtcEndpoint(url: String): String? {
+        val parts = UrlParts.parse(url.trim()) ?: return null
+        val scheme = when (parts.scheme.lowercase()) {
+            "http", "ws" -> "http"
+            "https", "wss" -> "https"
+            else -> return null
+        }
+        if (parts.host.isEmpty()) return null
+        val path = parts.rest.substringBefore('?').substringBefore('#')
+        val page = STREAM_PATHS.firstOrNull { path == "/$it" || path.endsWith("/$it") } ?: return null
+        val name = queryParameter(parts.rest, "src")?.takeIf { it.isNotEmpty() } ?: return null
+        val prefix = path.removeSuffix("/$page")
+        val userInfo = parts.userInfo?.let { "$it@" }.orEmpty()
+        return "$scheme://$userInfo${parts.hostPort}$prefix$WEBRTC_PATH?src=${encodeName(name)}"
+    }
+
     /**
      * Converts a go2rtc stream URL to the same stream as [to], or returns null when [url] is not
      * a recognisable go2rtc URL. Used when a camera's stream type is switched in the editor.
@@ -179,9 +207,14 @@ object Go2rtc {
     private fun webrtcStreamName(parts: UrlParts): String? {
         val path = parts.rest.substringBefore('?').substringBefore('#')
         if (path.trimEnd('/') != WEBRTC_PATH) return null
-        val query = parts.rest.substringAfter('?', "").substringBefore('#')
-        val src = query.split('&').firstOrNull { it.startsWith("src=") }?.removePrefix("src=") ?: return null
-        return decode(src)?.takeIf { it.isNotEmpty() }
+        return queryParameter(parts.rest, "src")?.takeIf { it.isNotEmpty() }
+    }
+
+    /** The decoded value of the first [key] parameter in the query of [rest], or null. */
+    private fun queryParameter(rest: String, key: String): String? {
+        val query = rest.substringAfter('?', "").substringBefore('#')
+        val raw = query.split('&').firstOrNull { it.startsWith("$key=") }?.removePrefix("$key=") ?: return null
+        return decode(raw)
     }
 
     private fun decode(value: String): String? = try {

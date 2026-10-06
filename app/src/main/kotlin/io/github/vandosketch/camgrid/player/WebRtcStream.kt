@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.ReconnectPolicy
 import io.github.vandosketch.camgrid.core.SignalingException
 import io.github.vandosketch.camgrid.core.StreamWatchdog
@@ -57,10 +58,13 @@ import org.webrtc.VideoTrack
  */
 class WebRtcStream(
     context: Context,
-    private val url: String,
+    url: String,
     private val label: String,
     private val audioEnabled: Boolean,
 ) : LiveStream {
+
+    // Configs saved before the editor normalised URLs may hold a go2rtc player page URL.
+    private val url = Go2rtc.webrtcEndpoint(url) ?: url
 
     override var status by mutableStateOf<StreamStatus>(StreamStatus.Connecting)
         private set
