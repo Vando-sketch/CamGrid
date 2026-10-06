@@ -82,7 +82,7 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
                     existingIds = config.cameras.map { it.id }.toSet(),
                     state = viewModel.importState,
                     streamType = viewModel.importStreamType,
-                    onStreamTypeChange = viewModel::setImportStreamType,
+                    onStreamTypeChange = viewModel::selectImportStreamType,
                     onFetch = viewModel::fetchGo2rtc,
                     onToggle = viewModel::toggleImportSelection,
                     onImport = viewModel::importSelected,

@@ -188,7 +188,7 @@ class CamGridViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun setImportStreamType(type: StreamType) {
+    fun selectImportStreamType(type: StreamType) {
         importStreamType = type
         val state = importState as? ImportState.Loaded ?: return
         importState = try {
