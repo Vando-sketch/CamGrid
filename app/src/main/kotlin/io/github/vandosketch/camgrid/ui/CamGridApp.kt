@@ -72,6 +72,7 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
                     onEditCamera = viewModel::editCamera,
                     onDeleteCamera = viewModel::deleteCamera,
                     onImport = viewModel::openImport,
+                    onBackup = viewModel::openBackup,
                 )
                 is Screen.EditCamera -> key(screen.cameraId) {
                     CameraEditorScreen(
@@ -89,6 +90,20 @@ fun CamGridApp(viewModel: CamGridViewModel, onImmersiveChange: (Boolean) -> Unit
                     onFetch = viewModel::fetchGo2rtc,
                     onToggle = viewModel::toggleImportSelection,
                     onImport = viewModel::importSelected,
+                    onBack = viewModel::back,
+                )
+                Screen.Backup -> BackupScreen(
+                    state = viewModel.backupState,
+                    folderPath = viewModel.backupFolderPath,
+                    suggestedName = viewModel.suggestedBackupName(),
+                    listFolderFiles = viewModel::backupFolderFiles,
+                    onExport = viewModel::exportBackup,
+                    onExportToFolder = viewModel::exportBackupToFolder,
+                    onImport = viewModel::importBackup,
+                    onImportFromFolder = viewModel::importBackupFromFolder,
+                    onSubmitPassword = viewModel::submitBackupPassword,
+                    onConfirmImport = viewModel::confirmImport,
+                    onReset = viewModel::resetBackup,
                     onBack = viewModel::back,
                 )
                 is Screen.EditView -> {

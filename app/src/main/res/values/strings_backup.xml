@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backup: header -->
+    <string name="bk_title">Backup</string>
+    <string name="bk_back">Back</string>
+
+    <!-- Backup: export -->
+    <string name="bk_section_export">Export settings</string>
+    <string name="bk_export_help">The backup file contains all settings, including the camera addresses and their passwords. Protect it with a password.</string>
+    <string name="bk_password">Password</string>
+    <string name="bk_password_repeat">Repeat password</string>
+    <string name="bk_export_with_password">Export with password</string>
+    <string name="bk_export_without_password">Export without password</string>
+    <string name="bk_error_password_empty">Enter a password, or export without password.</string>
+    <string name="bk_error_password_mismatch">The passwords do not match.</string>
+    <string name="bk_plain_title">Export without password?</string>
+    <string name="bk_plain_message">Anyone who gets the file can read the camera addresses and their passwords.</string>
+    <string name="bk_plain_confirm">Export</string>
+    <string name="bk_cancel">Cancel</string>
+
+    <!-- Backup: import -->
+    <string name="bk_section_import">Import settings</string>
+    <string name="bk_import_from_file">Import from file</string>
+    <string name="bk_folder_help">Without a file picker (Fire TV), backups are saved to and read from: %1$s. Copy files there with adb push.</string>
+    <string name="bk_folder_empty">No backup files in %1$s</string>
+    <string name="bk_folder_files">Backup files in %1$s:</string>
+
+    <!-- Backup: progress and results -->
+    <string name="bk_working">Working…</string>
+    <string name="bk_saved">Saved: %1$s</string>
+    <string name="bk_saved_plain_reminder">This file is not protected by a password. Store it somewhere safe.</string>
+    <string name="bk_imported">Settings imported.</string>
+    <string name="bk_error_unreadable">This is not a CamGrid backup, or the file is damaged.</string>
+    <string name="bk_error_newer_version">This backup was made by a newer CamGrid. Update the app to import it.</string>
+    <string name="bk_error_read_failed">Could not read the file.</string>
+    <string name="bk_error_write_failed">Could not save the file.</string>
+
+    <!-- Backup: password dialog -->
+    <string name="bk_unlock_title">Encrypted backup</string>
+    <string name="bk_unlock_message">Enter the password used for this backup.</string>
+    <string name="bk_unlock">Unlock</string>
+    <string name="bk_wrong_password">Wrong password</string>
+
+    <!-- Backup: confirm import dialog -->
+    <string name="bk_replace_title">Replace settings?</string>
+    <string name="bk_replace_message">The backup has %1$s and %2$s. It replaces your current %3$s and %4$s.</string>
+    <string name="bk_replace_confirm">Replace</string>
+    <plurals name="bk_cameras">
+        <item quantity="one">%d camera</item>
+        <item quantity="other">%d cameras</item>
+    </plurals>
+    <plurals name="bk_views">
+        <item quantity="one">%d view</item>
+        <item quantity="other">%d views</item>
+    </plurals>
+</resources>

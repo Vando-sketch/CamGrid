@@ -13,6 +13,9 @@ sealed interface Screen {
 
     data object Go2rtcImport : Screen
 
+    /** Settings export and import. */
+    data object Backup : Screen
+
     /** Layout editor for the view with [viewId]. */
     data class EditView(val viewId: String) : Screen
 }

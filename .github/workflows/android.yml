@@ -23,6 +23,8 @@ jobs:
       CAMGRID_KEYSTORE_PASSWORD: ${{ secrets.CAMGRID_KEYSTORE_PASSWORD }}
       CAMGRID_KEY_ALIAS: ${{ secrets.CAMGRID_KEY_ALIAS }}
       CAMGRID_KEY_PASSWORD: ${{ secrets.CAMGRID_KEY_PASSWORD }}
+      # versionCode: each build must be higher than the installed one to count as an update.
+      CAMGRID_BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v5
 
@@ -38,6 +40,13 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/camgrid.jks"
           echo "CAMGRID_KEYSTORE_FILE=$RUNNER_TEMP/camgrid.jks" >> "$GITHUB_ENV"
+          echo "CAMGRID_SIGNING=stable" >> "$GITHUB_ENV"
+
+      - name: Warn about missing signing key
+        if: env.KEYSTORE_BASE64 == ''
+        run: |
+          echo "::warning title=No signing key::CAMGRID_KEYSTORE_BASE64 is not set. This build is signed with a one-off debug key, so it cannot update an installed CamGrid (uninstall first). See README, CI and signing."
+          echo "CAMGRID_SIGNING=one-off" >> "$GITHUB_ENV"
 
       - name: Unit tests
         run: ./gradlew test --stacktrace
@@ -81,4 +90,4 @@ jobs:
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Preview build ($GITHUB_REF_NAME)" \
-            --notes "Test build from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Install camgrid-debug.apk."
+            --notes "Test build ${CAMGRID_BUILD_NUMBER} from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Install camgrid-debug.apk. Signing key: ${CAMGRID_SIGNING} (one-off means it cannot update an installed CamGrid; uninstall first)."
