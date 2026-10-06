@@ -44,8 +44,8 @@ import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.R
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.player.StreamStatus
-import io.github.vandosketch.camgrid.player.VideoSurface
-import io.github.vandosketch.camgrid.player.rememberStreamPlayer
+import io.github.vandosketch.camgrid.player.LiveStreamSurface
+import io.github.vandosketch.camgrid.player.rememberLiveStream
 import kotlinx.coroutines.delay
 
 private const val OVERLAY_TIMEOUT_MS = 4_000L
@@ -90,7 +90,7 @@ fun FullscreenScreen(
         }
     }
 
-    val stream = rememberStreamPlayer(camera.fullscreenUrl, camera.name, audioEnabled = true)
+    val stream = rememberLiveStream(camera.fullscreenUrl, camera.streamType, camera.name, audioEnabled = true)
     SideEffect { stream?.setMuted(muted) }
 
     // The root box takes focus so it receives the D-pad keys.
@@ -155,7 +155,7 @@ fun FullscreenScreen(
                 )
             },
     ) {
-        VideoSurface(stream?.player, Modifier.fillMaxSize())
+        LiveStreamSurface(stream, Modifier.fillMaxSize())
         StreamStatusBadge(
             status = stream?.status ?: StreamStatus.Connecting,
             modifier = Modifier.align(Alignment.Center),

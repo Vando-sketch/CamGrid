@@ -1,8 +1,5 @@
 package io.github.vandosketch.camgrid.data
 
-import android.net.Uri
-import android.util.Base64
-import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.Go2rtc
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -16,24 +13,26 @@ class Go2rtcException(val reason: Reason, val detail: String = "", cause: Throwa
     enum class Reason { INVALID_URL, NETWORK, HTTP_STATUS, NOT_GO2RTC }
 }
 
-/** Fetches the stream list from a go2rtc server and turns it into camera suggestions. */
+/** Fetches the stream list from a go2rtc server. */
 object Go2rtcClient {
     private const val TIMEOUT_MS = 5_000
 
-    /** Throws [Go2rtcException] on any failure. Runs on [Dispatchers.IO]. */
-    suspend fun fetchCameras(baseUrl: String): List<Camera> = withContext(Dispatchers.IO) {
+    /**
+     * The server's stream names, in its order (turn them into cameras with
+     * [Go2rtc.suggestCameras]). Throws [Go2rtcException] on any failure. Runs on [Dispatchers.IO].
+     */
+    suspend fun fetchStreamNames(baseUrl: String): List<String> = withContext(Dispatchers.IO) {
         val uri = try {
             URI(Go2rtc.streamsApiUrl(baseUrl))
         } catch (e: Exception) {
             throw Go2rtcException(Go2rtcException.Reason.INVALID_URL, cause = e)
         }
         val body = httpGet(uri)
-        val names = try {
+        try {
             Go2rtc.parseStreamNames(body)
         } catch (e: IllegalArgumentException) {
             throw Go2rtcException(Go2rtcException.Reason.NOT_GO2RTC, cause = e)
         }
-        Go2rtc.suggestCameras(baseUrl, names)
     }
 
     private fun httpGet(uri: URI): String {
@@ -47,14 +46,7 @@ object Go2rtcClient {
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
             connection.setRequestProperty("Accept", "application/json")
-            // HttpURLConnection ignores user-info in the URL; send it as Basic auth instead.
-            uri.rawUserInfo?.let { userInfo ->
-                val credentials = Uri.decode(userInfo).toByteArray(Charsets.UTF_8)
-                connection.setRequestProperty(
-                    "Authorization",
-                    "Basic " + Base64.encodeToString(credentials, Base64.NO_WRAP),
-                )
-            }
+            connection.setBasicAuthFrom(uri)
             val code = connection.responseCode
             if (code !in 200..299) {
                 throw Go2rtcException(Go2rtcException.Reason.HTTP_STATUS, detail = "HTTP $code")

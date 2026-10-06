@@ -11,6 +11,9 @@ object ConfigCodec {
         ignoreUnknownKeys = true
         encodeDefaults = true
         prettyPrint = true
+        // An enum value from a newer app version (say a new StreamType) falls back to the
+        // property's default instead of making the whole config unreadable.
+        coerceInputValues = true
     }
 
     /** Encodes [config] as JSON. Round-trips through [decode]. */

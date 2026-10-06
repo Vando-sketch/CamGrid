@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.ImportState
 import io.github.vandosketch.camgrid.R
 import io.github.vandosketch.camgrid.core.Camera
+import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.core.UrlRedactor
 import io.github.vandosketch.camgrid.data.Go2rtcException
 
@@ -57,6 +58,8 @@ fun Go2rtcImportScreen(
     initialBaseUrl: String,
     existingIds: Set<String>,
     state: ImportState,
+    streamType: StreamType,
+    onStreamTypeChange: (StreamType) -> Unit,
     onFetch: (String) -> Unit,
     onToggle: (String) -> Unit,
     onImport: () -> Unit,
@@ -93,6 +96,16 @@ fun Go2rtcImportScreen(
                     .fillMaxWidth()
                     .focusRequester(fieldRequester),
             )
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                StreamTypeSelector(selected = streamType, onSelect = onStreamTypeChange)
+                Text(
+                    text = stringResource(R.string.import_stream_type_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         item {
             Row(

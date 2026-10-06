@@ -15,6 +15,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+
+        // libwebrtc is native code, about 7 to 16 MB per ABI. Phones and the Fire TV Stick are ARM;
+        // x86_64 stays for the emulator. 32-bit x86 devices are not a target.
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
     }
 
     // CI decodes the release keystore from repository secrets into this file. Without it the
@@ -74,6 +80,8 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.rtsp)
     implementation(libs.media3.ui.compose)
+
+    implementation(libs.webrtc)
 
     implementation(libs.coroutines.android)
 

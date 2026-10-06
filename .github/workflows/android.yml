@@ -67,15 +67,18 @@ jobs:
           path: dist/*.apk
 
       # A plain .apk link that works in a phone browser (workflow artifacts are zipped and need
-      # a GitHub login). Each push replaces the previous preview.
+      # a GitHub login). Each push replaces the previous preview of the same branch: main
+      # publishes "preview", any other branch "preview-<last part of the branch name>", so a
+      # feature branch never replaces the build someone is testing from another branch.
       - name: Publish preview release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete preview --cleanup-tag --yes || true
-          gh release create preview dist/*.apk \
+          if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview; else tag="preview-${GITHUB_REF_NAME##*/}"; fi
+          gh release delete "$tag" --cleanup-tag --yes || true
+          gh release create "$tag" dist/*.apk \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Preview build" \
+            --title "Preview build ($GITHUB_REF_NAME)" \
             --notes "Test build from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Install camgrid-debug.apk."
