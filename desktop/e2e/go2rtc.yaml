@@ -1,0 +1,22 @@
+# go2rtc for the desktop end-to-end tests (Go2rtcEndToEndTest): two generated H.264 streams,
+# everything on localhost. No STUN servers: without internet access go2rtc would otherwise
+# wait 5 s for stun.l.google.com before answering each WebRTC offer.
+#
+#   go2rtc -config desktop/e2e/go2rtc.yaml &
+#   CAMGRID_IT_GO2RTC=http://127.0.0.1:1984 ./gradlew :desktop:test
+api:
+  listen: "127.0.0.1:1984"
+rtsp:
+  listen: "127.0.0.1:8554"
+webrtc:
+  ice_servers: []
+  listen: "127.0.0.1:8555"
+  candidates:
+    - 127.0.0.1:8555
+streams:
+  # H.264 Constrained Baseline 640x360 with Opus audio.
+  baseline:
+    - "exec:ffmpeg -hide_banner -loglevel error -re -f lavfi -i testsrc=size=640x360:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency -g 25 -pix_fmt yuv420p -c:a libopus -b:a 64k -f rtsp {output}"
+  # H.264 High 1280x720, video only.
+  high:
+    - "exec:ffmpeg -hide_banner -loglevel error -re -f lavfi -i testsrc2=size=1280x720:rate=25 -c:v libx264 -profile:v high -preset ultrafast -tune zerolatency -g 25 -pix_fmt yuv420p -f rtsp {output}"
