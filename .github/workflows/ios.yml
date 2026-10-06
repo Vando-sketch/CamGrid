@@ -89,6 +89,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Build the unsigned device app
+        # The release build for devices links Kotlin/Native with full optimisation, which takes
+        # 10+ minutes; feature branches stop at the simulator build. Run the workflow by hand on
+        # a branch to get an .ipa from it.
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           xcodebuild archive \
             -project "$PROJECT" -scheme CamGrid -configuration Release \
@@ -98,6 +102,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: Package the unsigned .ipa
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
           cp -R "$RUNNER_TEMP/CamGrid.xcarchive/Products/Applications/CamGrid.app" "$RUNNER_TEMP/ipa/Payload/"
@@ -105,6 +110,7 @@ jobs:
           ls -l dist
 
       - name: Upload the unsigned .ipa
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v5
         with:
           name: camgrid-ios-unsigned
