@@ -184,7 +184,7 @@ With them, both the debug and the release APK are signed with that key. Without 
 
 ## License
 
-CamGrid is released under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, change and share it for any noncommercial purpose; commercial use is not permitted. The icon artwork is original and covered by the same license.
+CamGrid is released under the [MIT License](LICENSE). The icon artwork is original and covered by the same license.
 
 Third-party components:
 
