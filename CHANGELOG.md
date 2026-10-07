@@ -4,7 +4,7 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-10-07
+## [0.2.0] - 2026-10-07
 
 ### Fixed
 
@@ -55,7 +55,7 @@ The first stable release.
 - WebRTC works on the local network only and needs H.264 video (H.265 cameras play as MP4 through go2rtc instead).
 - A live viewer only: no recording, playback, motion alerts, PTZ or two-way audio.
 
-[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.2...HEAD
-[0.1.2]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.1...v0.1.2
+[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Vando-sketch/CamGrid/releases/tag/v0.1.0
