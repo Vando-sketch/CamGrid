@@ -13,10 +13,15 @@ android {
         // Fire OS 6 is API 25. The stick's Fire OS version is unknown, so stay this low.
         minSdk = 25
         targetSdk = 36
-        // CI passes its run number, so every CI build is a real upgrade of the previous one.
+        // The version contract (docs/releasing.md): CAMGRID_BUILD_NUMBER is CI's monotonic build
+        // number, so every CI build is a real upgrade of the previous one. CAMGRID_VERSION is
+        // the version people see, such as 0.1.0 or 0.1.0-preview.81; local builds are
+        // "<camgrid.version>-dev" (gradle.properties). Settings, About shows versionName.
         val buildNumber = providers.environmentVariable("CAMGRID_BUILD_NUMBER").orNull?.toIntOrNull() ?: 1
+        val baseVersion = providers.gradleProperty("camgrid.version").get()
         versionCode = buildNumber
-        versionName = "0.2.$buildNumber"
+        versionName = providers.environmentVariable("CAMGRID_VERSION").orNull?.takeIf { it.isNotBlank() }
+            ?: "$baseVersion-dev"
 
         // libwebrtc is native code, about 7 to 16 MB per ABI. Phones and the Fire TV Stick are ARM;
         // x86_64 stays for the emulator. 32-bit x86 devices are not a target.
@@ -63,6 +68,8 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.VERSION_NAME is the version shown in Settings, About.
+        buildConfig = true
     }
 
     // Compose UI tests run under Robolectric and need the app's string resources.

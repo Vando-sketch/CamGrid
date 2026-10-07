@@ -32,6 +32,6 @@ Auto tiles take the cameras not fixed elsewhere in the same view, in the camera 
 
 A config file holds `views` (at least one, unique ids), `cameras`, `go2rtcBaseUrl` and `version`. Version 1 files had a single `layout` of `columns` x `rows` (1 to 4 each) instead of `views`; they load as one uniform view with the id `main`, whose auto tiles page exactly like the old grid. The same file, optionally encrypted, is what Settings > Backup exports; see [backup-format.md](backup-format.md).
 
-Views are edited in the app under Settings > Views (see the README's [Views](../README.md#views) section). The editor only produces valid views: a move or resize that would leave the canvas or overlap another tile is ignored, and shrinking the canvas removes tiles that start outside it and cuts the rest to fit.
+Views are edited in the app under Settings > Views (see the [user guide](user-guide.md#views)). The editor only produces valid views: a move or resize that would leave the canvas or overlap another tile is ignored, and shrinking the canvas removes tiles that start outside it and cuts the rest to fit.
 
 Keep live streams per page in mind: every tile with a camera is one decoder. A Fire TV Stick handles about 4 at once, and the editor shows a warning when a view has more than 4 tiles.

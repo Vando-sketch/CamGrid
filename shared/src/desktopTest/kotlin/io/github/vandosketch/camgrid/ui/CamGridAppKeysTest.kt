@@ -12,6 +12,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runComposeUiTest
 import io.github.vandosketch.camgrid.CamGridViewModel
 import io.github.vandosketch.camgrid.Screen
+import io.github.vandosketch.camgrid.about.License
 import io.github.vandosketch.camgrid.core.ConfigCodec
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.createCamGridHttpClient
@@ -74,7 +75,7 @@ class CamGridAppKeysTest {
             go2rtcClient = Go2rtcClient(createCamGridHttpClient(MockEngine { respond("") })),
         )
         setContent {
-            CamGridTheme { CamGridApp(viewModel = viewModel, video = FakeVideoPlatform(), onImmersiveChange = {}) }
+            CamGridTheme { CamGridApp(viewModel = viewModel, video = FakeVideoPlatform(), appVersion = "0.1.0-dev", onImmersiveChange = {}) }
         }
         return viewModel
     }
@@ -111,6 +112,19 @@ class CamGridAppKeysTest {
         waitForIdle()
         press(Key.Escape)
         assertEquals(Screen.Grid, viewModel.screen)
+    }
+
+    @Test
+    fun escapeWalksBackFromALicenseText() = runComposeUiTest {
+        val viewModel = showApp()
+        viewModel.openSettings()
+        viewModel.openLicenses()
+        viewModel.openLicense(License.APACHE_2_0)
+        waitForIdle()
+        press(Key.Escape)
+        assertEquals(Screen.Licenses, viewModel.screen)
+        press(Key.Escape)
+        assertEquals(Screen.Settings, viewModel.screen)
     }
 
     @Test

@@ -4,6 +4,7 @@ run-name: "Android build ${{ github.run_number }} on ${{ github.ref_name }}"
 on:
   push:
     branches: [main, "claude/**"]
+    tags: ["v*"] # a stable release, see docs/releasing.md
   pull_request:
   workflow_dispatch:
 
@@ -12,16 +13,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version:
+    # A branch of this repository already runs on push; its pull request would run everything
+    # twice. Skipping this job skips the jobs that need it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    uses: ./.github/workflows/version.yml
+    permissions:
+      contents: read
+    secrets: # only checked for being set, on a release tag
+      CAMGRID_KEYSTORE_BASE64: ${{ secrets.CAMGRID_KEYSTORE_BASE64 }}
+      CAMGRID_KEYSTORE_PASSWORD: ${{ secrets.CAMGRID_KEYSTORE_PASSWORD }}
+      CAMGRID_KEY_ALIAS: ${{ secrets.CAMGRID_KEY_ALIAS }}
+      CAMGRID_KEY_PASSWORD: ${{ secrets.CAMGRID_KEY_PASSWORD }}
+
   build:
     name: Android
-    # A branch of this repository already runs on push; its pull request would run everything twice.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: write # to publish the preview release
+      contents: write # to publish the preview release and submit the dependency graph
     # Optional signing secrets. With them every build is signed with the same key, so a new
-    # APK installs over the old one; without them each run gets a fresh debug key.
+    # APK installs over the old one; without them each run gets a fresh debug key. Required
+    # for a release.
     env:
       KEYSTORE_BASE64: ${{ secrets.CAMGRID_KEYSTORE_BASE64 }}
       CAMGRID_KEYSTORE_PASSWORD: ${{ secrets.CAMGRID_KEYSTORE_PASSWORD }}
@@ -29,7 +43,16 @@ jobs:
       CAMGRID_KEY_PASSWORD: ${{ secrets.CAMGRID_KEY_PASSWORD }}
       # versionCode: each build must be higher than the installed one to count as an update.
       CAMGRID_BUILD_NUMBER: ${{ github.run_number }}
+      # X.Y.Z on a release tag, X.Y.Z-preview.<run> on main, X.Y.Z-dev.<run> otherwise.
+      CAMGRID_VERSION: ${{ needs.version.outputs.version }}
     steps:
+      # A release must install over the previous one, so it is never signed with a one-off key.
+      - name: Require the signing key for a release
+        if: needs.version.outputs.channel == 'stable' && (env.KEYSTORE_BASE64 == '' || env.CAMGRID_KEYSTORE_PASSWORD == '' || env.CAMGRID_KEY_ALIAS == '' || env.CAMGRID_KEY_PASSWORD == '')
+        run: |
+          echo "::error title=No signing key::A release needs the CAMGRID_KEYSTORE_BASE64, CAMGRID_KEYSTORE_PASSWORD, CAMGRID_KEY_ALIAS and CAMGRID_KEY_PASSWORD secrets. Not publishing a release signed with a one-off key. See docs/releasing.md, Signing key."
+          exit 1
+
       - uses: actions/checkout@v7
 
       - uses: actions/setup-java@v6
@@ -57,7 +80,7 @@ jobs:
       - name: Warn about missing signing key
         if: env.KEYSTORE_BASE64 == ''
         run: |
-          echo "::warning title=No signing key::CAMGRID_KEYSTORE_BASE64 is not set. This build is signed with a one-off debug key, so it cannot update an installed CamGrid (uninstall first). See README, CI and signing."
+          echo "::warning title=No signing key::CAMGRID_KEYSTORE_BASE64 is not set. This build is signed with a one-off debug key, so it cannot update an installed CamGrid (uninstall first). See docs/releasing.md, Signing key."
           echo "CAMGRID_SIGNING=one-off" >> "$GITHUB_ENV"
 
       - name: Unit tests
@@ -125,19 +148,58 @@ jobs:
             dist-extra/*.apk
 
       # A plain .apk link that works in a phone browser (workflow artifacts are zipped and need
-      # a GitHub login). Each push replaces the previous preview of the same branch: main
-      # publishes "preview", any other branch "preview-<last part of the branch name>", so a
-      # feature branch never replaces the build someone is testing from another branch.
+      # a GitHub login). Only main publishes; each build replaces the "preview" pre-release.
+      # Other branches keep their APKs in the workflow artifact only.
       - name: Publish preview release
-        # Also on a manual run (Actions > Run workflow), e.g. to rebuild after the signing secrets change.
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        # Also on a manual run of main (Actions > Run workflow), e.g. after the signing secrets change.
+        if: needs.version.outputs.channel == 'preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview; else tag="preview-${GITHUB_REF_NAME##*/}"; fi
+          tag=preview
           gh release delete "$tag" --cleanup-tag --yes || true
           gh release create "$tag" dist/CamGrid-Android.apk dist/camgrid-debug.apk \
             --prerelease \
+            --latest=false \
             --target "$GITHUB_SHA" \
-            --title "CamGrid Android build ${CAMGRID_BUILD_NUMBER} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
-            --notes "Android and Fire TV test build ${CAMGRID_BUILD_NUMBER} (version 0.2.${CAMGRID_BUILD_NUMBER}) from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. Install CamGrid-Android.apk (camgrid-debug.apk is the same file under its old name, kept for old links). Signing key: ${CAMGRID_SIGNING} (one-off means it cannot update an installed CamGrid; uninstall first)."
+            --title "CamGrid Android preview build ${CAMGRID_BUILD_NUMBER} (${GITHUB_SHA::7})" \
+            --notes "Preview build ${CAMGRID_BUILD_NUMBER} of main, not a stable release; the stable release is at https://github.com/${GITHUB_REPOSITORY}/releases/latest. Android and Fire TV, version ${CAMGRID_VERSION}, commit ${GITHUB_SHA::7}. Install CamGrid-Android.apk (camgrid-debug.apk is the same file under its old name, kept for old links). Signing key: ${CAMGRID_SIGNING} (one-off means it cannot update an installed CamGrid; uninstall first)."
+
+      # Branch builds used to publish preview-<branch>, preview-desktop-<branch> and
+      # preview-ios-<branch> pre-releases. Delete those and any leftover preview-* tags; keep
+      # exactly "preview", "preview-desktop" and "preview-ios". Not worth failing the build over.
+      - name: Delete stale branch previews
+        if: needs.version.outputs.channel == 'preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          keep() { [ "$1" = preview-desktop ] || [ "$1" = preview-ios ]; }
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' | while read -r tag; do
+            case "$tag" in preview-*) ;; *) continue ;; esac
+            keep "$tag" && continue
+            echo "Deleting release and tag $tag"
+            gh release delete "$tag" --cleanup-tag --yes
+          done
+          # Tags whose release is already gone.
+          gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/preview-" --jq '.[].ref' | while read -r ref; do
+            tag="${ref#refs/tags/}"
+            keep "$tag" && continue
+            echo "Deleting tag $tag"
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}"
+          done
+
+  # On a vX.Y.Z tag: CamGrid-Android.apk, NOTICE and LICENSE on the "CamGrid X.Y.Z" release.
+  release:
+    name: Release
+    needs: [version, build]
+    if: needs.version.outputs.channel == 'stable'
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.version.outputs.version }}
+      artifact-pattern: CamGrid-Android-build-*
+      files: CamGrid-Android.apk
+      legal-files: true
