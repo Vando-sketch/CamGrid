@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,13 +40,20 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.close
 import io.github.vandosketch.camgrid.shared.resources.fullscreen_hint
+import io.github.vandosketch.camgrid.shared.resources.fullscreen_hint_keys
 import io.github.vandosketch.camgrid.shared.resources.fullscreen_position
 import io.github.vandosketch.camgrid.shared.resources.sound_off
 import io.github.vandosketch.camgrid.shared.resources.sound_on
@@ -57,8 +68,10 @@ private const val OVERLAY_TIMEOUT_MS = 4_000L
 /**
  * One camera fullscreen, high-res stream with sound (unless muted).
  *
- * D-pad LEFT/RIGHT (or a swipe) switch to the previous/next camera, OK toggles the sound,
- * other arrows just show the overlay. A tap toggles the overlay. Back is handled by the caller.
+ * D-pad LEFT/RIGHT (or a swipe) switch to the previous/next camera, 1-9 jump to that camera,
+ * OK (or M, Space) toggles the sound, other arrows just show the overlay. A tap toggles the
+ * overlay, moving the mouse shows it, and its close button calls [onClose]. Back (and Esc) are
+ * handled by the caller.
  */
 @Composable
 fun FullscreenScreen(
@@ -110,6 +123,14 @@ fun FullscreenScreen(
             .focusRequester(focusRequester)
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                val digit = event.key.digit()
+                if (digit != null) {
+                    cameras.getOrNull(digit - 1)?.let {
+                        onSwitchCamera(it.id)
+                        showOverlay()
+                    }
+                    return@onKeyEvent true
+                }
                 when (event.key) {
                     Key.DirectionLeft -> {
                         switchBy(-1)
@@ -119,9 +140,12 @@ fun FullscreenScreen(
                         switchBy(1)
                         true
                     }
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                        muted = !muted
-                        showOverlay()
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.M, Key.Spacebar -> {
+                        // A held key toggles once, not on and off at the repeat rate.
+                        if (!event.isRepeat) {
+                            muted = !muted
+                            showOverlay()
+                        }
                         true
                     }
                     Key.DirectionUp, Key.DirectionDown -> {
@@ -146,6 +170,17 @@ fun FullscreenScreen(
                 ) { change, dragAmount ->
                     change.consume()
                     total += dragAmount
+                }
+            }
+            .pointerInput(Unit) {
+                // A moving mouse shows the overlay (and its close button), like video players.
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type == PointerEventType.Move && event.changes.any { it.type == PointerType.Mouse }) {
+                            showOverlay()
+                        }
+                    }
                 }
             }
             .pointerInput(Unit) {
@@ -175,6 +210,7 @@ fun FullscreenScreen(
                     muted = !muted
                     showOverlay()
                 },
+                onClose = onClose,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -188,6 +224,7 @@ private fun FullscreenOverlay(
     count: Int,
     muted: Boolean,
     onToggleMute: () -> Unit,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scrim = Color.Black.copy(alpha = 0.6f)
@@ -217,17 +254,33 @@ private fun FullscreenOverlay(
             // For touch only: on the D-pad, OK toggles the sound, so this never takes focus.
             TextButton(
                 onClick = onToggleMute,
-                modifier = Modifier.focusProperties { canFocus = false },
+                modifier = Modifier
+                    .focusProperties { canFocus = false }
+                    .pointerHoverIcon(PointerIcon.Hand),
             ) {
                 Text(
                     text = stringResource(if (muted) Res.string.sound_off else Res.string.sound_on),
                     color = Color.White,
                 )
             }
+            // Touch and mouse only, like the sound button; Back and Esc do this from the keys.
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .focusProperties { canFocus = false }
+                    .pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(Res.string.close),
+                    tint = Color.White,
+                )
+            }
         }
         Spacer(Modifier.weight(1f))
         Text(
-            text = stringResource(Res.string.fullscreen_hint),
+            // A keyboard has no OK key and no Back key: tell desktop users the keys they have.
+            text = stringResource(if (LocalHasKeyboardAndMouse.current) Res.string.fullscreen_hint_keys else Res.string.fullscreen_hint),
             style = MaterialTheme.typography.labelMedium,
             color = Color.White,
             modifier = Modifier

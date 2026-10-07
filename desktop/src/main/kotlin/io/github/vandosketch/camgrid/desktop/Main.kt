@@ -7,22 +7,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
-import androidx.compose.ui.window.rememberWindowState
 import io.github.vandosketch.camgrid.CamGridViewModel
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
@@ -31,11 +29,13 @@ import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.desktop.config.DesktopBackupFiles
 import io.github.vandosketch.camgrid.desktop.config.DesktopConfigStore
+import io.github.vandosketch.camgrid.desktop.config.WindowStateStore
 import io.github.vandosketch.camgrid.desktop.video.DesktopVideoPlatform
 import io.github.vandosketch.camgrid.platform.AppLog
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.ui.CamGridApp
 import io.github.vandosketch.camgrid.ui.CamGridTheme
+import io.github.vandosketch.camgrid.ui.LocalHasKeyboardAndMouse
 import javax.imageio.ImageIO
 
 /**
@@ -43,6 +43,10 @@ import javax.imageio.ImageIO
  * commas) it opens a bare 2x2 test grid of those streams instead, a developer tool for trying
  * the players without touching the saved config: `rtsp://` URLs play over RTSP, anything else
  * over WebRTC (go2rtc's `/api/webrtc?src=...`).
+ *
+ * The window comes back with the size, position and placement it had when last closed. F11 or
+ * F toggle window fullscreen, and on the camera wall and fullscreen the mouse cursor hides
+ * while it rests.
  */
 fun main(args: Array<String>) {
     AppLog.sink = AppLog.Sink { level, tag, message -> System.err.println("$level $tag: $message") }
@@ -54,17 +58,29 @@ fun main(args: Array<String>) {
         ?.let { BitmapPainter(it.toComposeImageBitmap()) }
 
     application {
-        val windowState = rememberWindowState(size = DpSize(1280.dp, 800.dp))
+        val windowStore = remember { WindowStateStore.forThisUser() }
+        val windowState = remember { initialWindowState(windowStore.load()) }
+        val initialWindow = remember { windowState.toSaved(previous = null) }
+        SaveWindowState(windowState, windowStore, initialWindow)
+        var immersive by remember { mutableStateOf(false) }
         Window(
             onCloseRequest = ::exitApplication,
             state = windowState,
             title = "CamGrid",
             icon = icon,
             onPreviewKeyEvent = { event ->
-                // F11 toggles fullscreen, like browsers and video players.
-                if (event.type == KeyEventType.KeyUp && event.key == Key.F11) {
-                    windowState.placement =
-                        if (windowState.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
+                // F11 toggles fullscreen from anywhere, like browsers and video players.
+                if (event.isPlainPress(Key.F11)) {
+                    windowState.toggleFullscreen()
+                    true
+                } else {
+                    false
+                }
+            },
+            onKeyEvent = { event ->
+                // F like video players, but only when nothing took the key: in a text field it is text.
+                if (event.isPlainPress(Key.F)) {
+                    windowState.toggleFullscreen()
                     true
                 } else {
                     false
@@ -72,14 +88,21 @@ fun main(args: Array<String>) {
             },
         ) {
             CamGridTheme {
-                if (testUrls.isNotEmpty()) TestGrid(testUrls) else App()
+                CompositionLocalProvider(LocalHasKeyboardAndMouse provides true) {
+                    if (testUrls.isNotEmpty()) {
+                        TestGrid(testUrls)
+                    } else {
+                        AutoHideCursor(enabled = immersive) { App(onImmersiveChange = { immersive = it }) }
+                    }
+                }
             }
         }
     }
 }
 
+/** The app; [onImmersiveChange] reports the grid and fullscreen, where the cursor may hide. */
 @Composable
-private fun App() {
+private fun App(onImmersiveChange: (Boolean) -> Unit) {
     val viewModel = remember {
         CamGridViewModel(
             configStore = DesktopConfigStore.forThisUser(),
@@ -87,8 +110,9 @@ private fun App() {
             go2rtcClient = Go2rtcClient(CamGridHttp.client),
         )
     }
-    // A window is not a phone screen: the grid and fullscreen leave the window as it is.
-    CamGridApp(viewModel = viewModel, video = DesktopVideoPlatform, onImmersiveChange = {})
+    // A window is not a phone screen: the grid and fullscreen leave the window as it is (F11
+    // makes it fullscreen); immersive only lets the idle mouse cursor hide.
+    CamGridApp(viewModel = viewModel, video = DesktopVideoPlatform, onImmersiveChange = onImmersiveChange)
 }
 
 /** The developer test grid: up to four streams, muted, with their status. */
