@@ -6,9 +6,21 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [0.1.1] - 2026-10-07
 
+### Added
+
+- **Zoom in fullscreen.** Pinch or double-tap, the mouse wheel, + and − (0 for the whole picture), or fast-forward and rewind on a Fire TV remote. While zoomed in, the arrow keys or dragging move the picture, and Back first returns to the whole picture. Android, Fire TV and desktop; not yet on iPhone and iPad. ([#22](https://github.com/Vando-sketch/CamGrid/issues/22))
+- **Scrollbars on desktop** on every screen that scrolls. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
+
 ### Fixed
 
 - **Desktop: memory no longer grows while WebRTC streams play.** Every decoded WebRTC frame was kept in memory, about 25 MB per second for each 720p stream, until the system closed the app. ([#24](https://github.com/Vando-sketch/CamGrid/issues/24))
+- **Fullscreen top bar:** the sound and close buttons sit at the right edge again. The sound button is a speaker icon labelled with what it does (Mute or Unmute), and on Android it is hidden for streams without audio. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
+- **Desktop focus ring:** the yellow ring shows only after you use the keyboard and hides again when you use the mouse. TV remotes are unchanged. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
+- **Grid:** while streams connect, each tile shows a grey placeholder, so the layout is visible. The page indicator fades out after a few seconds instead of covering the tile below. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
+- **Settings:** coming back from the open-source licenses keeps your scroll position and focus. The first camera's or view's up arrow and the last one's down arrow are disabled. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
+- **View editor:** the layout presets and buttons wrap instead of being cut off, and the Fire TV warning can be scrolled to on small windows. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
+- **Import from go2rtc:** the title and Back button stay in place while the list scrolls. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
+- **Licenses:** kotlinx-io and Skiko show their versions. ([#25](https://github.com/Vando-sketch/CamGrid/issues/25))
 
 ## [0.1.0] - 2026-10-07
 

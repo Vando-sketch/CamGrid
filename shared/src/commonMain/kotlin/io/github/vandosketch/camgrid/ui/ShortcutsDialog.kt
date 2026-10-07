@@ -31,6 +31,9 @@ import io.github.vandosketch.camgrid.shared.resources.keys_enter
 import io.github.vandosketch.camgrid.shared.resources.keys_fullscreen_digits
 import io.github.vandosketch.camgrid.shared.resources.keys_fullscreen_left_right
 import io.github.vandosketch.camgrid.shared.resources.keys_fullscreen_sound
+import io.github.vandosketch.camgrid.shared.resources.keys_fullscreen_zoom
+import io.github.vandosketch.camgrid.shared.resources.keys_fullscreen_zoom_arrows
+import io.github.vandosketch.camgrid.shared.resources.keys_fullscreen_zoom_reset
 import io.github.vandosketch.camgrid.shared.resources.keys_grid_arrows
 import io.github.vandosketch.camgrid.shared.resources.keys_grid_digits
 import io.github.vandosketch.camgrid.shared.resources.keys_grid_enter
@@ -46,6 +49,9 @@ import io.github.vandosketch.camgrid.shared.resources.keys_sound
 import io.github.vandosketch.camgrid.shared.resources.keys_title
 import io.github.vandosketch.camgrid.shared.resources.keys_window
 import io.github.vandosketch.camgrid.shared.resources.keys_window_action
+import io.github.vandosketch.camgrid.shared.resources.keys_zoom
+import io.github.vandosketch.camgrid.shared.resources.keys_zoom_arrows
+import io.github.vandosketch.camgrid.shared.resources.keys_zoom_reset
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -70,6 +76,9 @@ fun ShortcutsDialog(onDismiss: () -> Unit) {
                 Shortcut(Res.string.keys_left_right, Res.string.keys_fullscreen_left_right)
                 Shortcut(Res.string.keys_digits, Res.string.keys_fullscreen_digits)
                 Shortcut(Res.string.keys_sound, Res.string.keys_fullscreen_sound)
+                Shortcut(Res.string.keys_zoom, Res.string.keys_fullscreen_zoom)
+                Shortcut(Res.string.keys_zoom_arrows, Res.string.keys_fullscreen_zoom_arrows)
+                Shortcut(Res.string.keys_zoom_reset, Res.string.keys_fullscreen_zoom_reset)
                 Section(Res.string.keys_section_general)
                 Shortcut(Res.string.keys_back, Res.string.keys_back_action)
                 if (LocalHasKeyboardAndMouse.current) Shortcut(Res.string.keys_window, Res.string.keys_window_action)

@@ -1,5 +1,8 @@
 package io.github.vandosketch.camgrid.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,7 +45,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -53,7 +55,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
-import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import org.jetbrains.compose.resources.stringResource
@@ -77,12 +78,19 @@ import io.github.vandosketch.camgrid.core.TileNavigator
 import io.github.vandosketch.camgrid.core.ViewPaging
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.platform.VideoPlatform
+import kotlinx.coroutines.delay
 
 /** Width of the ring around the selected tile. */
 private val SelectionWidth = 5.dp
 
 /** Space around every tile. */
 private val TileGap = 2.dp
+
+/** Outline of a tile's placeholder and of the rings around a tile. */
+private val TileShape = RoundedCornerShape(4.dp)
+
+/** How long the page indicator stays after entering the grid or switching page. */
+internal const val PAGE_INDICATOR_MS = 3_000L
 
 /**
  * The camera wall: the config's views one after the other, each as one or more pages of tiles
@@ -94,9 +102,15 @@ private val TileGap = 2.dp
  * landing next to a video view. Arrows move it with core's [TileNavigator] (off the left/right
  * edge to the other page, off the top edge to the settings button), OK/Enter opens it, 1-9 open
  * the Nth camera of the page and Page Up/Down (or the channel and track keys) switch page. The
- * selection ring is drawn over all tiles while the wall has focus in key mode, so phones never
- * show it. On touch screens a horizontal swipe switches page and a tap opens the camera; a mouse
- * gets a lighter hover ring and the hand cursor.
+ * selection ring is drawn over all tiles while the wall has focus in key mode
+ * ([isKeyboardNavigation]), so phones and mouse users never see it. On touch screens a
+ * horizontal swipe switches page and a tap opens the camera; a mouse gets a lighter hover ring
+ * and the hand cursor.
+ *
+ * Tiles whose stream is not playing (connecting, offline) show a lighter placeholder, so the
+ * wall does not look like one black area. With several pages, the view name and page number
+ * show at the top for [PAGE_INDICATOR_MS] after entering the grid and after every page switch,
+ * then fade out, so they do not keep covering the tile beneath.
  */
 @Composable
 fun GridScreen(
@@ -125,7 +139,7 @@ fun GridScreen(
     val settingsRequester = remember { FocusRequester() }
     var gridFocused by remember { mutableStateOf(false) }
     var hoveredIndex by remember { mutableIntStateOf(-1) }
-    val keyMode = LocalInputModeManager.current.inputMode == InputMode.Keyboard
+    val keyMode = isKeyboardNavigation()
     val showSelection = gridFocused && keyMode && currentIndex >= 0
 
     // The wall takes the keys on entering the grid and keeps focus across page switches.
@@ -248,30 +262,44 @@ fun GridScreen(
             // The rings come last, so they are drawn over every tile.
             val hovered = tiles.getOrNull(hoveredIndex)?.takeIf { it.camera != null }
             if (hovered != null && !(showSelection && hoveredIndex == currentIndex)) {
-                Box(slot(hovered.tile).border(3.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(4.dp)))
+                Box(slot(hovered.tile).border(3.dp, Color.White.copy(alpha = 0.7f), TileShape))
             }
             if (showSelection) {
-                Box(slot(tiles[currentIndex].tile).border(SelectionWidth, FocusColor, RoundedCornerShape(4.dp)))
+                Box(slot(tiles[currentIndex].tile).border(SelectionWidth, FocusColor, TileShape))
             }
         }
 
         if (pageCount > 1) {
+            // Shown on entering the grid and on every page switch, then faded out: it sits on
+            // top of a tile, and the page is only news right after it changed.
+            var indicatorVisible by remember { mutableStateOf(true) }
+            LaunchedEffect(currentPage) {
+                indicatorVisible = true
+                delay(PAGE_INDICATOR_MS)
+                indicatorVisible = false
+            }
             val viewName = gridPage.view.name
             val position = stringResource(Res.string.page_indicator, currentPage + 1, pageCount)
             // Top centre: tile names sit bottom-left in every tile, so a bottom indicator would
             // cover the name of whichever tile ends there.
-            Text(
-                text = if (viewName.isBlank()) position else stringResource(Res.string.page_indicator_named, viewName, position),
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-            )
+            AnimatedVisibility(
+                visible = indicatorVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) {
+                Text(
+                    text = if (viewName.isBlank()) position else stringResource(Res.string.page_indicator_named, viewName, position),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+            }
         }
 
         IconButton(
@@ -320,6 +348,7 @@ private fun CameraTile(
     onClick: () -> Unit,
 ) {
     val stream = video.rememberLiveStream(camera.gridUrl, camera.streamType, camera.name, audioEnabled = false)
+    val status = stream?.status ?: StreamStatus.Connecting
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
     val currentOnHoverChange by rememberUpdatedState(onHoverChange)
@@ -335,8 +364,14 @@ private fun CameraTile(
             .background(Color.Black),
     ) {
         video.Surface(stream, Modifier.fillMaxSize(), fit)
+        if (status !is StreamStatus.Playing) {
+            // Over the surface, which is black until there is a picture: a lighter placeholder
+            // with rounded corners, so the tiles stand apart (the black gap between them shows).
+            // Gone once the stream plays, so it never touches the video.
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant, TileShape))
+        }
         StreamStatusBadge(
-            status = stream?.status ?: StreamStatus.Connecting,
+            status = status,
             modifier = Modifier.align(Alignment.Center),
         )
         Text(

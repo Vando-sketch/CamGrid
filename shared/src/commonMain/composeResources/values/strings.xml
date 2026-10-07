@@ -17,8 +17,9 @@
 
     <!-- Fullscreen -->
     <string name="fullscreen_position">%1$d / %2$d</string>
-    <string name="sound_on">Sound on</string>
-    <string name="sound_off">Muted</string>
+    <!-- What the sound button does when pressed (its icon shows the current state). -->
+    <string name="sound_mute">Mute</string>
+    <string name="sound_unmute">Unmute</string>
     <string name="fullscreen_hint">◀ ▶ or swipe: switch camera · OK: sound on/off · Back: grid</string>
 
     <!-- Settings -->
@@ -203,4 +204,19 @@
     <string name="ve_delete_message">“%1$s” will be removed. Cameras are not deleted.</string>
     <string name="ve_delete_confirm">Delete</string>
     <string name="ve_cancel">Cancel</string>
+
+    <!-- Fullscreen zoom (issue #22) -->
+    <!-- Fullscreen hints, below the main one: not zoomed, then zoomed (%1$s is the scale, "2.5"). -->
+    <string name="fullscreen_zoom_hint">⏪ ⏩ or pinch: zoom</string>
+    <string name="fullscreen_zoom_hint_keys">+ − or mouse wheel: zoom</string>
+    <string name="fullscreen_zoomed_hint">Zoom %1$s× · ◀ ▲ ▼ ▶ or drag: move · Back: whole picture</string>
+    <string name="fullscreen_zoomed_hint_keys">Zoom %1$s× · arrows or drag: move · 0 or Esc: whole picture</string>
+
+    <!-- Shortcuts help -->
+    <string name="keys_zoom">+ / − or mouse wheel</string>
+    <string name="keys_fullscreen_zoom">Zoom in or out</string>
+    <string name="keys_zoom_arrows">Arrow keys, zoomed in</string>
+    <string name="keys_fullscreen_zoom_arrows">Move the zoomed picture</string>
+    <string name="keys_zoom_reset">0</string>
+    <string name="keys_fullscreen_zoom_reset">Whole picture again (also Esc)</string>
 </resources>

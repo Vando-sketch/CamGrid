@@ -104,8 +104,10 @@ Uninstalling the app deletes that folder. The file format is described in [docs/
 | Open a camera fullscreen | Tap the tile | OK |
 | Open settings | Gear button, top right | Menu, or Up from the top row to the gear button |
 | Next / previous camera in fullscreen | Swipe left / right | Right / left |
-| Sound on / off in fullscreen | Tap the screen, then "Sound on" / "Muted" | OK |
+| Sound on / off in fullscreen | Tap the screen, then the speaker button (hidden for a stream without sound) | OK |
 | Show the fullscreen overlay | Tap | Up or down |
+| Zoom in / out in fullscreen | Pinch, or double-tap (again for the whole picture) | Fast-forward / Rewind |
+| Move the zoomed picture | Drag | D-pad |
 | Back to the grid | Back | Back |
 | Leave the app (from the grid) | Back | Back |
 
@@ -115,11 +117,14 @@ On desktop (and with a keyboard on any device), the arrow keys, Enter and Esc wo
 | --- | --- |
 | 1 to 9 | Open that camera fullscreen (in the grid: the n-th camera on the page; in fullscreen: the n-th camera) |
 | Page Down / Page Up | Next / previous grid page (also Channel up / down and Next / Previous track) |
+| + / − or mouse wheel | Zoom in / out in fullscreen; 0 shows the whole picture again |
 | Esc or Backspace | Back |
 | F11 | Fullscreen window (desktop) |
 | ? or F1 | Show all shortcuts |
 
 Fullscreen cycles through all cameras in configured order, not just the current page. Returning to the grid puts focus on the camera you were watching.
+
+Zoom (Android, Fire TV and desktop; not yet in the iOS app) goes up to 4x. While zoomed in, the arrow keys (D-pad) and dragging move the picture instead of switching camera, and Back (or Esc) first shows the whole picture again; the next Back returns to the grid. Switching to another camera starts with the whole picture.
 
 On a Fire TV Stick, keep views to about **4 tiles**. A stick can only decode about four live streams at once, so larger views will leave tiles stuck on "Connecting…" or failing.
 

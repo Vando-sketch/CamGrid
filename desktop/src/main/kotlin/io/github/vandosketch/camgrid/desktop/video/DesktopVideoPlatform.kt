@@ -2,6 +2,8 @@ package io.github.vandosketch.camgrid.desktop.video
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -10,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
@@ -25,7 +28,9 @@ import io.github.vandosketch.camgrid.platform.FallbackSurface
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.platform.VideoPlatform
+import io.github.vandosketch.camgrid.platform.VideoZoom
 import io.github.vandosketch.camgrid.platform.rememberStreamWithFallback
+import io.github.vandosketch.camgrid.platform.zoomed
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -82,10 +87,25 @@ object DesktopVideoPlatform : VideoPlatform {
         return stream
     }
 
+    /** The video is drawn by Compose, so a zoomed canvas is simply larger and clipped. */
+    override val supportsZoom: Boolean get() = true
+
     @Composable
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode) {
+        Surface(stream, modifier, fit, VideoZoom.None)
+    }
+
+    /**
+     * Zoomed, the canvas is laid out [VideoZoom.scale] times larger and clipped, so the decoder
+     * converts up to that many more pixels (never more than the camera sends) and the
+     * magnified picture stays sharp.
+     */
+    @Composable
+    override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode, zoom: VideoZoom) {
         FallbackSurface(stream, modifier) { own, videoModifier ->
-            VideoCanvas((own as? DesktopLiveStream)?.frames, videoModifier, fit)
+            Box(videoModifier.clipToBounds()) {
+                VideoCanvas((own as? DesktopLiveStream)?.frames, Modifier.zoomed(zoom).fillMaxSize(), fit)
+            }
         }
     }
 }

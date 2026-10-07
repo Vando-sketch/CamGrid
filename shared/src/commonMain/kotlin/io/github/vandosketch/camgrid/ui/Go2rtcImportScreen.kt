@@ -2,6 +2,7 @@ package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -65,6 +68,9 @@ import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.core.UrlRedactor
 import io.github.vandosketch.camgrid.data.Go2rtcException
 
+/** Test tag of the import screen's list (everything below the header). */
+internal const val IMPORT_LIST_TAG = "import"
+
 /**
  * Fetches `/api/streams` from a go2rtc server and lets the user tick which suggested cameras
  * to import. Cameras that are already in the config (same id) are shown but cannot be ticked.
@@ -85,95 +91,107 @@ fun Go2rtcImportScreen(
     val fieldRequester = remember { FocusRequester() }
     InitialFocus(fieldRequester)
 
-    LazyColumn(
-        modifier = Modifier
+    // The header stays put; only what is below it scrolls (a long list of suggestions).
+    Column(
+        Modifier
             .fillMaxSize()
             .safeDrawingPadding(),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
+        Box(Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp)) {
             ScreenHeader(
                 title = stringResource(Res.string.import_go2rtc),
                 actionLabel = stringResource(Res.string.back),
                 onAction = onBack,
             )
         }
-        item {
-            CamTextField(
-                value = baseUrl,
-                onValueChange = { baseUrl = it },
-                label = { Text(stringResource(Res.string.field_go2rtc_url)) },
-                placeholder = { Text(stringResource(Res.string.hint_go2rtc_url)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { onFetch(baseUrl) }),
+        val listState = rememberLazyListState()
+        ScrollbarBox(listState, Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(fieldRequester),
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                StreamTypeSelector(selected = streamType, onSelect = onStreamTypeChange)
-                Text(
-                    text = stringResource(Res.string.import_stream_type_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        item {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .fillMaxSize()
+                    .testTag(IMPORT_LIST_TAG),
+                // A little room at the top, so the focus border of the first field is not cut off.
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Button(
-                    onClick = { onFetch(baseUrl) },
-                    enabled = baseUrl.isNotBlank(),
-                    modifier = Modifier.focusBorder(shape = CircleShape),
-                ) {
-                    Text(stringResource(Res.string.fetch))
+                item {
+                    CamTextField(
+                        value = baseUrl,
+                        onValueChange = { baseUrl = it },
+                        label = { Text(stringResource(Res.string.field_go2rtc_url)) },
+                        placeholder = { Text(stringResource(Res.string.hint_go2rtc_url)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { onFetch(baseUrl) }),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(fieldRequester),
+                    )
                 }
-                if (state is ImportState.Loaded && state.cameras.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = onImport,
-                        enabled = state.selected.isNotEmpty(),
-                        modifier = Modifier.focusBorder(shape = CircleShape),
-                    ) {
-                        Text(stringResource(Res.string.import_selected, state.selected.size))
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        StreamTypeSelector(selected = streamType, onSelect = onStreamTypeChange)
+                        Text(
+                            text = stringResource(Res.string.import_stream_type_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
-            }
-        }
+                item {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Button(
+                            onClick = { onFetch(baseUrl) },
+                            enabled = baseUrl.isNotBlank(),
+                            modifier = Modifier.focusBorder(shape = CircleShape),
+                        ) {
+                            Text(stringResource(Res.string.fetch))
+                        }
+                        if (state is ImportState.Loaded && state.cameras.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = onImport,
+                                enabled = state.selected.isNotEmpty(),
+                                modifier = Modifier.focusBorder(shape = CircleShape),
+                            ) {
+                                Text(stringResource(Res.string.import_selected, state.selected.size))
+                            }
+                        }
+                    }
+                }
 
-        when (state) {
-            ImportState.Idle -> Unit
-            ImportState.Loading -> item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text(stringResource(Res.string.import_loading))
-                }
-            }
-            is ImportState.Failed -> item {
-                Text(
-                    text = failureMessage(state),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-            is ImportState.Loaded -> {
-                if (state.cameras.isEmpty()) {
-                    item { Text(stringResource(Res.string.import_empty)) }
-                }
-                items(state.cameras, key = { it.id }) { camera ->
-                    SuggestionRow(
-                        camera = camera,
-                        alreadyAdded = camera.id in existingIds,
-                        checked = camera.id in state.selected,
-                        onToggle = { onToggle(camera.id) },
-                    )
+                when (state) {
+                    ImportState.Idle -> Unit
+                    ImportState.Loading -> item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text(stringResource(Res.string.import_loading))
+                        }
+                    }
+                    is ImportState.Failed -> item {
+                        Text(
+                            text = failureMessage(state),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    is ImportState.Loaded -> {
+                        if (state.cameras.isEmpty()) {
+                            item { Text(stringResource(Res.string.import_empty)) }
+                        }
+                        items(state.cameras, key = { it.id }) { camera ->
+                            SuggestionRow(
+                                camera = camera,
+                                alreadyAdded = camera.id in existingIds,
+                                checked = camera.id in state.selected,
+                                onToggle = { onToggle(camera.id) },
+                            )
+                        }
+                    }
                 }
             }
         }

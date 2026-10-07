@@ -1,6 +1,7 @@
 package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +18,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -24,10 +26,12 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
@@ -55,11 +59,16 @@ class ViewEditorScreenTest {
     /** Every edit [onChange] reported, in order; the host feeds each back as the new view. */
     private val changes = mutableListOf<CamView>()
 
-    /** [phoneWidth] squeezes the editor into a portrait phone's width: one column. */
+    /**
+     * [phoneWidth] squeezes the editor into a portrait phone's width: one column. [smallWindow]
+     * gives it a 720 px high desktop window (the test window is 1024 px wide; the issue was
+     * found at 1280 x 720, where the side panel is wider than here).
+     */
     private fun ComposeUiTest.showEditor(
         initial: CamView = grid,
         canDelete: Boolean = true,
         phoneWidth: Boolean = false,
+        smallWindow: Boolean = false,
     ) {
         setContent {
             var view by remember { mutableStateOf(initial) }
@@ -68,7 +77,11 @@ class ViewEditorScreenTest {
                 // Compose desktop moves focus only on Tab; Android also on an arrow that no
                 // element used. This does the latter, so the tests see what a TV does.
                 Box(
-                    (if (phoneWidth) Modifier.width(400.dp) else Modifier).onKeyEvent { event ->
+                    when {
+                        phoneWidth -> Modifier.width(400.dp)
+                        smallWindow -> Modifier.size(width = 1024.dp, height = 720.dp)
+                        else -> Modifier
+                    }.onKeyEvent { event ->
                         val direction = event.key.toFocusDirection()
                         event.type == KeyEventType.KeyDown && direction != null && focusManager.moveFocus(direction)
                     },
@@ -313,5 +326,42 @@ class ViewEditorScreenTest {
         onNodeWithText("Delete view").performScrollTo().performClick()
         waitForIdle()
         onNodeWithText("Cancel").assertIsFocused()
+    }
+
+    private val presetLabels = listOf(
+        "2×2", "3×3", "Side by side", "2 portrait + 2 landscape", "1 big + 3", "1 big + 5", "3 portrait",
+    )
+
+    @Test
+    fun everyPresetFitsInTheSidePanelOfASmallWindow() = runComposeUiTest {
+        showEditor(smallWindow = true)
+        onNodeWithText("Presets").performScrollTo()
+        waitForIdle()
+        val windowRight = onRoot().getUnclippedBoundsInRoot().right
+        // The presets wrap onto more lines instead of running off the right edge.
+        for (label in presetLabels) {
+            val right = onNodeWithText(label).getUnclippedBoundsInRoot().right
+            assertTrue(right <= windowRight, "$label ends at $right, the window at $windowRight")
+        }
+        onNodeWithText("3 portrait").performScrollTo().assertIsDisplayed()
+        onNodeWithText("2 portrait + 2 landscape").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun theStreamWarningIsReachableInASmallWindow() = runComposeUiTest {
+        // Nine tiles: more streams than a Fire TV Stick decodes, so the warning shows.
+        showEditor(CamView.uniform("main", "Living room", 3, 3), smallWindow = true)
+        val warning = onNodeWithText("A Fire TV Stick decodes about 4 streams", substring = true)
+        warning.performScrollTo().assertIsDisplayed()
+        assertTrue(warning.getUnclippedBoundsInRoot().bottom <= onRoot().getUnclippedBoundsInRoot().bottom)
+        // The panel below the warning is reachable too.
+        onNodeWithText("Delete view").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun theSidePanelShowsAScrollbarWhenItIsTooLong() = runComposeUiTest {
+        showEditor(CamView.uniform("main", "Living room", 3, 3), smallWindow = true)
+        waitForIdle()
+        assertTrue(onAllNodesWithTag(SCROLLBAR_TAG).fetchSemanticsNodes().isNotEmpty(), "no scrollbar")
     }
 }

@@ -101,13 +101,14 @@ internal fun TileDialog(
                             horizontalArrangement = Arrangement.spacedBy(24.dp),
                         ) {
                             cameraList(Modifier.weight(1f))
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                TileActions(tile, onFit, onMove, onResize, onRemove, onDismiss)
+                            val actionsScroll = rememberScrollState()
+                            ScrollbarBox(actionsScroll, Modifier.weight(1f)) {
+                                Column(
+                                    modifier = Modifier.verticalScroll(actionsScroll),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    TileActions(tile, onFit, onMove, onResize, onRemove, onDismiss)
+                                }
                             }
                         }
                     } else {
@@ -138,21 +139,25 @@ private fun CameraList(
     val missing = current != null && cameras.none { it.id == current }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(Res.string.ve_camera), style = MaterialTheme.typography.labelLarge)
-        Column(Modifier.verticalScroll(rememberScrollState())) {
-            if (missing) {
-                CameraRow(stringResource(Res.string.ve_camera_missing), true, currentRequester) { onCamera(current) }
-            }
-            CameraRow(
-                label = stringResource(Res.string.ve_tile_auto),
-                selected = current == null,
-                requester = currentRequester.takeIf { current == null },
-            ) { onCamera(null) }
-            for (camera in cameras) {
+        val scroll = rememberScrollState()
+        ScrollbarBox(scroll) {
+            // The end padding keeps the rows clear of the desktop scrollbar.
+            Column(Modifier.verticalScroll(scroll).padding(end = 12.dp)) {
+                if (missing) {
+                    CameraRow(stringResource(Res.string.ve_camera_missing), true, currentRequester) { onCamera(current) }
+                }
                 CameraRow(
-                    label = camera.name,
-                    selected = camera.id == current,
-                    requester = currentRequester.takeIf { camera.id == current },
-                ) { onCamera(camera.id) }
+                    label = stringResource(Res.string.ve_tile_auto),
+                    selected = current == null,
+                    requester = currentRequester.takeIf { current == null },
+                ) { onCamera(null) }
+                for (camera in cameras) {
+                    CameraRow(
+                        label = camera.name,
+                        selected = camera.id == current,
+                        requester = currentRequester.takeIf { camera.id == current },
+                    ) { onCamera(camera.id) }
+                }
             }
         }
     }

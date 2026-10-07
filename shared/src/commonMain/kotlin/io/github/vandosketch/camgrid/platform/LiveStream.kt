@@ -22,6 +22,13 @@ interface LiveStream {
     /** Only has an effect on a stream created with audio enabled. */
     fun setMuted(muted: Boolean)
 
+    /**
+     * Whether the stream has sound: false hides fullscreen's sound button. Null while unknown,
+     * and always on a platform whose player cannot tell cheaply (the button shows then). Compose
+     * snapshot state where it changes.
+     */
+    val hasAudio: Boolean? get() = null
+
     fun release()
 }
 
@@ -68,4 +75,21 @@ interface VideoPlatform {
      */
     @Composable
     fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode)
+
+    /**
+     * Whether [Surface] with a [VideoZoom] magnifies the video. Fullscreen offers zoom (keys,
+     * pinch, mouse wheel) only then. False on a platform whose video view cannot be magnified
+     * and clipped reliably.
+     */
+    val supportsZoom: Boolean get() = false
+
+    /**
+     * Like the other [Surface], magnified and moved per [zoom] (fullscreen, issue #22) and
+     * clipped to [modifier]'s bounds; the fallback note stays unmagnified. Ignores [zoom] where
+     * [supportsZoom] is false.
+     */
+    @Composable
+    fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode, zoom: VideoZoom) {
+        Surface(stream, modifier, fit)
+    }
 }

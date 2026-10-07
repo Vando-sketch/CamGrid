@@ -1,6 +1,9 @@
 package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
@@ -10,6 +13,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -22,6 +26,7 @@ import io.github.vandosketch.camgrid.about.ThirdPartyComponents
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The About section in Settings, the Licenses list and a license text, by touch and by D-pad. */
 @OptIn(ExperimentalTestApi::class)
@@ -108,5 +113,22 @@ class LicensesScreenTest {
         // Title, copyright, permission, conditions, warranty: each paragraph takes the focus.
         dpad(FocusDirection.Down, times = 5)
         onNodeWithText("THE SOFTWARE IS PROVIDED \"AS IS\"", substring = true).assertIsFocused().assertIsDisplayed()
+    }
+
+    @Test
+    fun theLongListsShowAScrollbar() = runComposeUiTest {
+        var license by mutableStateOf<License?>(null)
+        show {
+            val shown = license
+            if (shown == null) LicensesScreen(onOpenLicense = {}, onBack = {}) else LicenseTextScreen(shown, onBack = {})
+        }
+        waitForIdle()
+        assertTrue(onAllNodesWithTag(SCROLLBAR_TAG).fetchSemanticsNodes().isNotEmpty(), "no scrollbar on the list")
+        runOnIdle { license = License.GPL_3_0 }
+        waitUntil(timeoutMillis = 5_000) {
+            onAllNodes(hasText("GNU GENERAL PUBLIC LICENSE", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        waitForIdle()
+        assertTrue(onAllNodesWithTag(SCROLLBAR_TAG).fetchSemanticsNodes().isNotEmpty(), "no scrollbar on the text")
     }
 }
