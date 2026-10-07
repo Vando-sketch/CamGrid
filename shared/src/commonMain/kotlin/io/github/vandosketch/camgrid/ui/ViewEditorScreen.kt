@@ -37,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -327,7 +326,7 @@ private fun EditorHeader(view: CamView, onDone: () -> Unit) {
 
 @Composable
 private fun NameField(name: String, onNameChange: (String) -> Unit) {
-    OutlinedTextField(
+    CamTextField(
         value = name,
         onValueChange = onNameChange,
         label = { Text(stringResource(Res.string.ve_name)) },

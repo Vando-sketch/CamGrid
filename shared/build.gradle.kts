@@ -57,6 +57,8 @@ kotlin {
         getByName("desktopTest").dependencies {
             // Skiko's native library: Compose resources ask it for the system theme.
             implementation(compose.desktop.currentOs)
+            // Compose UI tests of the shared screens, run on the JVM (runComposeUiTest).
+            implementation(libs.cmp.ui.test)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

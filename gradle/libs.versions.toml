@@ -62,6 +62,7 @@ navigationevent-compose-mp = { module = "org.jetbrains.androidx.navigationevent:
 cmp-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
 cmp-material-icons = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "composeMaterialIcons" }
+cmp-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
 lifecycle-viewmodel-compose-mp = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleMultiplatform" }
 lifecycle-runtime-compose-mp = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleMultiplatform" }
 coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }

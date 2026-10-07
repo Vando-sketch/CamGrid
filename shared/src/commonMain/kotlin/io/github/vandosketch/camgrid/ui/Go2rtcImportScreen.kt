@@ -24,7 +24,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -101,7 +100,7 @@ fun Go2rtcImportScreen(
             )
         }
         item {
-            OutlinedTextField(
+            CamTextField(
                 value = baseUrl,
                 onValueChange = { baseUrl = it },
                 label = { Text(stringResource(Res.string.field_go2rtc_url)) },

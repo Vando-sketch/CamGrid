@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -176,7 +175,7 @@ private fun EditorField(
     modifier: Modifier = Modifier,
     help: String? = null,
 ) {
-    OutlinedTextField(
+    CamTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
