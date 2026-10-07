@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,10 +53,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -63,11 +66,14 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,9 +86,8 @@ import io.github.vandosketch.camgrid.shared.resources.ve_arrow_right
 import io.github.vandosketch.camgrid.shared.resources.ve_arrow_up
 import io.github.vandosketch.camgrid.shared.resources.ve_camera
 import io.github.vandosketch.camgrid.shared.resources.ve_camera_missing
-import io.github.vandosketch.camgrid.shared.resources.ve_camera_next
-import io.github.vandosketch.camgrid.shared.resources.ve_camera_previous
 import io.github.vandosketch.camgrid.shared.resources.ve_cancel
+import io.github.vandosketch.camgrid.shared.resources.ve_change_camera
 import io.github.vandosketch.camgrid.shared.resources.ve_columns
 import io.github.vandosketch.camgrid.shared.resources.ve_decrease
 import io.github.vandosketch.camgrid.shared.resources.ve_delete_confirm
@@ -105,6 +110,7 @@ import io.github.vandosketch.camgrid.shared.resources.ve_mode_current
 import io.github.vandosketch.camgrid.shared.resources.ve_mode_move
 import io.github.vandosketch.camgrid.shared.resources.ve_mode_resize
 import io.github.vandosketch.camgrid.shared.resources.ve_mode_select
+import io.github.vandosketch.camgrid.shared.resources.ve_move_done
 import io.github.vandosketch.camgrid.shared.resources.ve_name
 import io.github.vandosketch.camgrid.shared.resources.ve_name_hint
 import io.github.vandosketch.camgrid.shared.resources.ve_no_tiles
@@ -118,9 +124,10 @@ import io.github.vandosketch.camgrid.shared.resources.ve_preset_two_portrait_two
 import io.github.vandosketch.camgrid.shared.resources.ve_preview_description
 import io.github.vandosketch.camgrid.shared.resources.ve_remove_tile
 import io.github.vandosketch.camgrid.shared.resources.ve_rows
-import io.github.vandosketch.camgrid.shared.resources.ve_section_canvas
+import io.github.vandosketch.camgrid.shared.resources.ve_section_layout
 import io.github.vandosketch.camgrid.shared.resources.ve_section_presets
 import io.github.vandosketch.camgrid.shared.resources.ve_section_tile
+import io.github.vandosketch.camgrid.shared.resources.ve_section_view
 import io.github.vandosketch.camgrid.shared.resources.ve_stream_count
 import io.github.vandosketch.camgrid.shared.resources.ve_stream_warning
 import io.github.vandosketch.camgrid.shared.resources.ve_tile_auto
@@ -143,26 +150,34 @@ private const val STICK_STREAM_LIMIT = 4
 private const val LEFT_DEGREES = -90f
 private const val RIGHT_DEGREES = 90f
 
-/** What the arrows do to the selected tile. OK on the preview cycles through them in order. */
+/** What the arrows on the preview do: pick a tile, or change the selected one. */
 private enum class EditMode {
     SELECT,
     MOVE,
     RESIZE,
-    ;
+}
 
-    fun next(): EditMode = entries[(ordinal + 1) % entries.size]
+/** Where focus goes back to when the tile dialog closes: the control that opened it. */
+private enum class DialogOpener {
+    PREVIEW,
+    PANEL,
+    TOUCH,
 }
 
 /**
  * Layout editor for one [CamView], built for the Fire TV remote first and touch second.
  *
- * The preview is a single focusable element that takes the arrows itself: in Select mode they
- * pick a tile (and let focus leave at the edges), in Move and Resize mode they change the
- * selected tile. OK cycles the mode, Back leaves Move/Resize. On a phone the mode chips and the
- * arrow pad in the side panel do the same.
+ * The preview is a single focusable element that takes the arrows itself. In Select mode
+ * they pick a tile (and let focus leave at the edges, Right into the "Selected tile" section)
+ * and OK opens the [TileDialog] for that tile: camera, picture, Move, Resize, Remove. Move and
+ * Resize put the preview into that mode, where the arrows change the tile until OK or Back.
+ * On touch a tap selects a tile and a second tap opens the same dialog; the arrow pad for
+ * moving and resizing appears in the panel only while one of those modes is on.
  *
- * [view] is the live, persisted state; every edit goes out through [onChange] as a new view
- * built with core's [ViewEditor], which ignores edits that would break the geometry.
+ * The side panel groups the settings as "Selected tile", "Layout" (whole canvas) and "View"
+ * (name, id, delete). [view] is the live, persisted state; every edit goes out through
+ * [onChange] as a new view built with core's [ViewEditor], which ignores edits that would
+ * break the geometry.
  */
 @Composable
 fun ViewEditorScreen(
@@ -175,11 +190,23 @@ fun ViewEditorScreen(
 ) {
     var selected by remember { mutableIntStateOf(0) }
     var mode by remember { mutableStateOf(EditMode.SELECT) }
+    var dialogOpener by remember { mutableStateOf<DialogOpener?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // A Back press handled on the preview; its key-up is swallowed too (see onPreviewKey).
+    var backDown by remember { mutableStateOf(false) }
     val previewRequester = remember { FocusRequester() }
+    val changeCameraRequester = remember { FocusRequester() }
+    // Set to move focus once the next frame is laid out (after a dialog closes, for example).
+    var pendingFocus by remember { mutableStateOf<FocusRequester?>(null) }
+    val inputModeManager = LocalInputModeManager.current
     InitialFocus(previewRequester)
+    LaunchedEffect(pendingFocus) {
+        pendingFocus?.requestFocusAfterLayout()
+        pendingFocus = null
+    }
 
     // Back leaves Move/Resize first; in Select mode the caller's handler closes the editor.
+    // The preview handles the key itself; this covers the gesture and focus elsewhere.
     BackHandler(enabled = mode != EditMode.SELECT) { mode = EditMode.SELECT }
 
     // Removing tiles, shrinking the canvas or a preset can leave fewer tiles than before.
@@ -188,6 +215,37 @@ fun ViewEditorScreen(
     // ViewEditor returns the same instance for an impossible edit: nothing to save then.
     fun edit(next: CamView) {
         if (next !== view) onChange(next)
+    }
+
+    fun removeSelected() {
+        val next = ViewEditor.removeTile(view, selectedIndex)
+        if (next !== view) {
+            onChange(next)
+            selected = selectedIndex.coerceAtMost(next.tiles.lastIndex).coerceAtLeast(0)
+        }
+    }
+
+    fun openDialog(opener: DialogOpener) {
+        if (selectedIndex < 0) return
+        mode = EditMode.SELECT
+        dialogOpener = opener
+    }
+
+    // Focus goes back to whatever opened the dialog; a tap opened it, so nothing had focus.
+    fun closeDialog() {
+        pendingFocus = when (dialogOpener) {
+            DialogOpener.PREVIEW -> previewRequester
+            DialogOpener.PANEL -> changeCameraRequester
+            DialogOpener.TOUCH, null -> null
+        }
+        dialogOpener = null
+    }
+
+    // Move/Resize hand the arrows to the preview, so the preview needs focus for the remote
+    // (from the dialog, or from the panel's chips when the D-pad is in use).
+    fun startMode(next: EditMode, focusPreview: Boolean) {
+        mode = next
+        if (focusPreview) pendingFocus = previewRequester
     }
 
     // Shared by the remote (preview key handler) and the touch arrow pad. False means the
@@ -205,42 +263,77 @@ fun ViewEditorScreen(
     }
 
     fun onPreviewKey(event: KeyEvent): Boolean {
-        if (event.type != KeyEventType.KeyDown) return false
+        val down = event.type == KeyEventType.KeyDown
         return when (event.key) {
             Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                // A held OK repeats KeyDown; only the first press switches the mode.
-                if (!event.isRepeat) mode = mode.next()
-                true
+                // A held OK repeats KeyDown; only the first press acts.
+                if (down && !event.isRepeat) {
+                    if (mode == EditMode.SELECT) openDialog(DialogOpener.PREVIEW) else mode = EditMode.SELECT
+                }
+                down
             }
-            else -> event.key.toEditorDirection()?.let { arrow(it) } ?: false
+            // Handled here and not only by BackHandler, because a TV delivers Back as a key to
+            // the focused element first (and the desktop tests can only send keys). The key-up
+            // of that press is swallowed too, so it cannot close the editor afterwards.
+            Key.Back, Key.Escape -> when {
+                down && mode != EditMode.SELECT -> {
+                    mode = EditMode.SELECT
+                    backDown = true
+                    true
+                }
+                !down && backDown -> {
+                    backDown = false
+                    true
+                }
+                else -> false
+            }
+            else -> down && event.key.toEditorDirection()?.let { arrow(it) } == true
         }
     }
 
-    val preview = @Composable {
-        NameField(name = view.name, onNameChange = { onChange(view.copy(name = it)) })
+    val keyMode = { inputModeManager.inputMode == InputMode.Keyboard }
+    val preview = @Composable { wide: Boolean ->
         LayoutPreview(
             view = view,
             cameras = cameras,
             selectedIndex = selectedIndex,
             focusRequester = previewRequester,
-            onTapTile = { selected = it },
+            // Right from the preview's right edge (wide) or Down from its bottom (one column)
+            // lands on the first control of the "Selected tile" section, not anywhere nearby.
+            exitRequester = changeCameraRequester.takeIf { selectedIndex >= 0 },
+            exitRight = wide,
+            onTapTile = { hit ->
+                if (hit == selectedIndex) openDialog(DialogOpener.TOUCH) else selected = hit
+            },
             onKey = { onPreviewKey(it) },
         )
         ModeLine(mode)
     }
-    val controls = @Composable { modifier: Modifier ->
-        ControlsPanel(
+    val sections = @Composable {
+        SelectedTileSection(
             view = view,
             cameras = cameras,
             selectedIndex = selectedIndex,
             mode = mode,
-            canDelete = canDelete,
-            onModeChange = { mode = it },
+            changeCameraRequester = changeCameraRequester,
+            onChangeCamera = { openDialog(DialogOpener.PANEL) },
+            onEdit = { edit(it) },
+            onModeChange = { next ->
+                if (next == mode) mode = EditMode.SELECT else startMode(next, focusPreview = keyMode())
+            },
             onArrow = { arrow(it) },
+            onRemove = { removeSelected() },
+        )
+        LayoutSection(
+            view = view,
             onEdit = { edit(it) },
             onSelect = { selected = it },
+        )
+        ViewSection(
+            view = view,
+            canDelete = canDelete,
+            onNameChange = { onChange(view.copy(name = it)) },
             onRequestDelete = { confirmDelete = true },
-            modifier = modifier,
         )
     }
 
@@ -250,13 +343,13 @@ fun ViewEditorScreen(
             .safeDrawingPadding(),
     ) {
         if (maxWidth >= 600.dp) {
-            // TV and landscape tablets: preview on the left, controls scroll on the right.
+            // TV and landscape tablets: preview on the left, settings scroll on the right.
             Column(
                 Modifier
                     .fillMaxSize()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
             ) {
-                EditorHeader(view, onDone)
+                EditorHeader(onDone)
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
@@ -268,14 +361,17 @@ fun ViewEditorScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        preview()
+                        preview(true)
                     }
-                    controls(
-                        Modifier
+                    Column(
+                        modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .verticalScroll(rememberScrollState()),
-                    )
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        sections()
+                    }
                 }
             }
         } else {
@@ -287,11 +383,38 @@ fun ViewEditorScreen(
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                EditorHeader(view, onDone)
-                preview()
-                controls(Modifier.fillMaxWidth())
+                EditorHeader(onDone)
+                preview(false)
+                sections()
             }
         }
+    }
+
+    val dialogTile = view.tiles.getOrNull(selectedIndex)
+    if (dialogOpener != null && dialogTile != null) {
+        TileDialog(
+            tileNumber = selectedIndex + 1,
+            tile = dialogTile,
+            cameras = cameras,
+            onCamera = {
+                edit(ViewEditor.setTileCamera(view, selectedIndex, it))
+                closeDialog()
+            },
+            onFit = { edit(ViewEditor.setTileFit(view, selectedIndex, it)) },
+            onMove = {
+                dialogOpener = null
+                startMode(EditMode.MOVE, focusPreview = true)
+            },
+            onResize = {
+                dialogOpener = null
+                startMode(EditMode.RESIZE, focusPreview = true)
+            },
+            onRemove = {
+                removeSelected()
+                closeDialog()
+            },
+            onDismiss = { closeDialog() },
+        )
     }
 
     if (confirmDelete) {
@@ -307,40 +430,18 @@ fun ViewEditorScreen(
 }
 
 @Composable
-private fun EditorHeader(view: CamView, onDone: () -> Unit) {
-    Column {
-        ScreenHeader(
-            title = stringResource(Res.string.ve_title),
-            actionLabel = stringResource(Res.string.ve_done),
-            onAction = onDone,
-        )
-        // Shown because a later version selects views by id (for example per device).
-        Text(
-            text = stringResource(Res.string.ve_view_id, view.id),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-    }
-}
-
-@Composable
-private fun NameField(name: String, onNameChange: (String) -> Unit) {
-    CamTextField(
-        value = name,
-        onValueChange = onNameChange,
-        label = { Text(stringResource(Res.string.ve_name)) },
-        placeholder = { Text(stringResource(Res.string.ve_name_hint)) },
-        singleLine = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .focusBorder(shape = RoundedCornerShape(4.dp)),
+private fun EditorHeader(onDone: () -> Unit) {
+    ScreenHeader(
+        title = stringResource(Res.string.ve_title),
+        actionLabel = stringResource(Res.string.ve_done),
+        onAction = onDone,
     )
 }
 
 /**
  * The view drawn to scale on a box shaped like this screen: faint cell grid, one rectangle per
- * tile. One focusable element; [onKey] gets the remote's keys, a tap selects the tile under it.
+ * tile. One focusable element; [onKey] gets the remote's keys, a tap reports the tile under it.
+ * When [onKey] lets an arrow through, Right ([exitRight]) or Down goes to [exitRequester].
  */
 @Composable
 private fun LayoutPreview(
@@ -348,6 +449,8 @@ private fun LayoutPreview(
     cameras: List<Camera>,
     selectedIndex: Int,
     focusRequester: FocusRequester,
+    exitRequester: FocusRequester?,
+    exitRight: Boolean,
     onTapTile: (Int) -> Unit,
     onKey: (KeyEvent) -> Boolean,
 ) {
@@ -358,13 +461,21 @@ private fun LayoutPreview(
     val lineColor = Color.White.copy(alpha = 0.15f)
     val columns = view.columns
     val rows = view.rows
+    // The tap handler changes with the selection; the gesture detector must not restart for it.
+    val currentOnTapTile by rememberUpdatedState(onTapTile)
 
     BoxWithConstraints(
         Modifier
             .fillMaxWidth()
             .aspectRatio(aspect.coerceIn(0.4f, 2.5f))
+            .testTag(VE_TAG_PREVIEW)
             .focusBorder(shape = RoundedCornerShape(8.dp))
             .focusRequester(focusRequester)
+            .focusProperties {
+                if (exitRequester != null) {
+                    if (exitRight) right = exitRequester else down = exitRequester
+                }
+            }
             .onPreviewKeyEvent(onKey)
             .semantics { contentDescription = description }
             .focusable()
@@ -388,7 +499,7 @@ private fun LayoutPreview(
                     val cx = (offset.x / size.width * view.columns).toInt()
                     val cy = (offset.y / size.height * view.rows).toInt()
                     val hit = view.tiles.indexOfFirst { cx in it.x until it.right && cy in it.y until it.bottom }
-                    if (hit >= 0) onTapTile(hit)
+                    if (hit >= 0) currentOnTapTile(hit)
                 }
             },
     ) {
@@ -401,7 +512,8 @@ private fun LayoutPreview(
                 selected = index == selectedIndex,
                 modifier = Modifier
                     .offset(x = cellWidth * tile.x, y = cellHeight * tile.y)
-                    .size(width = cellWidth * tile.w, height = cellHeight * tile.h),
+                    .size(width = cellWidth * tile.w, height = cellHeight * tile.h)
+                    .testTag(veTileTag(index)),
             )
         }
     }
@@ -415,6 +527,7 @@ private fun PreviewTile(tile: Tile, label: String, selected: Boolean, modifier: 
     val textColor = if (auto) colors.onSecondaryContainer else colors.onPrimaryContainer
     Box(
         modifier
+            .semantics { this.selected = selected }
             .padding(2.dp)
             .background(if (auto) colors.secondaryContainer else colors.primaryContainer, shape)
             .border(
@@ -461,136 +574,201 @@ private fun ModeLine(mode: EditMode) {
     }
 }
 
-/** Everything that is not the preview: touch controls, tile settings, canvas, presets, delete. */
+/**
+ * The selected tile's settings: camera (with Change… for the [TileDialog]), picture, Move /
+ * Resize (with the touch arrow pad while one is on) and Remove. Change… comes first and takes
+ * [changeCameraRequester], so Right from the preview lands on it.
+ */
 @Composable
-private fun ControlsPanel(
+private fun SelectedTileSection(
     view: CamView,
     cameras: List<Camera>,
     selectedIndex: Int,
     mode: EditMode,
-    canDelete: Boolean,
+    changeCameraRequester: FocusRequester,
+    onChangeCamera: () -> Unit,
+    onEdit: (CamView) -> Unit,
     onModeChange: (EditMode) -> Unit,
     onArrow: (Direction) -> Unit,
-    onEdit: (CamView) -> Unit,
-    onSelect: (Int) -> Unit,
-    onRequestDelete: () -> Unit,
-    modifier: Modifier,
+    onRemove: () -> Unit,
 ) {
+    SectionTitle(stringResource(Res.string.ve_section_tile))
     val tile = view.tiles.getOrNull(selectedIndex)
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // For touch; on the remote the preview handles OK and the arrows itself.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (option in EditMode.entries) {
-                FilterChip(
-                    selected = option == mode,
-                    onClick = { onModeChange(option) },
-                    label = { Text(stringResource(option.labelRes)) },
-                    modifier = Modifier.focusBorder(shape = RoundedCornerShape(8.dp)),
-                )
-            }
-        }
-        ArrowPad(onArrow)
-
-        SectionTitle(stringResource(Res.string.ve_section_tile))
-        if (tile == null) {
-            Text(
-                text = stringResource(Res.string.ve_no_tiles),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Text(
-                text = stringResource(Res.string.ve_tile_number, selectedIndex + 1, view.tiles.size),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            CameraCycler(
-                tile = tile,
-                cameras = cameras,
-                onSelect = { onEdit(ViewEditor.setTileCamera(view, selectedIndex, it)) },
-            )
-            FitSelector(
-                selected = tile.fit,
-                onSelect = { onEdit(ViewEditor.setTileFit(view, selectedIndex, it)) },
-            )
-        }
-        // All three stay visible (and do nothing when impossible), so D-pad focus never drops.
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedButton(
-                onClick = {
-                    val next = ViewEditor.addTile(view)
-                    if (next !== view) {
-                        onEdit(next)
-                        onSelect(next.tiles.lastIndex)
-                    }
-                },
-                modifier = Modifier.focusBorder(shape = CircleShape),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text(stringResource(Res.string.ve_add_tile), Modifier.padding(start = 4.dp))
-            }
-            OutlinedButton(
-                onClick = {
-                    val next = ViewEditor.removeTile(view, selectedIndex)
-                    if (next !== view) {
-                        onEdit(next)
-                        onSelect(selectedIndex.coerceAtMost(next.tiles.lastIndex).coerceAtLeast(0))
-                    }
-                },
-                modifier = Modifier.focusBorder(shape = CircleShape),
-            ) {
-                Text(stringResource(Res.string.ve_remove_tile))
-            }
-            OutlinedButton(
-                onClick = { onEdit(ViewEditor.fillEmpty(view)) },
-                modifier = Modifier.focusBorder(shape = CircleShape),
-            ) {
-                Text(stringResource(Res.string.ve_fill_empty))
-            }
-        }
-
-        SectionTitle(stringResource(Res.string.ve_section_canvas))
-        Stepper(
-            label = stringResource(Res.string.ve_columns),
-            value = view.columns,
-            onValueChange = { onEdit(ViewEditor.setCanvas(view, it, view.rows)) },
+    if (tile == null) {
+        Text(
+            text = stringResource(Res.string.ve_no_tiles),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Stepper(
-            label = stringResource(Res.string.ve_rows),
-            value = view.rows,
-            onValueChange = { onEdit(ViewEditor.setCanvas(view, view.columns, it)) },
+        return
+    }
+    Text(
+        text = stringResource(Res.string.ve_tile_number, selectedIndex + 1, view.tiles.size),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = stringResource(Res.string.ve_camera),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.widthIn(min = 96.dp),
         )
-
-        SectionTitle(stringResource(Res.string.ve_section_presets))
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Text(
+            text = cameraLabel(tile.camera, cameras),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .padding(end = 8.dp),
+        )
+        OutlinedButton(
+            onClick = onChangeCamera,
+            modifier = Modifier
+                .testTag(VE_TAG_CHANGE_CAMERA)
+                .focusBorder(shape = CircleShape)
+                .focusRequester(changeCameraRequester),
         ) {
-            for (preset in ViewPreset.entries) {
-                OutlinedButton(
-                    onClick = { onEdit(ViewEditor.applyPreset(view, preset)) },
-                    modifier = Modifier.focusBorder(shape = CircleShape),
-                ) {
-                    Text(stringResource(preset.labelRes))
-                }
-            }
+            Text(stringResource(Res.string.ve_change_camera))
         }
-
-        StreamCount(view.tiles.size)
-
-        if (canDelete) {
-            OutlinedButton(
-                onClick = onRequestDelete,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+    }
+    if (tile.camera == null) {
+        Text(
+            text = stringResource(Res.string.ve_help_camera_auto),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    FitSelector(
+        selected = tile.fit,
+        onSelect = { onEdit(ViewEditor.setTileFit(view, selectedIndex, it)) },
+    )
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Selecting the chip that is on again goes back to Select.
+        for (option in listOf(EditMode.MOVE, EditMode.RESIZE)) {
+            FilterChip(
+                selected = option == mode,
+                onClick = { onModeChange(option) },
+                label = { Text(stringResource(option.labelRes)) },
+                modifier = Modifier.focusBorder(shape = RoundedCornerShape(8.dp)),
+            )
+        }
+        OutlinedButton(
+            onClick = onRemove,
+            modifier = Modifier.focusBorder(shape = CircleShape),
+        ) {
+            Text(stringResource(Res.string.ve_remove_tile))
+        }
+    }
+    // For touch; on the remote the preview takes the arrows itself while moving or resizing.
+    if (mode != EditMode.SELECT) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ArrowPad(onArrow)
+            TextButton(
+                onClick = { onModeChange(mode) },
                 modifier = Modifier
-                    .padding(top = 16.dp)
+                    .padding(start = 16.dp)
                     .focusBorder(shape = CircleShape),
             ) {
-                Icon(Icons.Filled.Delete, contentDescription = null)
-                Text(stringResource(Res.string.ve_delete_view), Modifier.padding(start = 4.dp))
+                Text(stringResource(Res.string.ve_move_done))
             }
+        }
+    }
+}
+
+/** The whole canvas: presets, columns and rows, adding and filling tiles, and the stream count. */
+@Composable
+private fun LayoutSection(view: CamView, onEdit: (CamView) -> Unit, onSelect: (Int) -> Unit) {
+    SectionTitle(stringResource(Res.string.ve_section_layout))
+    Text(stringResource(Res.string.ve_section_presets), style = MaterialTheme.typography.labelLarge)
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (preset in ViewPreset.entries) {
+            OutlinedButton(
+                onClick = { onEdit(ViewEditor.applyPreset(view, preset)) },
+                modifier = Modifier.focusBorder(shape = CircleShape),
+            ) {
+                Text(stringResource(preset.labelRes))
+            }
+        }
+    }
+    Stepper(
+        label = stringResource(Res.string.ve_columns),
+        value = view.columns,
+        onValueChange = { onEdit(ViewEditor.setCanvas(view, it, view.rows)) },
+    )
+    Stepper(
+        label = stringResource(Res.string.ve_rows),
+        value = view.rows,
+        onValueChange = { onEdit(ViewEditor.setCanvas(view, view.columns, it)) },
+    )
+    // Both stay visible (and do nothing when impossible), so D-pad focus never drops.
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedButton(
+            onClick = {
+                val next = ViewEditor.addTile(view)
+                if (next !== view) {
+                    onEdit(next)
+                    onSelect(next.tiles.lastIndex)
+                }
+            },
+            modifier = Modifier.focusBorder(shape = CircleShape),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null)
+            Text(stringResource(Res.string.ve_add_tile), Modifier.padding(start = 4.dp))
+        }
+        OutlinedButton(
+            onClick = { onEdit(ViewEditor.fillEmpty(view)) },
+            modifier = Modifier.focusBorder(shape = CircleShape),
+        ) {
+            Text(stringResource(Res.string.ve_fill_empty))
+        }
+    }
+    StreamCount(view.tiles.size)
+}
+
+/** The view as a whole: name, id and delete. */
+@Composable
+private fun ViewSection(
+    view: CamView,
+    canDelete: Boolean,
+    onNameChange: (String) -> Unit,
+    onRequestDelete: () -> Unit,
+) {
+    SectionTitle(stringResource(Res.string.ve_section_view))
+    CamTextField(
+        value = view.name,
+        onValueChange = onNameChange,
+        label = { Text(stringResource(Res.string.ve_name)) },
+        placeholder = { Text(stringResource(Res.string.ve_name_hint)) },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusBorder(shape = RoundedCornerShape(4.dp)),
+    )
+    // Shown because a later version selects views by id (for example per device).
+    Text(
+        text = stringResource(Res.string.ve_view_id, view.id),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (canDelete) {
+        OutlinedButton(
+            onClick = onRequestDelete,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .focusBorder(shape = CircleShape),
+        ) {
+            Icon(Icons.Filled.Delete, contentDescription = null)
+            Text(stringResource(Res.string.ve_delete_view), Modifier.padding(start = 4.dp))
         }
     }
 }
@@ -627,43 +805,9 @@ private fun ArrowButton(icon: ImageVector, description: String, degrees: Float =
     }
 }
 
-/** "Camera  <  name  >": cycles Auto, then every camera in the configured order. */
-@Composable
-private fun CameraCycler(tile: Tile, cameras: List<Camera>, onSelect: (String?) -> Unit) {
-    val options: List<String?> = listOf(null) + cameras.map { it.id }
-    // A camera that was deleted since is not in the list; cycling from it starts at Auto.
-    val current = options.indexOf(tile.camera).coerceAtLeast(0)
-    fun step(delta: Int) = onSelect(options[(current + delta).mod(options.size)])
-
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(Res.string.ve_camera),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.widthIn(min = 96.dp),
-            )
-            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(Res.string.ve_camera_previous), LEFT_DEGREES) { step(-1) }
-            Text(
-                text = cameraLabel(tile.camera, cameras),
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false).widthIn(min = 96.dp),
-            )
-            ArrowButton(Icons.Filled.KeyboardArrowUp, stringResource(Res.string.ve_camera_next), RIGHT_DEGREES) { step(1) }
-        }
-        Text(
-            text = stringResource(Res.string.ve_help_camera_auto),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
 /** "Picture" with Crop / Fit chips and a line on what the selected one does. */
 @Composable
-private fun FitSelector(selected: FitMode, onSelect: (FitMode) -> Unit) {
+internal fun FitSelector(selected: FitMode, onSelect: (FitMode) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(Res.string.ve_fit), style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -724,7 +868,7 @@ private fun Stepper(label: String, value: Int, onValueChange: (Int) -> Unit) {
 @Composable
 private fun StreamCount(count: Int) {
     Column(
-        modifier = Modifier.padding(top = 16.dp),
+        modifier = Modifier.padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
