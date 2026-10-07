@@ -18,4 +18,4 @@ Out of scope: go2rtc, your cameras, and the security of your own network. CamGri
 
 ## What CamGrid does to protect your data
 
-See [Privacy and security](README.md#privacy-and-security) in the README.
+See [Privacy and security](docs/user-guide.md#privacy-and-security) in the user guide.

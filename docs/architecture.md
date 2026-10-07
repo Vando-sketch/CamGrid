@@ -145,7 +145,7 @@ Android draws into native views: Media3's `ContentFrame` for ExoPlayer (`player/
 - Each camera gets the id `go2rtc:<base>`. `ConfigEditor.importCameras` skips ids that already exist, so importing twice adds nothing.
 - URLs are built for the chosen type: `rtsp://<host>:8554/<name>` or `http://<host>:1984/api/webrtc?src=<name>`. User-info in the base URL is kept.
 
-`Go2rtc.convertUrl` switches a go2rtc URL between the RTSP and WebRTC forms when the user changes a camera's stream type. `Go2rtc.webrtcEndpoint` turns any go2rtc page or API URL (for example `http://192.0.2.10:1984/stream.html?src=kitchen`) into the `/api/webrtc` endpoint. The user-facing pairing rules are in the README.
+`Go2rtc.convertUrl` switches a go2rtc URL between the RTSP and WebRTC forms when the user changes a camera's stream type. `Go2rtc.webrtcEndpoint` turns any go2rtc page or API URL (for example `http://192.0.2.10:1984/stream.html?src=kitchen`) into the `/api/webrtc` endpoint. The user-facing pairing rules are in the [user guide](user-guide.md#how-stream-names-are-paired).
 
 ## Config storage and schema
 
@@ -199,7 +199,7 @@ Fire TV's file picker cannot open arbitrary files, so on a TV the backup screen 
 4. `core/StreamSourcePlan.kt`: whether any failure of the new type should switch to another source.
 5. `shared/.../ui/StreamTypeSelector.kt` and the strings in `composeResources`.
 6. Each platform's player: the `when (type)` in `AndroidVideoPlatform`, `DesktopLiveStream` (in `DesktopVideoPlatform.kt`) and `NativeLiveStream` (in `IosVideoPlatform.kt`, plus a `NativeStreamFactory` method in Swift if the player is native). Each needs reconnecting, watchdog frame counts and safe failure codes, as described above.
-7. Tests in `core/src/commonTest` (validator, go2rtc, plan) and the platform tests. Update the `streamType` row in [backup-format.md](backup-format.md#config-file) and the README.
+7. Tests in `core/src/commonTest` (validator, go2rtc, plan) and the platform tests. Update the `streamType` row in [backup-format.md](backup-format.md#config-file) and the [user guide](user-guide.md).
 
 ## Adding a platform
 

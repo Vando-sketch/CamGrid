@@ -13,8 +13,9 @@ the encrypted config store.
 
 Add `-Pcamgrid.skipAndroid=true` on a machine without the Android SDK. Installers are built on
 the OS they are for (CI does all three) and contain only that OS's native libraries. They are
-unsigned: on macOS right-click the app and choose Open the first time; on Windows choose
-"More info", "Run anyway". F11 toggles fullscreen.
+unsigned: on macOS open the app once, then choose Open Anyway under System Settings > Privacy &
+Security; on Windows choose "More info", "Run anyway". F11 toggles fullscreen. The macOS build is for
+Apple silicon only.
 
 ## Video
 
