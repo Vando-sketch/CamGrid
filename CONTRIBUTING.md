@@ -80,14 +80,8 @@ For the Android app, an emulator works for the UI. Video decoding and the number
 - Describe what a user sees before and after the change. For UI changes, add a screenshot (with placeholder camera names).
 - Keep one topic per pull request.
 
-## UI mockup
+## Screenshots
 
-[`docs/mockup/camgrid-mockup.html`](docs/mockup/camgrid-mockup.html) is a clickable HTML mockup of the app's screens, built from the Compose code as it was before views, backup and the stream type setting existed. Open it in a browser and use the mouse or the arrow keys, Enter, Esc and M like a Fire TV remote. It loads its fonts from Google Fonts, and its cameras use the documentation-only address range 192.0.2.x.
+The README shows screenshots of the real desktop app playing generated test video. [docs/screenshots/README.md](docs/screenshots/README.md) describes how to recreate them. Screenshots from a phone or TV are welcome too, as long as camera names and pictures show nothing private.
 
-The README images are rendered from it with Playwright's Chromium:
-
-```sh
-NODE_PATH=$(npm root -g) node docs/mockup/render.mjs   # writes docs/images/*.png
-```
-
-Real screenshots from a device are welcome, as long as camera names and pictures show nothing private.
+The older UI mockup in [`docs/mockup/`](docs/mockup/camgrid-mockup.html) predates views, backup and the stream type setting and is kept only for reference.

@@ -7,9 +7,9 @@ Fire TV, Android, iPhone and iPad, Mac, Windows and Linux. No cloud, no account,
 
 <p align="center"><a href="https://github.com/Vando-sketch/CamGrid/releases/latest"><b>Download the latest release</b></a> · <a href="#get-started-in-three-steps">Get started</a> · <a href="docs/user-guide.md">User guide</a></p>
 
-![A 3x2 camera grid with one camera offline (UI mockup)](docs/images/grid.png)
+![CamGrid on a desktop: a portrait doorbell next to five landscape cameras](docs/images/real-grid.png)
 
-*Images rendered from a UI mockup with simulated video and example cameras.*
+*Screenshots of the real app, playing generated test video instead of real cameras ([how they were made](docs/screenshots/README.md)).*
 
 ## What you get
 
@@ -21,6 +21,17 @@ Fire TV, Android, iPhone and iPad, Mac, Windows and Linux. No cloud, no account,
 - **Your cameras stay yours.** CamGrid talks only to the addresses you enter. Camera passwords are stored encrypted on the device. No cloud, no tracking, no account.
 - **Move your setup between devices.** Export your settings once, password-protected, and import them on the TV, the phone or the computer. On a Fire TV you send the file from your phone through a page protected by a PIN.
 - **Free and open source** under the MIT License.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/real-fullscreen.png" alt="One camera fullscreen"><br>One camera fullscreen, with sound.</td>
+    <td width="50%"><img src="docs/images/real-view-editor.png" alt="The layout editor"><br>The layout editor, which also works with a TV remote.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/real-import.png" alt="Import from go2rtc"><br>Import all cameras from go2rtc at once.</td>
+    <td width="50%"><img src="docs/images/real-licenses.png" alt="Open-source licenses"><br>Settings > About lists every open-source component.</td>
+  </tr>
+</table>
 
 ## What you need
 
