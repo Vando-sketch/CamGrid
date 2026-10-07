@@ -22,6 +22,14 @@ class ParseTest(unittest.TestCase):
         )
         self.assertEqual(parse_apksigner(out), [STABLE])
 
+    def test_apksigner_signer_with_sdk_range_and_duplicates(self):
+        # Newer apksigner versions name signers by SDK range and can list one key per scheme.
+        out = (
+            f"Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-256 digest: {STABLE}\n"
+            f"Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: {STABLE}\n"
+        )
+        self.assertEqual(parse_apksigner(out), [STABLE])
+
     def test_apksigner_without_certs(self):
         self.assertEqual(parse_apksigner("DOES NOT VERIFY\n"), [])
 

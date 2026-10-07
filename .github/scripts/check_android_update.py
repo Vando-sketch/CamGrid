@@ -33,7 +33,8 @@ def normalize(digest):
 
 def parse_apksigner(output):
     """Signer certificate SHA-256 digests from `apksigner verify --print-certs`."""
-    return [normalize(d) for d in re.findall(r"^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F:]+)$", output, re.M)]
+    digests = re.findall(r"^Signer\b.*\bcertificate SHA-256 digest: ([0-9a-fA-F:]+)\s*$", output, re.M)
+    return list(dict.fromkeys(normalize(d) for d in digests))
 
 
 def parse_badging(output):
@@ -80,6 +81,8 @@ def read_apk(path):
     signer = subprocess.run([build_tool("apksigner"), "verify", "--print-certs", path],
                             capture_output=True, text=True)
     certs = parse_apksigner(signer.stdout) if signer.returncode == 0 else []
+    if not certs:
+        print(f"apksigner exit {signer.returncode} for {path}:\n{signer.stdout}{signer.stderr}")
     badging = subprocess.run([build_tool("aapt2"), "dump", "badging", path],
                              capture_output=True, text=True, check=True)
     package, code = parse_badging(badging.stdout)
