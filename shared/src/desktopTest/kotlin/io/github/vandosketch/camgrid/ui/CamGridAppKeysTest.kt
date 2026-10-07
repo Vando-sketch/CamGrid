@@ -1,6 +1,5 @@
 package io.github.vandosketch.camgrid.ui
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
@@ -24,10 +23,6 @@ import io.github.vandosketch.camgrid.about.License
 import io.github.vandosketch.camgrid.core.ConfigCodec
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.createCamGridHttpClient
-import io.github.vandosketch.camgrid.platform.BackupDocument
-import io.github.vandosketch.camgrid.platform.BackupFiles
-import io.github.vandosketch.camgrid.platform.BackupPickers
-import io.github.vandosketch.camgrid.platform.ConfigStore
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import kotlin.test.AfterTest
@@ -56,34 +51,9 @@ class CamGridAppKeysTest {
     @AfterTest
     fun resetMain() = Dispatchers.resetMain()
 
-    private class MemoryStore(var json: String?) : ConfigStore {
-        override fun read(): String? = json
-
-        override fun write(json: String) {
-            this.json = json
-        }
-    }
-
-    private object NoBackupFiles : BackupFiles {
-        override val folderPath: String? = null
-        override fun suggestedName() = "camgrid-backup.json"
-        override fun listFolder() = emptyList<String>()
-        override fun writeToFolder(text: String) = error("unused")
-        override fun readFromFolder(name: String) = error("unused")
-
-        @Composable
-        override fun rememberPickers(
-            onSaveChosen: (BackupDocument?) -> Unit,
-            onOpenChosen: (BackupDocument?) -> Unit,
-        ): BackupPickers = object : BackupPickers {
-            override fun launchSave(suggestedName: String) = false
-            override fun launchOpen() = false
-        }
-    }
-
     private fun ComposeUiTest.showApp(cameras: Int = 4, keyboardAndMouse: Boolean = false): CamGridViewModel {
         val viewModel = CamGridViewModel(
-            configStore = MemoryStore(ConfigCodec.encode(testConfig(cameras))),
+            configStore = MemoryConfigStore(ConfigCodec.encode(testConfig(cameras))),
             backupFiles = NoBackupFiles,
             go2rtcClient = Go2rtcClient(createCamGridHttpClient(MockEngine { respond("") })),
         )
