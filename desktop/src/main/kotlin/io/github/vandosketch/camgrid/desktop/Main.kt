@@ -103,7 +103,12 @@ private fun App(onImmersiveChange: (Boolean) -> Unit) {
     }
     // A window is not a phone screen: the grid and fullscreen leave the window as it is (F11
     // makes it fullscreen); immersive only lets the idle mouse cursor hide.
-    CamGridApp(viewModel = viewModel, video = DesktopVideoPlatform, onImmersiveChange = onImmersiveChange)
+    CamGridApp(
+        viewModel = viewModel,
+        video = DesktopVideoPlatform,
+        appVersion = DesktopAppVersion.current,
+        onImmersiveChange = onImmersiveChange,
+    )
 }
 
 /** The developer test grid: up to four streams, muted, with their status. */

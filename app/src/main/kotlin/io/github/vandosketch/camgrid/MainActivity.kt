@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                     CamGridApp(
                         viewModel = viewModel,
                         video = AndroidVideoPlatform,
+                        appVersion = BuildConfig.VERSION_NAME,
                         onImmersiveChange = ::setSystemBarsHidden,
                     )
                 }

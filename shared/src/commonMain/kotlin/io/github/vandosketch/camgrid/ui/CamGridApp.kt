@@ -41,10 +41,16 @@ import io.github.vandosketch.camgrid.platform.VideoPlatform
  * players) before the entering fullscreen's effects run.
  *
  * @param video the platform's players; the screens use nothing else to show streams.
+ * @param appVersion the version shown in Settings, About; see [io.github.vandosketch.camgrid.about.AppVersion].
  * @param onImmersiveChange hides the system bars for the grid and fullscreen, shows them otherwise.
  */
 @Composable
-fun CamGridApp(viewModel: CamGridViewModel, video: VideoPlatform, onImmersiveChange: (Boolean) -> Unit) {
+fun CamGridApp(
+    viewModel: CamGridViewModel,
+    video: VideoPlatform,
+    appVersion: String,
+    onImmersiveChange: (Boolean) -> Unit,
+) {
     val config by viewModel.config.collectAsStateWithLifecycle()
     val screen = viewModel.screen
 
@@ -129,7 +135,13 @@ fun CamGridApp(viewModel: CamGridViewModel, video: VideoPlatform, onImmersiveCha
                     onDeleteCamera = viewModel::deleteCamera,
                     onImport = viewModel::openImport,
                     onBackup = viewModel::openBackup,
+                    appVersion = appVersion,
+                    onOpenLicenses = viewModel::openLicenses,
                 )
+                Screen.Licenses -> LicensesScreen(onOpenLicense = viewModel::openLicense, onBack = viewModel::back)
+                is Screen.LicenseText -> key(screen.license) {
+                    LicenseTextScreen(license = screen.license, onBack = viewModel::back)
+                }
                 is Screen.EditCamera -> key(screen.cameraId) {
                     CameraEditorScreen(
                         camera = screen.cameraId?.let { id -> config.cameras.find { it.id == id } },

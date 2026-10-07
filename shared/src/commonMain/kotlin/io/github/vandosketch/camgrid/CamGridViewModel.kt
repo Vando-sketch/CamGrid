@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.vandosketch.camgrid.about.License
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.BackupException
 import io.github.vandosketch.camgrid.core.CamView
@@ -137,7 +138,18 @@ class CamGridViewModel(
         screen = Screen.Go2rtcImport
     }
 
-    /** Back: fullscreen and settings return to the grid, sub-screens return to settings. */
+    fun openLicenses() {
+        screen = Screen.Licenses
+    }
+
+    fun openLicense(license: License) {
+        screen = Screen.LicenseText(license)
+    }
+
+    /**
+     * Back: fullscreen and settings return to the grid, sub-screens return to settings, and a
+     * license text returns to the license list.
+     */
     fun back() {
         screen = when (val current = screen) {
             Screen.Grid -> Screen.Grid
@@ -146,7 +158,8 @@ class CamGridViewModel(
                 Screen.Grid
             }
             Screen.Settings -> Screen.Grid
-            is Screen.EditCamera, Screen.Go2rtcImport, is Screen.EditView -> Screen.Settings
+            is Screen.EditCamera, Screen.Go2rtcImport, is Screen.EditView, Screen.Licenses -> Screen.Settings
+            is Screen.LicenseText -> Screen.Licenses
             Screen.Backup -> {
                 resetBackup()
                 leaveLanTransfer()

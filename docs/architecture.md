@@ -45,7 +45,8 @@ Pure Kotlin. Targets are `jvm` (used by both Android and desktop) and `iosArm64`
 The app itself in Compose Multiplatform. Targets are `android`, `jvm("desktop")` and iOS. The iOS targets build a static framework `CamGridShared` that also exports `:core` (`shared/build.gradle.kts`).
 
 - `CamGridViewModel.kt`, `Screen.kt`, `BackupState.kt`: app state and navigation.
-- `ui/`: every screen (`CamGridApp.kt` is the root, plus `GridScreen`, `FullscreenScreen`, `SettingsScreen`, `CameraEditorScreen`, `Go2rtcImportScreen`, `ViewEditorScreen`, `BackupScreen`, `LanTransferPanel`), key handling (`KeyShortcuts.kt`, `TvTextField.kt`, `FocusBorder.kt`).
+- `ui/`: every screen (`CamGridApp.kt` is the root, plus `GridScreen`, `FullscreenScreen`, `SettingsScreen`, `CameraEditorScreen`, `Go2rtcImportScreen`, `ViewEditorScreen`, `BackupScreen`, `LanTransferPanel`, `LicensesScreen`), key handling (`KeyShortcuts.kt`, `TvTextField.kt`, `FocusBorder.kt`).
+- `about/`: the version shown in Settings (`AppVersion.kt`) and the third-party components with their licenses (`ThirdPartyComponents.kt`). The license texts are in `composeResources/files/licenses/`. Versions come from `CatalogVersions`, which Gradle generates from `gradle/libs.versions.toml`; `DependencyInventoryTest` fails when a shipped library in the catalog or a Swift package in `iosApp/project.yml` has no entry.
 - `data/`: `ConfigRepository.kt`, and the Ktor HTTP code: `CamGridHttp.kt` (one client, 5 s timeouts, no redirects), `HttpTarget.kt` (moves URL user-info into a Basic auth header), `Go2rtcClient.kt`, `WhepClient.kt`, `WebRtcOfferExchange.kt`.
 - `platform/`: the interfaces each platform implements (see below), plus shared stream logic (`StreamFallback.kt`, `StreamSupervisor.kt`).
 - `transfer/`: the Fire TV LAN transfer protocol, HTTP parsing, the page and a QR encoder.
@@ -89,7 +90,7 @@ Shared code never touches platform APIs directly. It goes through these interfac
 ## State and navigation
 
 - `CamGridViewModel` (`shared/.../CamGridViewModel.kt`) holds all app state: the config, the current `Screen`, grid focus, the go2rtc import state and the backup flow. It is an AndroidX (multiplatform) `ViewModel`.
-- Navigation is a value. `Screen` (`Screen.kt`) is a sealed interface: `Grid`, `Fullscreen(cameraId)`, `Settings`, `EditCamera(cameraId?)`, `Go2rtcImport`, `Backup`, `EditView(viewId)`. `ui/CamGridApp.kt` switches on it. There is no navigation library.
+- Navigation is a value. `Screen` (`Screen.kt`) is a sealed interface: `Grid`, `Fullscreen(cameraId)`, `Settings`, `EditCamera(cameraId?)`, `Go2rtcImport`, `Backup`, `EditView(viewId)`, `Licenses`, `LicenseText(license)`. `ui/CamGridApp.kt` switches on it. There is no navigation library.
 - Every config change goes through a pure function in `core/ConfigEditor.kt` or `core/Views.kt` (`ViewEditor`). The ViewModel applies it with `ConfigRepository.update`. An `IllegalArgumentException` from an edit is logged and the config stays as it was.
 - `ConfigRepository` (`data/ConfigRepository.kt`) exposes the config as a `StateFlow`. It reads the store once, synchronously, when it is created, because the grid needs the config before its first frame. Saves run on `Dispatchers.IO` in their own scope, serialized by a mutex, so the last value always wins and a save survives the screen closing.
 
@@ -207,5 +208,5 @@ Fire TV's file picker cannot open arbitrary files, so on a TV the backup screen 
 2. Provide the `actual`s: `BackupCipher` (`:core`; must pass the known-answer test in `BackupCipherTest`), `platformHttpEngine`, `BackHandler`, `rememberBackDispatcher` and `KeyEvent.isRepeat` (`:shared`).
 3. Implement `VideoPlatform` and `LiveStream` with `rememberStreamWithFallback`, plus a reconnect loop. Prefer reusing `StreamSupervisor` over writing a fourth one.
 4. Implement `ConfigStore` (encrypted at rest) and `BackupFiles`. Provide a `LanServer` only if the platform has no usable file picker.
-5. Write the entry point: set `AppLog.sink`, create `CamGridViewModel(configStore, backupFiles, Go2rtcClient(CamGridHttp.client))`, and call `CamGridApp(viewModel, video, onImmersiveChange)` inside `CamGridTheme`.
-6. Add a CI workflow under `.github/workflows/` and the new third-party licences to `NOTICE`.
+5. Write the entry point: set `AppLog.sink`, create `CamGridViewModel(configStore, backupFiles, Go2rtcClient(CamGridHttp.client))`, and call `CamGridApp(viewModel, video, appVersion, onImmersiveChange)` inside `CamGridTheme`. `appVersion` is the build's display version (CAMGRID_VERSION, see `about/AppVersion.kt`).
+6. Add a CI workflow under `.github/workflows/`, and the new third-party licences to `NOTICE` and `about/ThirdPartyComponents.kt` (with the new `AppPlatform`).
