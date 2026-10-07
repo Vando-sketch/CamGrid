@@ -15,6 +15,10 @@ import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
+import io.github.vandosketch.camgrid.platform.BackupDocument
+import io.github.vandosketch.camgrid.platform.BackupFiles
+import io.github.vandosketch.camgrid.platform.BackupPickers
+import io.github.vandosketch.camgrid.platform.ConfigStore
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.platform.VideoPlatform
@@ -90,5 +94,32 @@ class ZoomingFakeVideoPlatform(
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode, zoom: VideoZoom) {
         SideEffect { lastZoom = zoom }
         base.Surface(stream, modifier, fit)
+    }
+}
+
+/** A config kept in memory, for tests of the whole app. */
+class MemoryConfigStore(var json: String?) : ConfigStore {
+    override fun read(): String? = json
+
+    override fun write(json: String) {
+        this.json = json
+    }
+}
+
+/** Backup files that are never used, for tests of the whole app. */
+object NoBackupFiles : BackupFiles {
+    override val folderPath: String? = null
+    override fun suggestedName() = "camgrid-backup.json"
+    override fun listFolder() = emptyList<String>()
+    override fun writeToFolder(text: String) = error("unused")
+    override fun readFromFolder(name: String) = error("unused")
+
+    @Composable
+    override fun rememberPickers(
+        onSaveChosen: (BackupDocument?) -> Unit,
+        onOpenChosen: (BackupDocument?) -> Unit,
+    ): BackupPickers = object : BackupPickers {
+        override fun launchSave(suggestedName: String) = false
+        override fun launchOpen() = false
     }
 }

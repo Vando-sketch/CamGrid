@@ -232,9 +232,9 @@ fun GridScreen(
             }
             tiles.forEachIndexed { index, placed ->
                 Box(slot(placed.tile)) {
-                    // A tile showing a different camera after a page switch restarts its player,
-                    // because rememberLiveStream is keyed by the URL. A fixed tile that keeps its
-                    // camera across pages keeps playing.
+                    // A tile showing a different camera after a page switch plays that camera's
+                    // stream (streams are kept per camera). A fixed tile that keeps its camera
+                    // across pages keeps playing.
                     val camera = placed.camera
                     if (camera != null) {
                         val ringed = showSelection && index == currentIndex
@@ -242,6 +242,8 @@ fun GridScreen(
                             video = video,
                             camera = camera,
                             fit = placed.tile.fit,
+                            // A camera on two tiles: a stream draws into one view at a time.
+                            firstTileOfCamera = tiles.indexOfFirst { it.camera?.id == camera.id } == index,
                             selected = index == currentIndex,
                             // Inside the ring, so the ring never covers the video, even where a
                             // video view draws over the window's content.
@@ -336,18 +338,26 @@ fun GridScreen(
 /**
  * One camera on the wall. Clickable for touch and mouse but never focusable: the wall's
  * container owns the keys, and [selected] is its state (exposed to accessibility and tests).
+ * Plays the camera's stream from [LocalGridStreams] on its [firstTileOfCamera], so it survives a
+ * visit to fullscreen; opens its own stream otherwise.
  */
 @Composable
 private fun CameraTile(
     video: VideoPlatform,
     camera: Camera,
     fit: FitMode,
+    firstTileOfCamera: Boolean,
     selected: Boolean,
     modifier: Modifier,
     onHoverChange: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
-    val stream = video.rememberLiveStream(camera.gridUrl, camera.streamType, camera.name, audioEnabled = false)
+    val gridStreams = LocalGridStreams.current
+    val stream = if (firstTileOfCamera && camera.id in gridStreams) {
+        gridStreams[camera.id]
+    } else {
+        video.rememberLiveStream(camera.gridUrl, camera.streamType, camera.name, audioEnabled = false)
+    }
     val status = stream?.status ?: StreamStatus.Connecting
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
