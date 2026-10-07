@@ -79,6 +79,35 @@ jobs:
           mkdir -p dist-extra
           cp app/build/outputs/apk/release/app-release.apk dist-extra/CamGrid-Android-minified.apk
 
+      # Every published APK has to install over the one users already have: same package, same
+      # key (app/signing-cert.sha256) and a versionCode not lower than the published preview and
+      # the latest stable release. Otherwise every user would have to uninstall and lose settings.
+      - name: Check the APK can update installed CamGrid
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m unittest discover -s .github/scripts
+          if [ "$CAMGRID_SIGNING" != stable ]; then
+            if [ "$GITHUB_REF_NAME" = main ]; then
+              echo "::error title=No signing key::main must not publish a build with a one-off key; every user would have to uninstall."
+              exit 1
+            fi
+            echo "One-off key on a branch build: skipping the update check."
+            exit 0
+          fi
+          previous=()
+          mkdir -p "$RUNNER_TEMP/published"
+          if gh release download preview -p CamGrid-Android.apk -O "$RUNNER_TEMP/published/preview.apk"; then
+            previous+=(--previous "$RUNNER_TEMP/published/preview.apk")
+          fi
+          # Without a tag, gh picks the latest stable release (pre-releases never count as latest).
+          if gh release download -p CamGrid-Android.apk -O "$RUNNER_TEMP/published/latest-release.apk"; then
+            previous+=(--previous "$RUNNER_TEMP/published/latest-release.apk")
+          fi
+          python3 .github/scripts/check_android_update.py --expected-cert app/signing-cert.sha256 \
+            --apk dist/CamGrid-Android.apk --apk dist-extra/CamGrid-Android-minified.apk "${previous[@]}"
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
