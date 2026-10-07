@@ -86,80 +86,82 @@ fun CameraEditorScreen(
     val nameRequester = remember { FocusRequester() }
     InitialFocus(nameRequester)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        // Save sits in the header so it stays reachable without scrolling past the fields
-        // (the keyboard covers the bottom on phones). Cancel is the only button at the bottom.
-        ScreenHeader(
-            title = stringResource(if (camera == null) Res.string.editor_title_new else Res.string.editor_title_edit),
-            actionLabel = stringResource(Res.string.save),
-            onAction = {
-                saveAttempted = true
-                if (CameraValidator.validate(draft).isEmpty()) onSave(draft)
-            },
-            primary = true,
-        )
-
-        EditorField(
-            value = name,
-            onValueChange = { name = it },
-            label = stringResource(Res.string.field_name),
-            hint = stringResource(Res.string.hint_name),
-            error = when {
-                CameraError.NAME_BLANK in errors -> stringResource(Res.string.error_name_blank)
-                else -> null
-            },
-            keyboardType = KeyboardType.Text,
-            modifier = Modifier.focusRequester(nameRequester),
-        )
-        StreamTypeSelector(
-            selected = streamType,
-            onSelect = { type ->
-                if (type != streamType) {
-                    streamType = type
-                    gridUrl = Go2rtc.convertUrl(gridUrl, type) ?: gridUrl
-                    detailUrl = Go2rtc.convertUrl(detailUrl, type) ?: detailUrl
-                }
-            },
-        )
-        EditorField(
-            value = gridUrl,
-            onValueChange = { gridUrl = it },
-            label = stringResource(Res.string.field_grid_url),
-            hint = stringResource(if (webrtc) Res.string.hint_grid_url_webrtc else Res.string.hint_grid_url),
-            error = when {
-                CameraError.GRID_URL_BLANK in errors -> stringResource(Res.string.error_grid_url_blank)
-                CameraError.GRID_URL_INVALID in errors -> urlInvalidMessage
-                else -> null
-            },
-            keyboardType = KeyboardType.Uri,
-        )
-        EditorField(
-            value = detailUrl,
-            onValueChange = { detailUrl = it },
-            label = stringResource(Res.string.field_detail_url),
-            hint = stringResource(if (webrtc) Res.string.hint_detail_url_webrtc else Res.string.hint_detail_url),
-            error = when {
-                CameraError.DETAIL_URL_INVALID in errors -> urlInvalidMessage
-                else -> null
-            },
-            help = stringResource(Res.string.help_detail_url),
-            keyboardType = KeyboardType.Uri,
-        )
-
-        OutlinedButton(
-            onClick = onCancel,
+    val scrollState = rememberScrollState()
+    ScrollbarBox(scrollState, Modifier.fillMaxSize().safeDrawingPadding()) {
+        Column(
             modifier = Modifier
-                .padding(top = 8.dp)
-                .focusBorder(shape = CircleShape),
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(Res.string.cancel))
+            // Save sits in the header so it stays reachable without scrolling past the fields
+            // (the keyboard covers the bottom on phones). Cancel is the only button at the bottom.
+            ScreenHeader(
+                title = stringResource(if (camera == null) Res.string.editor_title_new else Res.string.editor_title_edit),
+                actionLabel = stringResource(Res.string.save),
+                onAction = {
+                    saveAttempted = true
+                    if (CameraValidator.validate(draft).isEmpty()) onSave(draft)
+                },
+                primary = true,
+            )
+
+            EditorField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(Res.string.field_name),
+                hint = stringResource(Res.string.hint_name),
+                error = when {
+                    CameraError.NAME_BLANK in errors -> stringResource(Res.string.error_name_blank)
+                    else -> null
+                },
+                keyboardType = KeyboardType.Text,
+                modifier = Modifier.focusRequester(nameRequester),
+            )
+            StreamTypeSelector(
+                selected = streamType,
+                onSelect = { type ->
+                    if (type != streamType) {
+                        streamType = type
+                        gridUrl = Go2rtc.convertUrl(gridUrl, type) ?: gridUrl
+                        detailUrl = Go2rtc.convertUrl(detailUrl, type) ?: detailUrl
+                    }
+                },
+            )
+            EditorField(
+                value = gridUrl,
+                onValueChange = { gridUrl = it },
+                label = stringResource(Res.string.field_grid_url),
+                hint = stringResource(if (webrtc) Res.string.hint_grid_url_webrtc else Res.string.hint_grid_url),
+                error = when {
+                    CameraError.GRID_URL_BLANK in errors -> stringResource(Res.string.error_grid_url_blank)
+                    CameraError.GRID_URL_INVALID in errors -> urlInvalidMessage
+                    else -> null
+                },
+                keyboardType = KeyboardType.Uri,
+            )
+            EditorField(
+                value = detailUrl,
+                onValueChange = { detailUrl = it },
+                label = stringResource(Res.string.field_detail_url),
+                hint = stringResource(if (webrtc) Res.string.hint_detail_url_webrtc else Res.string.hint_detail_url),
+                error = when {
+                    CameraError.DETAIL_URL_INVALID in errors -> urlInvalidMessage
+                    else -> null
+                },
+                help = stringResource(Res.string.help_detail_url),
+                keyboardType = KeyboardType.Uri,
+            )
+
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .focusBorder(shape = CircleShape),
+            ) {
+                Text(stringResource(Res.string.cancel))
+            }
         }
     }
 }

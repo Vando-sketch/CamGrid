@@ -18,6 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -35,7 +38,9 @@ import io.github.vandosketch.camgrid.platform.AppLog
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.ui.CamGridApp
 import io.github.vandosketch.camgrid.ui.CamGridTheme
+import io.github.vandosketch.camgrid.ui.KeyboardNavigation
 import io.github.vandosketch.camgrid.ui.LocalHasKeyboardAndMouse
+import io.github.vandosketch.camgrid.ui.LocalKeyboardNavigation
 import javax.imageio.ImageIO
 
 /**
@@ -63,12 +68,16 @@ fun main(args: Array<String>) {
         val initialWindow = remember { windowState.toSaved(previous = null) }
         SaveWindowState(windowState, windowStore, initialWindow)
         var immersive by remember { mutableStateOf(false) }
+        // Focus rings only while the user moves around with the keys. Fed here as well as in
+        // CamGridApp, so keys pressed in a dialog count too.
+        val keyboardNavigation = remember { KeyboardNavigation() }
         Window(
             onCloseRequest = ::exitApplication,
             state = windowState,
             title = "CamGrid",
             icon = icon,
             onPreviewKeyEvent = { event ->
+                if (event.type == KeyEventType.KeyDown) keyboardNavigation.onKeyDown(event.key)
                 // F11 toggles fullscreen from anywhere, like browsers and video players.
                 if (event.isPlainPress(Key.F11)) {
                     windowState.toggleFullscreen()
@@ -79,7 +88,10 @@ fun main(args: Array<String>) {
             },
         ) {
             CamGridTheme {
-                CompositionLocalProvider(LocalHasKeyboardAndMouse provides true) {
+                CompositionLocalProvider(
+                    LocalHasKeyboardAndMouse provides true,
+                    LocalKeyboardNavigation provides keyboardNavigation,
+                ) {
                     if (testUrls.isNotEmpty()) {
                         TestGrid(testUrls)
                     } else {

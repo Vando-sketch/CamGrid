@@ -5,11 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -354,38 +355,49 @@ fun ViewEditorScreen(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1.3f)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        preview(true)
+                    val previewScroll = rememberScrollState()
+                    ScrollbarBox(previewScroll, Modifier.weight(1.3f).fillMaxHeight()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(previewScroll),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            preview(true)
+                        }
                     }
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        sections()
+                    // The panel is often taller than the window (720 px on a small desktop
+                    // window): it scrolls on its own, with a scrollbar on the desktop. The end
+                    // padding keeps the controls clear of that scrollbar.
+                    val panelScroll = rememberScrollState()
+                    ScrollbarBox(panelScroll, Modifier.weight(1f).fillMaxHeight()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(panelScroll)
+                                .padding(end = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            sections()
+                        }
                     }
                 }
             }
         } else {
             // Phones in portrait: everything in one scrolling column.
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                EditorHeader(onDone)
-                preview(false)
-                sections()
+            val scroll = rememberScrollState()
+            ScrollbarBox(scroll, Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scroll)
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    EditorHeader(onDone)
+                    preview(false)
+                    sections()
+                }
             }
         }
     }
@@ -579,6 +591,7 @@ private fun ModeLine(mode: EditMode) {
  * Resize (with the touch arrow pad while one is on) and Remove. Change… comes first and takes
  * [changeCameraRequester], so Right from the preview lands on it.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SelectedTileSection(
     view: CamView,
@@ -642,9 +655,9 @@ private fun SelectedTileSection(
         selected = tile.fit,
         onSelect = { onEdit(ViewEditor.setTileFit(view, selectedIndex, it)) },
     )
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         // Selecting the chip that is on again goes back to Select.
         for (option in listOf(EditMode.MOVE, EditMode.RESIZE)) {
@@ -679,13 +692,15 @@ private fun SelectedTileSection(
 }
 
 /** The whole canvas: presets, columns and rows, adding and filling tiles, and the stream count. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LayoutSection(view: CamView, onEdit: (CamView) -> Unit, onSelect: (Int) -> Unit) {
     SectionTitle(stringResource(Res.string.ve_section_layout))
     Text(stringResource(Res.string.ve_section_presets), style = MaterialTheme.typography.labelLarge)
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    // Wraps instead of scrolling sideways: a row that runs off the panel's edge hides buttons.
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         for (preset in ViewPreset.entries) {
             OutlinedButton(
@@ -707,9 +722,9 @@ private fun LayoutSection(view: CamView, onEdit: (CamView) -> Unit, onSelect: (I
         onValueChange = { onEdit(ViewEditor.setCanvas(view, view.columns, it)) },
     )
     // Both stay visible (and do nothing when impossible), so D-pad focus never drops.
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         OutlinedButton(
             onClick = {

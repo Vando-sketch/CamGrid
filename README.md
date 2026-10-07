@@ -106,6 +106,7 @@ Install a new release over the old one; your settings are kept. On a Fire TV, ru
 | Watch a camera fullscreen | Tap it | OK | Enter, or 1 to 9 |
 | Next or previous camera in fullscreen | Swipe | Left / right | Left / right |
 | Sound on or off | Tap, then the sound button | OK | Enter |
+| Zoom in fullscreen | Pinch or double-tap (not on iPhone yet) | Fast-forward / rewind, arrows move | + / − or mouse wheel, arrows move |
 | Next page of the grid | Swipe | Right past the edge | Page Down |
 | Settings | Gear, top right | Menu | Up to the gear, Enter |
 | Back | Back | Back | Esc |

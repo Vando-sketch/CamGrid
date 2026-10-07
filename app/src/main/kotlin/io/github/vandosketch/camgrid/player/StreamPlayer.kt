@@ -13,6 +13,7 @@ import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -72,6 +73,14 @@ class StreamPlayer(
     override var status by mutableStateOf<StreamStatus>(StreamStatus.Connecting)
         private set
 
+    /**
+     * Whether the stream has an audio track, from the tracks ExoPlayer found (the RTSP
+     * session's SDP, the MP4's header); null until the first stream was opened. Kept across
+     * reconnects, which clear the tracks for a moment.
+     */
+    override var hasAudio by mutableStateOf<Boolean?>(null)
+        private set
+
     private val reconnectPolicy = ReconnectPolicy()
     private val watchdog = StreamWatchdog()
     private var attempt = 0
@@ -93,6 +102,10 @@ class StreamPlayer(
                 Player.STATE_ENDED -> scheduleReconnect("ENDED")
                 else -> Unit
             }
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            if (!tracks.isEmpty) hasAudio = tracks.containsType(C.TRACK_TYPE_AUDIO)
         }
 
         override fun onRenderedFirstFrame() {

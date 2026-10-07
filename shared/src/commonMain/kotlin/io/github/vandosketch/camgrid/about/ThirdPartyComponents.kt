@@ -79,7 +79,9 @@ data class ThirdPartyComponent(
  * root says the same in prose and is packaged with the desktop installers.
  *
  * Versions of Maven libraries come from the version catalog ([CatalogVersions], generated at
- * build time), so a Dependabot update changes them here too. The Swift package versions are
+ * build time), so a Dependabot update changes them here too; libraries that only come in
+ * through another one (kotlinx-io, Skiko) get the version Gradle resolved for them there.
+ * Only the entries in [UNVERSIONED] have no version. The Swift package versions are
  * written out, and DependencyInventoryTest compares them with iosApp/project.yml.
  */
 object ThirdPartyComponents {
@@ -111,8 +113,11 @@ object ThirdPartyComponents {
             "https://github.com/Kotlin/kotlinx.serialization", ALL,
             setOf("org.jetbrains.kotlinx:kotlinx-serialization-json"),
         ),
-        // Comes with Ktor; not in the catalog itself.
-        ThirdPartyComponent("kotlinx-io", null, listOf(License.APACHE_2_0), "https://github.com/Kotlin/kotlinx-io", ALL),
+        // Comes with Ktor; not in the catalog itself, the build takes the version Gradle resolved.
+        ThirdPartyComponent(
+            "kotlinx-io", CatalogVersions.kotlinxIo, listOf(License.APACHE_2_0),
+            "https://github.com/Kotlin/kotlinx-io", ALL,
+        ),
         ThirdPartyComponent(
             "Ktor client", CatalogVersions.ktor, listOf(License.APACHE_2_0),
             "https://github.com/ktorio/ktor", ALL, setOf("io.ktor"),
@@ -160,9 +165,10 @@ object ThirdPartyComponents {
             listOf(License.APACHE_2_0), "https://github.com/JetBrains/compose-multiplatform-core", DESKTOP_IOS,
             setOf("org.jetbrains.androidx.lifecycle", "org.jetbrains.androidx.navigationevent"),
         ),
-        // Comes with Compose Multiplatform. Android draws with the Skia inside the OS instead.
+        // Comes with Compose Multiplatform (the version is the resolved one, like kotlinx-io's).
+        // Android draws with the Skia inside the OS instead.
         ThirdPartyComponent(
-            "Skiko with Skia", null, listOf(License.APACHE_2_0, License.BSD_3_CLAUSE_SKIA),
+            "Skiko with Skia", CatalogVersions.skiko, listOf(License.APACHE_2_0, License.BSD_3_CLAUSE_SKIA),
             "https://github.com/JetBrains/skiko", DESKTOP_IOS,
         ),
 
@@ -212,6 +218,19 @@ object ThirdPartyComponents {
             "WebRTC (Google libwebrtc, iOS framework by stasel)", "154.0.0", listOf(License.BSD_3_CLAUSE_WEBRTC),
             "https://github.com/stasel/WebRTC", IOS, swiftPackage = "WebRTC",
         ),
+    )
+
+    /**
+     * The entries without a version, and why: CamGrid's own version is in the About section,
+     * the font is embedded as outlines, and the rest is built into another component (whose
+     * version is listed) or into the desktop installer by the build's JDK.
+     */
+    val UNVERSIONED: Set<String> = setOf(
+        "CamGrid",
+        "Inter typeface",
+        "WebRTC (Google libwebrtc, inside webrtc-java)",
+        "FFmpeg (Chromium build, inside webrtc-java)",
+        "Java runtime (OpenJDK)",
     )
 
     /** The entry that covers the catalog module `group:name`, or null. */

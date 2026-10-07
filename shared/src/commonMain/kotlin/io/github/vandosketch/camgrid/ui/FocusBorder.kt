@@ -12,8 +12,10 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
+import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -25,6 +27,10 @@ val FocusColor = Color(0xFFFFC107)
  * Draws a thick border while this element or one of its children has focus, so the D-pad
  * position is always obvious from across the room. Place it before the focusable modifier
  * (clickable, toggleable, ...) or on a component whose content is focusable.
+ *
+ * With a keyboard and mouse ([LocalKeyboardNavigation]) the border shows only while the user
+ * moves around with the keys, so a button clicked with the mouse (which takes focus) is not
+ * left ringed. Without one (TV, phone) it shows whenever there is focus.
  */
 fun Modifier.focusBorder(
     width: Dp = 3.dp,
@@ -69,7 +75,7 @@ private class FocusBorderNode(
     var width: Dp,
     var shape: Shape,
     var color: Color,
-) : Modifier.Node(), FocusEventModifierNode, DrawModifierNode {
+) : Modifier.Node(), FocusEventModifierNode, DrawModifierNode, CompositionLocalConsumerModifierNode {
 
     private var focused = false
 
@@ -82,7 +88,8 @@ private class FocusBorderNode(
 
     override fun ContentDrawScope.draw() {
         drawContent()
-        if (focused) {
+        // A state read: the border redraws when the user switches between keys and mouse.
+        if (focused && currentValueOf(LocalKeyboardNavigation)?.active != false) {
             val strokePx = width.toPx()
             // Inset by half the stroke so the whole border is drawn inside the bounds.
             inset(strokePx / 2f) {

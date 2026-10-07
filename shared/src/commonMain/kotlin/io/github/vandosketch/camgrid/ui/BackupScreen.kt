@@ -187,114 +187,116 @@ fun BackupScreen(
     val backRequester = remember { FocusRequester() }
     InitialFocus(backRequester)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        ScreenHeader(
-            title = stringResource(Res.string.bk_title),
-            actionLabel = stringResource(Res.string.bk_back),
-            onAction = onBack,
-            actionRequester = backRequester,
-        )
+    val scrollState = rememberScrollState()
+    ScrollbarBox(scrollState, Modifier.fillMaxSize().safeDrawingPadding()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ScreenHeader(
+                title = stringResource(Res.string.bk_title),
+                actionLabel = stringResource(Res.string.bk_back),
+                onAction = onBack,
+                actionRequester = backRequester,
+            )
 
-        // Progress and results sit right under the header, where they are seen without scrolling.
-        StatusMessage(state = state, lastExportPlain = lastExportPlain)
+            // Progress and results sit right under the header, where they are seen without scrolling.
+            StatusMessage(state = state, lastExportPlain = lastExportPlain)
 
-        if (isTv) {
-            SectionTitle(stringResource(Res.string.bk_lan_title))
-            LanTransferPanel(state = lanTransfer, downloadName = lanDownloadName)
-        }
+            if (isTv) {
+                SectionTitle(stringResource(Res.string.bk_lan_title))
+                LanTransferPanel(state = lanTransfer, downloadName = lanDownloadName)
+            }
 
-        SectionTitle(stringResource(Res.string.bk_section_export))
-        HelpText(stringResource(Res.string.bk_export_help))
-        PasswordField(
-            value = password,
-            onValueChange = {
-                password = it
-                problem = null
-            },
-            label = stringResource(Res.string.bk_password),
-            error = null,
-            imeAction = ImeAction.Next,
-        )
-        PasswordField(
-            value = repeat,
-            onValueChange = {
-                repeat = it
-                problem = null
-            },
-            label = stringResource(Res.string.bk_password_repeat),
-            error = when (problem) {
-                PasswordProblem.EMPTY -> stringResource(Res.string.bk_error_password_empty)
-                PasswordProblem.MISMATCH -> stringResource(Res.string.bk_error_password_mismatch)
-                null -> null
-            },
-            imeAction = ImeAction.Done,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Never disabled: a disabled button would drop D-pad focus. Problems show as text.
+            SectionTitle(stringResource(Res.string.bk_section_export))
+            HelpText(stringResource(Res.string.bk_export_help))
+            PasswordField(
+                value = password,
+                onValueChange = {
+                    password = it
+                    problem = null
+                },
+                label = stringResource(Res.string.bk_password),
+                error = null,
+                imeAction = ImeAction.Next,
+            )
+            PasswordField(
+                value = repeat,
+                onValueChange = {
+                    repeat = it
+                    problem = null
+                },
+                label = stringResource(Res.string.bk_password_repeat),
+                error = when (problem) {
+                    PasswordProblem.EMPTY -> stringResource(Res.string.bk_error_password_empty)
+                    PasswordProblem.MISMATCH -> stringResource(Res.string.bk_error_password_mismatch)
+                    null -> null
+                },
+                imeAction = ImeAction.Done,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Never disabled: a disabled button would drop D-pad focus. Problems show as text.
+                Button(
+                    onClick = {
+                        problem = when {
+                            password.isEmpty() -> PasswordProblem.EMPTY
+                            password != repeat -> PasswordProblem.MISMATCH
+                            else -> null
+                        }
+                        if (problem == null) startExport(password.toCharArray())
+                    },
+                    modifier = Modifier.focusBorder(shape = CircleShape),
+                ) {
+                    Text(stringResource(Res.string.bk_export_with_password))
+                }
+                OutlinedButton(
+                    onClick = { confirmPlain = true },
+                    modifier = Modifier.focusBorder(shape = CircleShape),
+                ) {
+                    Text(stringResource(Res.string.bk_export_without_password))
+                }
+            }
+
+            SectionTitle(stringResource(Res.string.bk_section_import))
             Button(
                 onClick = {
-                    problem = when {
-                        password.isEmpty() -> PasswordProblem.EMPTY
-                        password != repeat -> PasswordProblem.MISMATCH
-                        else -> null
+                    if (!pickers.launchOpen()) {
+                        // No usable file picker (TV): offer the files in the app folder instead.
+                        folderFiles = listFolderFiles()
+                        if (downloads != null && !downloads.needsPermission) downloadFiles = downloads.list()
                     }
-                    if (problem == null) startExport(password.toCharArray())
                 },
                 modifier = Modifier.focusBorder(shape = CircleShape),
             ) {
-                Text(stringResource(Res.string.bk_export_with_password))
+                Text(stringResource(if (isTv) Res.string.bk_tv_import_local else Res.string.bk_import_from_file))
             }
-            OutlinedButton(
-                onClick = { confirmPlain = true },
-                modifier = Modifier.focusBorder(shape = CircleShape),
-            ) {
-                Text(stringResource(Res.string.bk_export_without_password))
-            }
-        }
-
-        SectionTitle(stringResource(Res.string.bk_section_import))
-        Button(
-            onClick = {
-                if (!pickers.launchOpen()) {
-                    // No usable file picker (TV): offer the files in the app folder instead.
-                    folderFiles = listFolderFiles()
-                    if (downloads != null && !downloads.needsPermission) downloadFiles = downloads.list()
-                }
-            },
-            modifier = Modifier.focusBorder(shape = CircleShape),
-        ) {
-            Text(stringResource(if (isTv) Res.string.bk_tv_import_local else Res.string.bk_import_from_file))
-        }
-        folderFiles?.let { names ->
-            FileList(folder = folderPath.orEmpty(), names = names, onPick = onImportFromFolder)
-            if (downloads != null) {
-                val listed = downloadFiles
-                if (listed != null) {
-                    FileList(folder = downloads.path, names = listed, onPick = onImportFromDownloads)
-                } else {
-                    OutlinedButton(
-                        onClick = {
-                            pickers.requestDownloadsAccess { granted ->
-                                downloadsDenied = !granted
-                                if (granted) downloadFiles = downloads.list()
-                            }
-                        },
-                        modifier = Modifier.focusBorder(shape = CircleShape),
-                    ) {
-                        Text(stringResource(Res.string.bk_downloads_ask))
+            folderFiles?.let { names ->
+                FileList(folder = folderPath.orEmpty(), names = names, onPick = onImportFromFolder)
+                if (downloads != null) {
+                    val listed = downloadFiles
+                    if (listed != null) {
+                        FileList(folder = downloads.path, names = listed, onPick = onImportFromDownloads)
+                    } else {
+                        OutlinedButton(
+                            onClick = {
+                                pickers.requestDownloadsAccess { granted ->
+                                    downloadsDenied = !granted
+                                    if (granted) downloadFiles = downloads.list()
+                                }
+                            },
+                            modifier = Modifier.focusBorder(shape = CircleShape),
+                        ) {
+                            Text(stringResource(Res.string.bk_downloads_ask))
+                        }
+                        if (downloadsDenied) HelpText(stringResource(Res.string.bk_downloads_denied))
                     }
-                    if (downloadsDenied) HelpText(stringResource(Res.string.bk_downloads_denied))
                 }
             }
+            if (folderPath != null) HelpText(stringResource(Res.string.bk_folder_help, folderPath))
         }
-        if (folderPath != null) HelpText(stringResource(Res.string.bk_folder_help, folderPath))
     }
 
     if (confirmPlain) {

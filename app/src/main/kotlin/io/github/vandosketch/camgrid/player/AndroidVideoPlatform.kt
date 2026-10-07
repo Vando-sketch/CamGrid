@@ -15,6 +15,7 @@ import io.github.vandosketch.camgrid.data.WhepClient
 import io.github.vandosketch.camgrid.platform.FallbackSurface
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.VideoPlatform
+import io.github.vandosketch.camgrid.platform.VideoZoom
 import io.github.vandosketch.camgrid.platform.rememberStreamWithFallback
 
 /**
@@ -67,13 +68,24 @@ object AndroidVideoPlatform : VideoPlatform {
         return stream
     }
 
+    /**
+     * Zoomed video is drawn into a TextureView (ExoPlayer's, or [WebRtcTextureRenderer] for
+     * WebRTC), which Compose clips like any content; unzoomed video keeps its SurfaceView.
+     */
+    override val supportsZoom: Boolean get() = true
+
     /** Renders [stream] centred in [modifier]'s bounds, letterboxed or cropped per [fit]; black while it is null. */
     @Composable
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode) {
+        Surface(stream, modifier, fit, VideoZoom.None)
+    }
+
+    @Composable
+    override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode, zoom: VideoZoom) {
         FallbackSurface(stream, modifier) { own, videoModifier ->
             when (own) {
-                is WebRtcStream -> WebRtcSurface(own, videoModifier, fit)
-                is StreamPlayer -> VideoSurface(own.player, videoModifier, fit)
+                is WebRtcStream -> WebRtcSurface(own, videoModifier, fit, zoom)
+                is StreamPlayer -> VideoSurface(own.player, videoModifier, fit, zoom)
                 else -> VideoSurface(null, videoModifier, fit)
             }
         }

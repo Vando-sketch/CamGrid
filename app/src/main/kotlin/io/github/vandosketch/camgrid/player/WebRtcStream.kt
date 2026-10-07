@@ -4,14 +4,20 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.TextureView
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.Go2rtc
@@ -23,6 +29,8 @@ import io.github.vandosketch.camgrid.data.WhepClient
 import io.github.vandosketch.camgrid.platform.AppLog
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.StreamStatus
+import io.github.vandosketch.camgrid.platform.VideoZoom
+import io.github.vandosketch.camgrid.platform.zoomed
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -363,7 +371,16 @@ class WebRtcStream(
  * fills them and crops the frame itself while drawing, so nothing reaches past the bounds.
  */
 @Composable
-fun WebRtcSurface(stream: WebRtcStream, modifier: Modifier = Modifier, fit: FitMode = FitMode.FIT) {
+fun WebRtcSurface(
+    stream: WebRtcStream,
+    modifier: Modifier = Modifier,
+    fit: FitMode = FitMode.FIT,
+    zoom: VideoZoom = VideoZoom.None,
+) {
+    if (zoom.isZoomed) {
+        ZoomedWebRtcSurface(stream, modifier, zoom)
+        return
+    }
     Box(modifier, contentAlignment = Alignment.Center) {
         // A new renderer per stream, so a reused view never keeps receiving an old stream.
         key(stream) {
@@ -383,6 +400,42 @@ fun WebRtcSurface(stream: WebRtcStream, modifier: Modifier = Modifier, fit: FitM
                     renderer.release()
                 },
             )
+        }
+    }
+}
+
+/**
+ * The letterboxed picture of [stream] magnified and moved per [zoom] and clipped to
+ * [modifier]'s bounds: drawn into a TextureView ([WebRtcTextureRenderer]), which Compose can
+ * clip, laid out at the zoomed size up to [MAX_ZOOMED_SURFACE_SIDE] (so the frame is drawn at
+ * that resolution rather than upscaled) with the video's aspect ratio once the first frame
+ * tells it.
+ */
+@Composable
+private fun ZoomedWebRtcSurface(stream: WebRtcStream, modifier: Modifier, zoom: VideoZoom) {
+    Box(modifier.clipToBounds()) {
+        Box(Modifier.zoomed(zoom, MAX_ZOOMED_SURFACE_SIDE).fillMaxSize(), contentAlignment = Alignment.Center) {
+            key(stream) {
+                var videoAspect by remember { mutableFloatStateOf(0f) }
+                AndroidView(
+                    factory = { context ->
+                        val renderer = WebRtcTextureRenderer(WebRtcEngine.get(context).eglBase.eglBaseContext) { width, height ->
+                            if (width > 0 && height > 0) videoAspect = width.toFloat() / height
+                        }
+                        TextureView(context).apply {
+                            surfaceTextureListener = renderer
+                            tag = renderer
+                            stream.attachRenderer(renderer)
+                        }
+                    },
+                    modifier = if (videoAspect > 0f) Modifier.aspectRatio(videoAspect) else Modifier.fillMaxSize(),
+                    onRelease = { view ->
+                        val renderer = view.tag as WebRtcTextureRenderer
+                        stream.detachRenderer(renderer)
+                        renderer.release()
+                    },
+                )
+            }
         }
     }
 }

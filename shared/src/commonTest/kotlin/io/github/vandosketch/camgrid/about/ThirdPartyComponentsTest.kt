@@ -3,6 +3,7 @@ package io.github.vandosketch.camgrid.about
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ThirdPartyComponentsTest {
@@ -71,6 +72,31 @@ class ThirdPartyComponentsTest {
         assertEquals(CatalogVersions.ktor, named("Ktor").version)
         // The JavaCPP preset version is "<FFmpeg version>-<JavaCPP version>".
         assertEquals(CatalogVersions.bytedecoFfmpeg.substringBefore('-'), named("FFmpeg").version)
+    }
+
+    @Test
+    fun everyComponentHasAVersionUnlessItHasNoneOfItsOwn() {
+        for (component in components) {
+            if (component.name in ThirdPartyComponents.UNVERSIONED) {
+                assertNull(component.version, "${component.name} has a version now: drop it from UNVERSIONED")
+            } else {
+                assertNotNull(component.version, "${component.name} has no version")
+            }
+        }
+        for (name in ThirdPartyComponents.UNVERSIONED) {
+            assertNotNull(components.find { it.name == name }, "UNVERSIONED names no component: $name")
+        }
+    }
+
+    @Test
+    fun librariesThatComeWithOthersHaveTheirResolvedVersion() {
+        // Generated from the resolved dependencies, not the catalog: kotlinx-io with Ktor,
+        // Skiko with Compose Multiplatform.
+        assertEquals(CatalogVersions.kotlinxIo, named("kotlinx-io").version)
+        assertEquals(CatalogVersions.skiko, named("Skiko").version)
+        for (version in listOf(CatalogVersions.kotlinxIo, CatalogVersions.skiko)) {
+            assertTrue(version.first().isDigit(), "not a version: $version")
+        }
     }
 
     @Test

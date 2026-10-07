@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -72,42 +73,45 @@ fun LicensesScreen(onOpenLicense: (License) -> Unit, onBack: () -> Unit) {
     val backRequester = remember { FocusRequester() }
     InitialFocus(backRequester)
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .testTag(LICENSES_LIST_TAG),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item {
-            ScreenHeader(
-                title = stringResource(Res.string.lic_title),
-                actionLabel = stringResource(Res.string.lic_back),
-                onAction = onBack,
-                actionRequester = backRequester,
-            )
-        }
-        item {
-            Text(
-                text = stringResource(Res.string.lic_intro),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        item { SectionTitle(stringResource(Res.string.lic_section_components)) }
-        items(ThirdPartyComponents.all, key = { "component:" + it.name }) { component ->
-            ComponentRow(component, onClick = { onOpenLicense(component.licenses.first()) })
-        }
-        item { SectionTitle(stringResource(Res.string.lic_section_texts)) }
-        items(License.entries, key = { "license:" + it.name }) { license ->
-            FocusableCard(onClick = { onOpenLicense(license) }, modifier = Modifier.testTag(licenseTag(license))) {
-                Text(license.title, style = MaterialTheme.typography.titleMedium)
+    val listState = rememberLazyListState()
+    ScrollbarBox(listState, Modifier.fillMaxSize().safeDrawingPadding()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag(LICENSES_LIST_TAG),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                ScreenHeader(
+                    title = stringResource(Res.string.lic_title),
+                    actionLabel = stringResource(Res.string.lic_back),
+                    onAction = onBack,
+                    actionRequester = backRequester,
+                )
+            }
+            item {
                 Text(
-                    text = license.spdxId,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = stringResource(Res.string.lic_intro),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            item { SectionTitle(stringResource(Res.string.lic_section_components)) }
+            items(ThirdPartyComponents.all, key = { "component:" + it.name }) { component ->
+                ComponentRow(component, onClick = { onOpenLicense(component.licenses.first()) })
+            }
+            item { SectionTitle(stringResource(Res.string.lic_section_texts)) }
+            items(License.entries, key = { "license:" + it.name }) { license ->
+                FocusableCard(onClick = { onOpenLicense(license) }, modifier = Modifier.testTag(licenseTag(license))) {
+                    Text(license.title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = license.spdxId,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -189,35 +193,37 @@ fun LicenseTextScreen(license: License, onBack: () -> Unit) {
     val backRequester = remember { FocusRequester() }
     InitialFocus(backRequester)
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .safeDrawingPadding(),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        item {
-            ScreenHeader(
-                title = license.title,
-                actionLabel = stringResource(Res.string.lic_back),
-                onAction = onBack,
-                actionRequester = backRequester,
-            )
-        }
-        val loaded = paragraphs
-        if (loaded == null) {
-            item { Text(stringResource(Res.string.lic_loading), style = MaterialTheme.typography.bodyMedium) }
-        } else {
-            items(loaded) { paragraph ->
-                Text(
-                    text = paragraph,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusBorder()
-                        .focusable()
-                        .padding(8.dp),
+    val listState = rememberLazyListState()
+    ScrollbarBox(listState, Modifier.fillMaxSize().safeDrawingPadding()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            item {
+                ScreenHeader(
+                    title = license.title,
+                    actionLabel = stringResource(Res.string.lic_back),
+                    onAction = onBack,
+                    actionRequester = backRequester,
                 )
+            }
+            val loaded = paragraphs
+            if (loaded == null) {
+                item { Text(stringResource(Res.string.lic_loading), style = MaterialTheme.typography.bodyMedium) }
+            } else {
+                items(loaded) { paragraph ->
+                    Text(
+                        text = paragraph,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusBorder()
+                            .focusable()
+                            .padding(8.dp),
+                    )
+                }
             }
         }
     }
