@@ -69,19 +69,26 @@ object AndroidVideoPlatform : VideoPlatform {
     }
 
     /**
-     * Zoomed video is drawn into a TextureView (ExoPlayer's, or [WebRtcTextureRenderer] for
-     * WebRTC), which Compose clips like any content; unzoomed video keeps its SurfaceView.
+     * Fullscreen video is drawn into a TextureView (ExoPlayer's, or [WebRtcTextureRenderer] for
+     * WebRTC), which Compose clips like any content, also at the whole picture so zooming never
+     * swaps views (issue #30); grid tiles keep their SurfaceView.
      */
     override val supportsZoom: Boolean get() = true
 
     /** Renders [stream] centred in [modifier]'s bounds, letterboxed or cropped per [fit]; black while it is null. */
     @Composable
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode) {
-        Surface(stream, modifier, fit, VideoZoom.None)
+        PlatformSurface(stream, modifier, fit, zoom = null)
     }
 
     @Composable
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode, zoom: VideoZoom) {
+        PlatformSurface(stream, modifier, fit, zoom)
+    }
+
+    /** A zoomable picture where [zoom] is not null (fullscreen), the plain one (grid tiles) where it is. */
+    @Composable
+    private fun PlatformSurface(stream: LiveStream?, modifier: Modifier, fit: FitMode, zoom: VideoZoom?) {
         FallbackSurface(stream, modifier) { own, videoModifier ->
             when (own) {
                 is WebRtcStream -> WebRtcSurface(own, videoModifier, fit, zoom)

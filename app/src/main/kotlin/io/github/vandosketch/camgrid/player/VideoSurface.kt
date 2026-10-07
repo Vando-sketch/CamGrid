@@ -20,8 +20,9 @@ import io.github.vandosketch.camgrid.platform.zoomed
 /**
  * Renders [player] centred in [modifier]'s bounds: letterboxed to the video's aspect ratio for
  * [FitMode.FIT], filling the bounds with the overflow cut off for [FitMode.CROP]. Shows black
- * until the first frame arrives (and while [player] is null). With a [zoom] the video is laid
- * out that much larger, moved and clipped to the bounds.
+ * until the first frame arrives (and while [player] is null). With a [zoom] (fullscreen, even at
+ * [VideoZoom.None]) the video can be magnified: it is laid out that much larger, moved and
+ * clipped to the bounds.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -29,24 +30,36 @@ fun VideoSurface(
     player: Player?,
     modifier: Modifier = Modifier,
     fit: FitMode = FitMode.FIT,
-    zoom: VideoZoom = VideoZoom.None,
+    zoom: VideoZoom? = null,
 ) {
     // ContentFrame resizes its surface within the incoming max constraints, so it must not get
     // fixed (fillMaxSize) constraints itself; the inner Box provides loose ones.
     Box(modifier.clipToBounds()) {
-        Box(Modifier.zoomed(zoom, MAX_ZOOMED_SURFACE_SIDE).fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(Modifier.zoomed(zoom ?: VideoZoom.None, MAX_ZOOMED_SURFACE_SIDE).fillMaxSize(), contentAlignment = Alignment.Center) {
             ContentFrame(
                 player = player,
-                // Cropping and zooming make the surface larger than its bounds. A SurfaceView is
-                // composited outside the view hierarchy and would not be clipped, a TextureView
-                // is drawn by Compose and is. Unzoomed fullscreen keeps the cheaper SurfaceView;
-                // zooming in hands ExoPlayer the new surface (a moment of black at most).
-                surfaceType = if (fit == FitMode.CROP || zoom.isZoomed) SURFACE_TYPE_TEXTURE_VIEW else SURFACE_TYPE_SURFACE_VIEW,
+                surfaceType = when (videoViewFor(fit, zoom)) {
+                    VideoView.SURFACE_VIEW -> SURFACE_TYPE_SURFACE_VIEW
+                    VideoView.TEXTURE_VIEW -> SURFACE_TYPE_TEXTURE_VIEW
+                },
                 contentScale = if (fit == FitMode.CROP) ContentScale.Crop else ContentScale.Fit,
             )
         }
     }
 }
+
+/** The kind of Android view a stream draws into. */
+internal enum class VideoView { SURFACE_VIEW, TEXTURE_VIEW }
+
+/**
+ * Cropping and zooming make the video larger than its bounds. A SurfaceView is composited
+ * outside the view hierarchy and would not be clipped, a TextureView is drawn by Compose and is.
+ * A zoomable picture ([zoom] not null: fullscreen) is a TextureView from the start, also at the
+ * whole picture: swapping views when the zoom leaves 1x showed black for over a second until
+ * the new view had a frame (issue #30). Grid tiles keep the cheaper SurfaceView unless cropped.
+ */
+internal fun videoViewFor(fit: FitMode, zoom: VideoZoom?): VideoView =
+    if (fit == FitMode.CROP || zoom != null) VideoView.TEXTURE_VIEW else VideoView.SURFACE_VIEW
 
 /**
  * The longest side, in pixels, a zoomed TextureView is laid out at: its buffers stay within

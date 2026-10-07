@@ -4,6 +4,13 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-07
+
+### Fixed
+
+- **Opening a camera shows its picture at once.** Fullscreen shows the camera's grid stream until the high-quality stream is ready, instead of a black screen, and back on the grid that camera is still playing. The other tiles reconnect as before, so a Fire TV never plays more than two streams in fullscreen. ([#29](https://github.com/Vando-sketch/CamGrid/issues/29))
+- **Android and Fire TV: zooming in or back to the whole picture no longer goes black.** Fullscreen now uses the same video view at every zoom level. ([#30](https://github.com/Vando-sketch/CamGrid/issues/30))
+
 ## [0.1.1] - 2026-10-07
 
 ### Added
@@ -48,6 +55,7 @@ The first stable release.
 - WebRTC works on the local network only and needs H.264 video (H.265 cameras play as MP4 through go2rtc instead).
 - A live viewer only: no recording, playback, motion alerts, PTZ or two-way audio.
 
-[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Vando-sketch/CamGrid/releases/tag/v0.1.0

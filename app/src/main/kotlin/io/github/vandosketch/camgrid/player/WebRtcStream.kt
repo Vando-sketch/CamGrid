@@ -369,15 +369,17 @@ class WebRtcStream(
  * [VideoSurface] does for ExoPlayer. For [FitMode.FIT] the renderer measures itself to the
  * video's aspect ratio within the loose constraints the Box gives it; for [FitMode.CROP] it
  * fills them and crops the frame itself while drawing, so nothing reaches past the bounds.
+ * With a [zoom] (fullscreen, even at [VideoZoom.None]) it is the zoomable TextureView picture
+ * from the start, so zooming never swaps views (issue #30).
  */
 @Composable
 fun WebRtcSurface(
     stream: WebRtcStream,
     modifier: Modifier = Modifier,
     fit: FitMode = FitMode.FIT,
-    zoom: VideoZoom = VideoZoom.None,
+    zoom: VideoZoom? = null,
 ) {
-    if (zoom.isZoomed) {
+    if (zoom != null) {
         ZoomedWebRtcSurface(stream, modifier, zoom)
         return
     }

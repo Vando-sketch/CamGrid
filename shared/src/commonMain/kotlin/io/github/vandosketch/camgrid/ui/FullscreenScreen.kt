@@ -109,6 +109,10 @@ private const val MAX_WHEEL_NOTCHES = 3f
  * whole picture again. While zoomed in, the arrows and dragging move the picture instead of switching camera,
  * and Back (Esc) first shows the whole picture again before it reaches the caller. Switching
  * camera resets the zoom.
+ *
+ * Until its own stream plays, it shows the camera's grid stream that [CamGridApp] keeps open
+ * ([LocalGridStreams]), so opening a camera from the grid shows its picture at once instead of
+ * black (issue #29).
  */
 @OptIn(ExperimentalComposeUiApi::class) // scrollDelta (mouse wheel), experimental in some Compose versions
 @Composable
@@ -166,6 +170,10 @@ fun FullscreenScreen(
         camera.fullscreenUrl, camera.streamType, camera.name, audioEnabled = true, lowerResolutionUrl = camera.gridUrl,
     )
     SideEffect { stream?.setMuted(muted) }
+    val gridStream = LocalGridStreams.current[camera.id]
+    // Over the stream while it connects; it keeps being drawn underneath, as a player may only
+    // report playing once it has drawn a frame.
+    val showGridStream = stream?.status != StreamStatus.Playing && gridStream?.status == StreamStatus.Playing
 
     // The root box takes focus so it receives the D-pad keys.
     val focusRequester = remember { FocusRequester() }
@@ -334,10 +342,12 @@ fun FullscreenScreen(
             },
     ) {
         video.Surface(stream, Modifier.fillMaxSize(), FitMode.FIT, zoom)
-        StreamStatusBadge(
-            status = stream?.status ?: StreamStatus.Connecting,
-            modifier = Modifier.align(Alignment.Center),
-        )
+        if (showGridStream) video.Surface(gridStream, Modifier.fillMaxSize(), FitMode.FIT, zoom)
+        val status = stream?.status ?: StreamStatus.Connecting
+        // A picture is showing while the stream connects; an offline stream still says so.
+        if (!(showGridStream && status is StreamStatus.Connecting)) {
+            StreamStatusBadge(status = status, modifier = Modifier.align(Alignment.Center))
+        }
         if (overlayVisible) {
             FullscreenOverlay(
                 camera = camera,

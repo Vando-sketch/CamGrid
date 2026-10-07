@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.vandosketch.camgrid.CamGridViewModel
 import io.github.vandosketch.camgrid.Screen
+import io.github.vandosketch.camgrid.core.ViewPaging
 import io.github.vandosketch.camgrid.platform.VideoPlatform
 
 /**
@@ -46,9 +47,11 @@ import io.github.vandosketch.camgrid.platform.VideoPlatform
  * their sub-screens is open, so Back returns to where the user was; leaving them for the grid
  * forgets it, so they open at the top again.
  *
- * Only one screen is in the composition at a time. That is what releases the grid's players
- * before fullscreen starts its own: Compose disposes the leaving grid tiles (releasing their
- * players) before the entering fullscreen's effects run.
+ * Only one screen is in the composition at a time. The grid's streams are kept here, next to
+ * the screens ([rememberGridStreams]): the camera opened in fullscreen keeps its grid stream,
+ * which fullscreen shows until its own stream plays and the grid has back at once (issue #29).
+ * The other tiles' streams are released before fullscreen starts its own: Compose disposes what
+ * leaves the composition before the entering fullscreen's effects run.
  *
  * @param video the platform's players; the screens use nothing else to show streams.
  * @param appVersion the version shown in Settings, About; see [io.github.vandosketch.camgrid.about.AppVersion].
@@ -108,9 +111,13 @@ fun CamGridApp(
         Modifier
     }
 
+    val pages = remember(config) { ViewPaging.pages(config) }
+    val gridStreams = rememberGridStreams(video, gridStreamCameras(screen, config.cameras, pages, viewModel.gridPage))
+
     CompositionLocalProvider(
         LocalContentColor provides MaterialTheme.colorScheme.onBackground,
         LocalKeyboardNavigation provides navigation,
+        LocalGridStreams provides gridStreams,
     ) {
         Box(
             Modifier
