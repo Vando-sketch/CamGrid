@@ -16,4 +16,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "CamGrid"
 include(":core")
-include(":app")
+include(":shared")
+include(":desktop")
+// -Pcamgrid.skipAndroid=true leaves out the Android app, for jobs without an Android SDK (the iOS build).
+if (providers.gradleProperty("camgrid.skipAndroid").orNull != "true") {
+    include(":app")
+}

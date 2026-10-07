@@ -1,0 +1,50 @@
+CamGrid
+Copyright (c) the CamGrid contributors. Released under the MIT License (see LICENSE).
+
+CamGrid's own source code is MIT. The apps built from it include the third-party components
+below, each under its own license. The iOS app contains VLCKit and the desktop app contains FFmpeg, both under the GNU LGPL
+(desktop details and how to replace FFmpeg: desktop/README.md).
+
+
+iOS app (iosApp/)
+-----------------
+
+VLCKit (libVLC and the VLC modules it bundles), version 4.0.0-a25
+  License: GNU Lesser General Public License, version 2.1 or later (LGPL-2.1-or-later)
+  Source:  https://code.videolan.org/videolan/VLCKit (tag 4.0.0-a25)
+           https://code.videolan.org/videolan/vlc (libVLC)
+  Used for RTSP playback. The prebuilt framework is downloaded by Swift Package Manager from
+  VideoLAN and is not modified. The libraries bundled inside VLCKit carry their own (LGPL or
+  more permissive) licenses; VideoLAN lists them with the package.
+
+  LGPL relinking: the LGPL lets you replace the library with a modified version. Because the
+  complete source of CamGrid is public, you can rebuild the app yourself against a modified
+  VLCKit: change the VLCKit package in iosApp/project.yml (or point it to a local package) and
+  build as described in docs/ios.md. Anyone distributing a CamGrid build must keep it possible
+  to obtain this source.
+
+WebRTC (Google libwebrtc), framework version 154.0.0 packaged by github.com/stasel/WebRTC
+  License: BSD 3-Clause; bundled third-party code (BoringSSL and others) under its own
+           permissive licenses, listed in the framework's LICENSE file
+  Source:  https://webrtc.googlesource.com/src
+           https://github.com/stasel/WebRTC (binary packaging)
+  Used for WebRTC playback.
+
+
+Android / Fire TV app (app/)
+----------------------------
+
+AndroidX Media3 (ExoPlayer) - Apache License 2.0 - https://github.com/androidx/media
+Google libwebrtc via io.github.webrtc-sdk:android - BSD 3-Clause - https://github.com/webrtc-sdk/android
+
+
+All apps
+--------
+
+Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, kotlinx-io
+  Apache License 2.0 - https://github.com/JetBrains/kotlin, https://github.com/Kotlin
+Compose Multiplatform and the AndroidX libraries it builds on (Skiko, with Skia: BSD 3-Clause)
+  Apache License 2.0 - https://github.com/JetBrains/compose-multiplatform
+Ktor client - Apache License 2.0 - https://github.com/ktorio/ktor
+cryptography-kotlin (iOS backup encryption) - Apache License 2.0 - https://github.com/whyoleg/cryptography-kotlin
+Inter (wordmark in the icon set, embedded as outlines) - SIL Open Font License 1.1 - https://github.com/rsms/inter

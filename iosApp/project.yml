@@ -1,0 +1,69 @@
+# XcodeGen spec for the iOS app. The Xcode project is generated, not committed:
+#   brew install xcodegen && cd iosApp && xcodegen generate && open CamGrid.xcodeproj
+# The UI and logic are Kotlin (the :shared module, built by Gradle in the first build phase);
+# this target adds the SwiftUI entry point and the two video players. See docs/ios.md.
+name: CamGrid
+options:
+  bundleIdPrefix: io.github.vandosketch
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+packages:
+  # Google's libwebrtc as a prebuilt framework (BSD-3-Clause).
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: 154.0.0
+  # libVLC for RTSP (LGPL-2.1-or-later), from VideoLAN's own repository.
+  VLCKit:
+    url: https://code.videolan.org/videolan/VLCKit.git
+    exactVersion: 4.0.0-a25
+
+settings:
+  base:
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+
+targets:
+  CamGrid:
+    type: application
+    platform: iOS
+    sources:
+      - path: CamGrid
+    dependencies:
+      - package: WebRTC
+      - package: VLCKit
+    preBuildScripts:
+      - name: Build Kotlin framework
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          cd "$SRCROOT/.."
+          # Xcode runs build scripts without the login shell's environment.
+          if [ -z "$JAVA_HOME" ] && /usr/libexec/java_home >/dev/null 2>&1; then
+            export JAVA_HOME="$(/usr/libexec/java_home)"
+          fi
+          # Gradle configures the :shared module's Android target too, so it needs to find an
+          # Android SDK (only to configure; nothing Android is built). See docs/ios.md.
+          if [ -z "$ANDROID_HOME" ] && [ ! -f local.properties ] && [ -d "$HOME/Library/Android/sdk" ]; then
+            export ANDROID_HOME="$HOME/Library/Android/sdk"
+          fi
+          ./gradlew -Pcamgrid.skipAndroid=true :shared:embedAndSignAppleFrameworkForXcode
+    settings:
+      base:
+        PRODUCT_NAME: CamGrid
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.vandosketch.camgrid
+        INFOPLIST_FILE: CamGrid/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # The Kotlin framework (static) that the build phase above puts here.
+        FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: "$(inherited) -framework CamGridShared"
+        # Gradle reads and writes outside the sandbox Xcode gives build scripts.
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+        # Kotlin builds for arm64 only (iosArm64, iosSimulatorArm64): Apple silicon simulators.
+        EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
+        CODE_SIGN_STYLE: Automatic
+        # No team here: pick your own in Xcode (Signing & Capabilities), see docs/ios.md.
+    scheme: {}

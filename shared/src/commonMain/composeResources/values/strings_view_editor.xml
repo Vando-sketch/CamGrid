@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- View editor: sections of the side panel, in this order -->
+    <string name="ve_section_layout">Layout</string>
+    <string name="ve_section_view">View</string>
+
+    <!-- View editor: selected tile and its dialog -->
+    <string name="ve_change_camera">Change…</string>
+    <string name="ve_tile_dialog_title">Tile %1$d</string>
+    <string name="ve_move_done">Back to select</string>
+    <string name="ve_close">Close</string>
+</resources>

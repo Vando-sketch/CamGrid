@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notes over a video that plays another source than the camera's own (platform/StreamFallback.kt). -->
+<resources>
+    <!-- go2rtc could not send the stream over WebRTC; it plays as go2rtc's HTTP MP4 instead. -->
+    <string name="stream_note_mp4">Via MP4</string>
+    <!-- %1$s: the video codec WebRTC could not carry, for example H.265. -->
+    <string name="stream_note_mp4_codec">%1$s via MP4</string>
+    <!-- Fullscreen shows the grid stream because the device cannot decode the camera's high-resolution stream. -->
+    <string name="stream_note_lower_resolution">Lower resolution</string>
+</resources>

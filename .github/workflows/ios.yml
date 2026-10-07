@@ -1,0 +1,160 @@
+name: iOS
+run-name: "iOS build ${{ github.run_number }} on ${{ github.ref_name }}"
+
+# The iOS app: Kotlin tests in the simulator, a simulator build, and an UNSIGNED device .ipa
+# (CamGrid-iOS-unsigned.ipa on the preview-ios release) to sign with your own Apple ID, see docs/ios.md. No signing
+# identity, team or provisioning profile is used or stored here.
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["core/**", "shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", "gradle.properties", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["core/**", "shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", "gradle.properties", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: iOS
+    # A branch of this repository already runs on push; its pull request would run everything twice.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      PROJECT: iosApp/CamGrid.xcodeproj
+      PACKAGES: ${{ github.workspace }}/.spm
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          # v6 defaults to a closed-source cache under Gradle's terms of use; keep the MIT one.
+          cache-provider: basic
+          # Also save the cache from feature branches; by default only main writes it.
+          cache-read-only: false
+
+      # The Kotlin/Native toolchain and its iOS caches (about 1 GB), otherwise downloaded and
+      # rebuilt on every run.
+      - name: Cache Kotlin/Native
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      # Gradle configures the :shared module's Android target even for iOS builds, so it needs
+      # an Android SDK to exist (nothing Android is compiled). GitHub's macOS images ship one and
+      # set ANDROID_HOME; install it only if that ever changes.
+      - name: Check for an Android SDK
+        id: sdk
+        run: |
+          if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME" ]; then
+            echo "Android SDK at $ANDROID_HOME"
+          else
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the Android SDK
+        if: steps.sdk.outputs.missing == 'true'
+        uses: android-actions/setup-android@v3
+
+      - name: Kotlin tests in the iOS simulator
+        run: ./gradlew -Pcamgrid.skipAndroid=true :core:iosSimulatorArm64Test :shared:iosSimulatorArm64Test --stacktrace
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ hashFiles('iosApp/project.yml') }}
+
+      - name: Resolve Swift packages (WebRTC, VLCKit)
+        run: xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme CamGrid -clonedSourcePackagesDirPath "$PACKAGES"
+
+      # arm64 only: Kotlin is built for Apple silicon simulators (iosSimulatorArm64).
+      - name: Build for the iOS simulator
+        run: |
+          xcodebuild build \
+            -project "$PROJECT" -scheme CamGrid -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -clonedSourcePackagesDirPath "$PACKAGES" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build the unsigned device app
+        # The release build for devices links Kotlin/Native with full optimisation, which takes
+        # 10+ minutes; feature branches stop at the simulator build. Run the workflow by hand on
+        # a branch to get an .ipa from it.
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        run: |
+          xcodebuild archive \
+            -project "$PROJECT" -scheme CamGrid -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/CamGrid.xcarchive" \
+            -clonedSourcePackagesDirPath "$PACKAGES" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package the unsigned .ipa
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
+          cp -R "$RUNNER_TEMP/CamGrid.xcarchive/Products/Applications/CamGrid.app" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/CamGrid-iOS-unsigned.ipa" Payload)
+          ls -l dist
+
+      - name: Upload the unsigned .ipa
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: CamGrid-iOS-unsigned-build-${{ github.run_number }}
+          path: dist/CamGrid-iOS-unsigned.ipa
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: iOS-test-reports
+          path: |
+            core/build/reports/
+            shared/build/reports/
+          if-no-files-found: ignore
+
+  # A plain download link next to the Android and desktop ones (artifacts need a GitHub login).
+  # Published from Linux like the desktop installers, once the macOS job has uploaded the .ipa.
+  publish:
+    name: Publish iOS release
+    needs: ios
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: CamGrid-iOS-unsigned-build-${{ github.run_number }}
+          path: dist
+
+      - name: Publish iOS preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -l dist
+          if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview-ios; else tag="preview-ios-${GITHUB_REF_NAME##*/}"; fi
+          gh release delete "$tag" --cleanup-tag --yes || true
+          gh release create "$tag" dist/CamGrid-iOS-unsigned.ipa \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "CamGrid iOS build ${{ github.run_number }} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
+            --notes "Unsigned iPhone/iPad test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. Sign CamGrid-iOS-unsigned.ipa with your own Apple ID (Sideloadly or AltStore), see docs/ios.md. Bundles VLCKit (LGPL) and WebRTC; see NOTICE."

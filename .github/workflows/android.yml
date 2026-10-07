@@ -1,4 +1,5 @@
-name: Android CI
+name: Android
+run-name: "Android build ${{ github.run_number }} on ${{ github.ref_name }}"
 
 on:
   push:
@@ -12,6 +13,9 @@ concurrency:
 
 jobs:
   build:
+    name: Android
+    # A branch of this repository already runs on push; its pull request would run everything twice.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -37,6 +41,8 @@ jobs:
         with:
           # v6 defaults to a closed-source cache under Gradle's terms of use; keep the MIT one.
           cache-provider: basic
+          # Also save the cache from feature branches; by default only main writes it.
+          cache-read-only: false
           # GitHub cannot read Gradle files for Dependabot security alerts, so main submits the
           # resolved dependency graph. PRs don't, they lack the write permission from forks.
           dependency-graph: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'generate-and-submit' || 'disabled' }}
@@ -55,7 +61,7 @@ jobs:
           echo "CAMGRID_SIGNING=one-off" >> "$GITHUB_ENV"
 
       - name: Unit tests
-        run: ./gradlew test --stacktrace
+        run: ./gradlew test :core:jvmTest :shared:desktopTest --stacktrace
 
       - name: Lint
         run: ./gradlew :app:lintDebug --stacktrace
@@ -64,22 +70,30 @@ jobs:
         run: |
           ./gradlew :app:assembleDebug :app:assembleRelease --stacktrace
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/camgrid-debug.apk
-          cp app/build/outputs/apk/release/app-release.apk dist/camgrid-release.apk
+          # CamGrid-Android.apk is the one to install (phone and Fire TV). The minified release
+          # build is only in the workflow artifact, so the release page offers one obvious file.
+          cp app/build/outputs/apk/debug/app-debug.apk dist/CamGrid-Android.apk
+          # Transition copy under the old name, so saved links and Fire TV Downloader entries for
+          # .../preview/camgrid-debug.apk keep working. Remove once everyone uses the new link.
+          cp dist/CamGrid-Android.apk dist/camgrid-debug.apk
+          mkdir -p dist-extra
+          cp app/build/outputs/apk/release/app-release.apk dist-extra/CamGrid-Android-minified.apk
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-reports
+          name: Android-test-reports
           path: "**/build/reports/"
           if-no-files-found: ignore
 
       - name: Upload APKs
         uses: actions/upload-artifact@v7
         with:
-          name: camgrid-apks
-          path: dist/*.apk
+          name: CamGrid-Android-build-${{ github.run_number }}
+          path: |
+            dist/CamGrid-Android.apk
+            dist-extra/*.apk
 
       # A plain .apk link that works in a phone browser (workflow artifacts are zipped and need
       # a GitHub login). Each push replaces the previous preview of the same branch: main
@@ -93,8 +107,8 @@ jobs:
         run: |
           if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview; else tag="preview-${GITHUB_REF_NAME##*/}"; fi
           gh release delete "$tag" --cleanup-tag --yes || true
-          gh release create "$tag" dist/*.apk \
+          gh release create "$tag" dist/CamGrid-Android.apk dist/camgrid-debug.apk \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Preview build ($GITHUB_REF_NAME)" \
-            --notes "Test build ${CAMGRID_BUILD_NUMBER} from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Install camgrid-debug.apk. Signing key: ${CAMGRID_SIGNING} (one-off means it cannot update an installed CamGrid; uninstall first)."
+            --title "CamGrid Android build ${CAMGRID_BUILD_NUMBER} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
+            --notes "Android and Fire TV test build ${CAMGRID_BUILD_NUMBER} (version 0.2.${CAMGRID_BUILD_NUMBER}) from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. Install CamGrid-Android.apk (camgrid-debug.apk is the same file under its old name, kept for old links). Signing key: ${CAMGRID_SIGNING} (one-off means it cannot update an installed CamGrid; uninstall first)."

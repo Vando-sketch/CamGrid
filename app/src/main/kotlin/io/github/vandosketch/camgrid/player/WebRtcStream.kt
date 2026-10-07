@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,8 +17,12 @@ import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.ReconnectPolicy
 import io.github.vandosketch.camgrid.core.SignalingException
+import io.github.vandosketch.camgrid.core.StreamFailures
 import io.github.vandosketch.camgrid.core.StreamWatchdog
 import io.github.vandosketch.camgrid.data.WhepClient
+import io.github.vandosketch.camgrid.platform.AppLog
+import io.github.vandosketch.camgrid.platform.LiveStream
+import io.github.vandosketch.camgrid.platform.StreamStatus
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -59,6 +62,7 @@ import org.webrtc.VideoTrack
  */
 class WebRtcStream(
     context: Context,
+    private val whep: WhepClient,
     url: String,
     private val label: String,
     private val audioEnabled: Boolean,
@@ -124,8 +128,11 @@ class WebRtcStream(
                     val lastFrame = frames.lastFrameAtMillis.takeIf { it != 0L }
                     when (watchdog.check(SystemClock.elapsedRealtime(), startedAt, lastFrame)) {
                         StreamWatchdog.Verdict.OK -> Unit
-                        StreamWatchdog.Verdict.CONNECT_TIMEOUT -> throw WebRtcFailure("TIMEOUT")
-                        StreamWatchdog.Verdict.STALLED -> throw WebRtcFailure("STALLED")
+                        StreamWatchdog.Verdict.CONNECT_TIMEOUT -> throw WebRtcFailure(noFrameReason(startedAt))
+                        StreamWatchdog.Verdict.STALLED -> {
+                            logDecoder("STALLED", startedAt)
+                            throw WebRtcFailure("STALLED")
+                        }
                     }
                 }
             } catch (e: CancellationException) {
@@ -135,10 +142,29 @@ class WebRtcStream(
             } catch (e: WebRtcFailure) {
                 fail(current, e.code)
             } catch (e: IOException) {
-                // Only the type: IOException messages can contain the host or the full URL.
-                fail(current, e.javaClass.simpleName)
+                // WhepClient's IOException messages are safe: "Invalid URL" or the failure's type.
+                fail(current, e.message ?: e.javaClass.simpleName)
             }
         }
+    }
+
+    /**
+     * Why no frame came since [startedAt]: [StreamFailures.DECODER_ERROR] when a video decoder
+     * failed meanwhile (the stream arrived, the device could not decode it; fullscreen then
+     * switches to the grid stream), otherwise TIMEOUT.
+     */
+    private fun noFrameReason(startedAt: Long): String {
+        val decoderFailed = WebRtcDecoderReports.lastError?.let { it.atMillis >= startedAt } == true
+        val reason = if (decoderFailed) StreamFailures.DECODER_ERROR else "TIMEOUT"
+        logDecoder(reason, startedAt)
+        return reason
+    }
+
+    /** Logs the decoders' last reports since [startedAt], for a bug report: codec, size, decoder, never the URL. */
+    private fun logDecoder(reason: String, startedAt: Long) {
+        val setup = WebRtcDecoderReports.lastSetup?.takeIf { it.atMillis >= startedAt }
+        val error = WebRtcDecoderReports.lastError?.takeIf { it.atMillis >= startedAt }
+        AppLog.w("WebRTC stream '$label' $reason: decoder set up ${setup ?: "never"}; last error ${error ?: "none"}")
     }
 
     private fun onFirstFrame(from: Session) {
@@ -150,7 +176,7 @@ class WebRtcStream(
     /** Tears down [from] (if it is still current) and reconnects after the backoff delay. */
     private fun fail(from: Session, reason: String) {
         if (released || session !== from) return
-        Log.w(TAG, "WebRTC stream '$label' failed: $reason (attempt $attempt)")
+        AppLog.w("WebRTC stream '$label' failed: $reason (attempt $attempt)")
         job?.cancel()
         from.close()
         session = null
@@ -237,7 +263,7 @@ class WebRtcStream(
             // Host candidates on a LAN gather almost at once; send what there is after the timeout.
             withTimeoutOrNull(ICE_GATHERING_TIMEOUT_MS) { gatheringComplete.await() }
             val offerSdp = pc.localDescription?.description ?: offer.description
-            val answerSdp = WhepClient.exchange(url, offerSdp)
+            val answerSdp = whep.exchange(url, offerSdp)
             if (closed) return
             pc.awaitSet("ANSWER_REJECTED") {
                 setRemoteDescription(it, SessionDescription(SessionDescription.Type.ANSWER, answerSdp))
@@ -325,7 +351,6 @@ class WebRtcStream(
     }
 
     private companion object {
-        const val TAG = "CamGrid"
         const val WATCHDOG_INTERVAL_MS = 1_000L
         const val ICE_GATHERING_TIMEOUT_MS = 2_000L
     }

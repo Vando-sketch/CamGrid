@@ -73,6 +73,8 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    // Screens, navigation and state, shared with desktop and iOS.
+    implementation(project(":shared"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

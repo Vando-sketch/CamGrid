@@ -1,0 +1,131 @@
+name: Desktop
+run-name: "Desktop build ${{ github.run_number }} on ${{ github.ref_name }}"
+
+# The desktop app on all three OSes: tests (on Linux also end to end against a real go2rtc),
+# then the installers, each built on its own OS with only that OS's native libraries.
+# No Android SDK needed (-Pcamgrid.skipAndroid=true).
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Desktop ${{ matrix.name }}
+    # A branch of this repository already runs on push; its pull request would run everything twice.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux
+          - os: windows-latest
+            name: Windows
+          - os: macos-latest
+            name: macOS
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      CAMGRID_BUILD_NUMBER: ${{ github.run_number }}
+      # Also test the real OS credential store (Keychain, DPAPI); Linux runners have no
+      # Secret Service, so the key file vault is what is tested there.
+      CAMGRID_TEST_OS_VAULT: ${{ matrix.name != 'Linux' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          # v6 defaults to a closed-source cache under Gradle's terms of use; keep the MIT one.
+          cache-provider: basic
+          # Also save the cache from feature branches; by default only main writes it.
+          cache-read-only: false
+
+      - name: go2rtc and test streams (Linux)
+        if: matrix.name == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg rpm
+          curl -fsSL -o "$RUNNER_TEMP/go2rtc" https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_amd64
+          chmod +x "$RUNNER_TEMP/go2rtc"
+          "$RUNNER_TEMP/go2rtc" -config desktop/e2e/go2rtc.yaml > "$RUNNER_TEMP/go2rtc.log" 2>&1 &
+          echo "CAMGRID_IT_GO2RTC=http://127.0.0.1:1984" >> "$GITHUB_ENV"
+
+      - name: Tests
+        shell: bash
+        run: ./gradlew -Pcamgrid.skipAndroid=true :desktop:test --stacktrace
+
+      - name: Installers
+        shell: bash
+        run: ./gradlew -Pcamgrid.skipAndroid=true :desktop:packageDistributionForCurrentOS --stacktrace
+
+      # Stable names, so the release links stay the same from build to build.
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p dist
+          arch=$(uname -m | sed 's/aarch64/arm64/; s/x86_64/x64/')
+          if [ "${{ matrix.name }}" = macOS ] && [ "$arch" = arm64 ]; then arch=AppleSilicon; fi
+          for f in desktop/build/compose/binaries/main/*/*.{deb,rpm,msi,dmg}; do
+            [ -f "$f" ] || continue
+            cp "$f" "dist/CamGrid-${{ matrix.name }}-$arch.${f##*.}"
+          done
+          ls -l dist
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Desktop-test-reports-${{ matrix.name }}
+          path: |
+            desktop/build/reports/
+            desktop/build/e2e/
+          if-no-files-found: ignore
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: CamGrid-${{ matrix.name }}-build-${{ github.run_number }}
+          path: dist/*
+          if-no-files-found: error
+
+  # Its own release tag, separate from the Android workflow's "preview" release: that one is
+  # deleted and recreated on every Android build, which would race with uploads from here and
+  # drop the installers. One job collects all three OSes and replaces the release in one go.
+  publish:
+    name: Publish desktop release
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: CamGrid-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish desktop preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -l dist
+          if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview-desktop; else tag="preview-desktop-${GITHUB_REF_NAME##*/}"; fi
+          gh release delete "$tag" --cleanup-tag --yes || true
+          gh release create "$tag" dist/* \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "CamGrid Desktop build ${{ github.run_number }} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
+            --notes "Desktop test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. macOS: CamGrid-macOS-AppleSilicon.dmg. Windows: CamGrid-Windows-x64.msi. Unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info, Run anyway. Linux: .deb (Debian, Ubuntu) or .rpm (Fedora, openSUSE). Bundles FFmpeg (LGPL build) and libwebrtc; see desktop/README.md for licences and sources."
