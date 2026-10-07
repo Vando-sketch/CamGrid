@@ -146,7 +146,7 @@ A fork that builds its own APKs signs them with its own key (or a one-off one), 
    gh secret set CAMGRID_KEY_PASSWORD          # prompts for the value
    ```
 4. Delete `keystore.txt`. Keep `camgrid-release.jks` and its password safe and backed up (a password manager is a good place for both). Never commit them; `.gitignore` already excludes `*.jks` and `*.keystore`. If the key is lost, new builds get a new key, and every device has to uninstall again. If you ever rotate the key on purpose, update `app/signing-cert.sha256` in the same commit: a CI check compares the APK's signing certificate with that file (and checks that the version code never goes down).
-5. Push to `main` (or re-run the workflow). Then do the one-time switch described in [Updating](../README.md#updating): export settings, uninstall, install the new build, import.
+5. Push to `main` (or re-run the workflow). Then do the one-time switch described in [Updating](user-guide.md#when-an-update-refuses-to-install): export settings, uninstall, install the new build, import.
 
 Without the secrets, CI still builds APKs and publishes the `preview`, but the run shows a "No signing key" warning, the release notes say `Signing key: one-off`, and every update needs an uninstall. A release tag fails.
 
