@@ -1,0 +1,5 @@
+# SHA-256 of the certificate that signs every CamGrid APK published from this repository.
+# Public (it is in every APK). CI fails if a build is signed with any other key, because
+# installed apps would refuse it as an update. If the key ever changes on purpose, change
+# this line in the same commit.
+8d7fc72803d7015894c19bf51dd7d108bc23c7b9469eea113a3d2e35d7e6888a
