@@ -22,6 +22,16 @@ class ParseTest(unittest.TestCase):
         )
         self.assertEqual(parse_apksigner(out), [STABLE])
 
+    def test_apksigner_v2_signer_output_from_ci(self):
+        # Copied from the CI runner's build-tools apksigner.
+        out = (
+            "V2 Signer: certificate DN: CN=CamGrid\n"
+            f"V2 Signer: certificate SHA-256 digest: {STABLE}\n"
+            "V2 Signer: certificate SHA-1 digest: e301be108f9bcfb163d948b86217e7d3ef2851d7\n"
+            "V2 Signer: certificate MD5 digest: c08ac41929b1c03a1bea3d614e2a154e\n"
+        )
+        self.assertEqual(parse_apksigner(out), [STABLE])
+
     def test_apksigner_signer_with_sdk_range_and_duplicates(self):
         # Newer apksigner versions name signers by SDK range and can list one key per scheme.
         out = (

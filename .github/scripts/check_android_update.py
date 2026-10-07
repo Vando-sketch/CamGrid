@@ -33,7 +33,7 @@ def normalize(digest):
 
 def parse_apksigner(output):
     """Signer certificate SHA-256 digests from `apksigner verify --print-certs`."""
-    digests = re.findall(r"^Signer\b.*\bcertificate SHA-256 digest: ([0-9a-fA-F:]+)\s*$", output, re.M)
+    digests = re.findall(r"\bSigner\b.*\bcertificate SHA-256 digest: ([0-9a-fA-F:]+)", output)
     return list(dict.fromkeys(normalize(d) for d in digests))
 
 
