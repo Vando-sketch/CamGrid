@@ -315,11 +315,15 @@ class CamGridViewModel(
         }
 
     /**
-     * Exports into [backupFolderPath], for devices without a file picker. On a TV the file is
-     * also offered for download on the transfer page ([lanDownloadName]).
+     * Exports into [backupFolderPath], for devices without a file picker. On a TV a file with a
+     * password is also offered for download on the transfer page ([lanDownloadName]); one without
+     * is not, because the page is plain HTTP and anyone on the network could read it.
      */
-    fun exportBackupToFolder(password: CharArray?) =
-        runExport(password, onWritten = ::offerLanDownload) { text -> backupFiles.writeToFolder(text) }
+    fun exportBackupToFolder(password: CharArray?) {
+        val onWritten: (String, String) -> Unit =
+            if (password != null) ::offerLanDownload else { _, _ -> withdrawLanDownload() }
+        runExport(password, onWritten) { text -> backupFiles.writeToFolder(text) }
+    }
 
     fun importBackup(source: BackupDocument) = runRead { source.read() }
 
@@ -451,10 +455,12 @@ class CamGridViewModel(
         val server = backupFiles.lanServer ?: return
         stopLanTransfer()
         val pin = LanTransferProtocol.newPin()
+        val key = LanTransferProtocol.newKey()
         lateinit var protocol: LanTransferProtocol
         // Both callbacks come from the server thread; launching hands them to the main thread.
         protocol = LanTransferProtocol(
             pin = pin,
+            key = key,
             onUpload = { text -> viewModelScope.launch { if (lanProtocol === protocol) runRead { text } } },
             onLocked = {
                 viewModelScope.launch { if (lanProtocol === protocol) lanTransfer = LanTransferState.Locked }
@@ -471,7 +477,7 @@ class CamGridViewModel(
                 return@launch
             }
             protocol.host = address
-            lanTransfer = LanTransferState.Running(url = "http://$address", pin = pin)
+            lanTransfer = LanTransferState.Running(url = "http://$address", pin = pin, key = key)
         }
     }
 
@@ -499,6 +505,13 @@ class CamGridViewModel(
         lanDownload = download
         lanDownloadName = download.name
         lanProtocol?.download = download
+    }
+
+    /** An export without a password replaces the offered one, so the page never offers an older file. */
+    private fun withdrawLanDownload() {
+        lanDownload = null
+        lanDownloadName = null
+        lanProtocol?.download = null
     }
 
     override fun onCleared() {

@@ -208,7 +208,7 @@ fun BackupScreen(
 
             if (isTv) {
                 SectionTitle(stringResource(Res.string.bk_lan_title))
-                LanTransferPanel(state = lanTransfer, downloadName = lanDownloadName)
+                LanTransferPanel(state = lanTransfer, downloadName = lanDownloadName, lastExportPlain = lastExportPlain)
             }
 
             SectionTitle(stringResource(Res.string.bk_section_export))

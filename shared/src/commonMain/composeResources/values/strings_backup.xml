@@ -4,14 +4,15 @@
 <resources>
     <!-- Transfer with a phone or computer -->
     <string name="bk_lan_title">Transfer with your phone or computer</string>
-    <string name="bk_lan_open">Scan the code with a phone in the same Wi-Fi. The page it opens fills in the PIN.</string>
+    <string name="bk_lan_open">Scan the code with a phone in the same Wi-Fi. The page it opens is connected right away, no PIN needed.</string>
     <string name="bk_lan_address">Or open this address in a browser and enter the PIN:</string>
     <string name="bk_lan_pin">PIN: %1$s</string>
-    <string name="bk_lan_how">To import, choose the backup file on that page and send it: this TV then asks for the password of the backup, if it has one, and before it replaces anything. To get a backup from this TV, export below, then press Download on that page.</string>
+    <string name="bk_lan_how">To import, choose the backup file on that page and send it: this TV then asks for the password of the backup, if it has one, and before it replaces anything. To get a backup from this TV, export below with a password, then press Download on that page.</string>
     <string name="bk_lan_unencrypted">The transfer is not encrypted. Protect your backups with a password.</string>
     <string name="bk_lan_starting">Starting the transfer…</string>
     <string name="bk_lan_unavailable">This TV has no network connection, so the transfer page is not available. Connect it to Wi-Fi or Ethernet and open this screen again.</string>
     <string name="bk_lan_locked">Too many wrong PINs: the transfer page is closed. Leave this screen and open it again for a new PIN.</string>
+    <string name="bk_lan_download_plain">Backups without a password are not offered for download, because anyone on the network could read them. Export again with a password.</string>
     <string name="bk_lan_download_ready">Ready to download: %1$s. Press Download on the transfer page.</string>
     <string name="bk_lan_qr_description">QR code of the transfer address</string>
 

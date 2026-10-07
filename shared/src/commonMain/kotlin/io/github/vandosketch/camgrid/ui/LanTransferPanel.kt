@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.LanTransferState
 import io.github.vandosketch.camgrid.shared.resources.Res
 import io.github.vandosketch.camgrid.shared.resources.bk_lan_address
+import io.github.vandosketch.camgrid.shared.resources.bk_lan_download_plain
 import io.github.vandosketch.camgrid.shared.resources.bk_lan_download_ready
 import io.github.vandosketch.camgrid.shared.resources.bk_lan_how
 import io.github.vandosketch.camgrid.shared.resources.bk_lan_locked
@@ -48,11 +49,12 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * The transfer section of the backup screen on a TV, as one card: a QR code that opens the
- * transfer page with the PIN filled in, the address and PIN for typing them by hand, and what to
- * do there. [downloadName] is the export waiting on the page.
+ * transfer page already connected (it carries the long key), the address and PIN for typing them
+ * by hand, and what to do there. [downloadName] is the export waiting on the page;
+ * [lastExportPlain] says the last export had no password, so it is not offered.
  */
 @Composable
-internal fun LanTransferPanel(state: LanTransferState, downloadName: String?) {
+internal fun LanTransferPanel(state: LanTransferState, downloadName: String?, lastExportPlain: Boolean = false) {
     when (state) {
         is LanTransferState.Running -> Surface(
             shape = RoundedCornerShape(16.dp),
@@ -67,7 +69,7 @@ internal fun LanTransferPanel(state: LanTransferState, downloadName: String?) {
                 // White and rounded behind the code's own quiet zone, so it reads as a card on the dark theme.
                 Box(Modifier.size(200.dp).clip(RoundedCornerShape(12.dp)).background(Color.White)) {
                     QrCodeImage(
-                        text = LanTransferProtocol.linkWithPin(state.url, state.pin),
+                        text = LanTransferProtocol.linkWithKey(state.url, state.key),
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -102,6 +104,13 @@ internal fun LanTransferPanel(state: LanTransferState, downloadName: String?) {
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                             )
                         }
+                    }
+                    if (downloadName == null && lastExportPlain) {
+                        Text(
+                            text = stringResource(Res.string.bk_lan_download_plain),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                        )
                     }
                     HelpText(stringResource(Res.string.bk_lan_how))
                     HelpText(stringResource(Res.string.bk_lan_unencrypted))

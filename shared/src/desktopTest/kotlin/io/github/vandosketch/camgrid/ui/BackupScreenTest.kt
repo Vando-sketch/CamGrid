@@ -125,15 +125,15 @@ class BackupScreenTest {
         show(
             Files(tv = true),
             calls,
-            lanTransfer = { LanTransferState.Running("http://192.0.2.20:8765", "482915") },
+            lanTransfer = { LanTransferState.Running("http://192.0.2.20:8765", "482915", KEY) },
             downloadName = { download },
         )
 
         onNodeWithText("Transfer with your phone or computer").assertExists()
         onNodeWithText("http://192.0.2.20:8765").assertExists()
         onNodeWithText("PIN: 482915").assertExists()
-        // The QR code fills the PIN in on the phone; the address typed by hand stays short.
-        onNodeWithTag(QR_TAG).assert(SemanticsMatcher.expectValue(QrText, "http://192.0.2.20:8765/#pin=482915"))
+        // The QR code carries the long key; the PIN is only for typing the address by hand.
+        onNodeWithTag(QR_TAG).assert(SemanticsMatcher.expectValue(QrText, "http://192.0.2.20:8765/#key=$KEY"))
 
         download = "camgrid-backup-2026-10-07-120000.json"
         waitForIdle()
@@ -225,4 +225,19 @@ class BackupScreenTest {
         assertTrue(files.saved == 1)
         assertEquals(1, calls.folderExports)
     }
+
+    @Test
+    fun tvExplainsThatPlainExportsAreNotDownloadable() = runComposeUiTest {
+        val calls = Calls()
+        show(Files(tv = true), calls, lanTransfer = { LanTransferState.Running("http://192.0.2.20:8765", "482915", KEY) })
+
+        onNodeWithText("not offered for download", substring = true).assertDoesNotExist()
+        onNodeWithText("Export without password").performScrollTo().performClick()
+        onNodeWithText("Export").performClick()
+        waitForIdle()
+        assertEquals(1, calls.folderExports)
+        onNodeWithText("not offered for download", substring = true).assertExists()
+    }
 }
+
+private const val KEY = "0f1e2d3c4b5a69788796a5b4c3d2e1f0"
