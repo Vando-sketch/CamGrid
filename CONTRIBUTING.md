@@ -70,7 +70,7 @@ For the Android app, an emulator works for the UI. Video decoding and the number
 - **`commonMain` code** must not use `java.*` or other JVM-only APIs, so it keeps compiling for iOS (and later the web).
 - **Comments explain why**, not what. Most classes have a KDoc that says what they are for and what the non-obvious constraints are; keep it accurate when you change the class.
 - **Config format changes** need a migration, see [docs/architecture.md](docs/architecture.md). Old backups must keep importing.
-- **New dependencies** must have a license that allows distribution in the MIT-licensed app and its binaries (Apache 2.0, BSD, MIT, LGPL used as a replaceable library). Add them to the in-app licenses list (Settings > About) and to `NOTICE`. No GPL-only libraries; the desktop app uses FFmpeg's LGPL build on purpose.
+- **New dependencies** must have a license that allows distribution in the MIT-licensed app and its binaries (Apache 2.0, BSD, MIT, LGPL used as a replaceable library). List them in `NOTICE` and in `shared/.../about/ThirdPartyComponents.kt` (the in-app Licenses screen; add the license text to `composeResources/files/licenses/` if it is a new one). `DependencyInventoryTest` fails until a new library in `gradle/libs.versions.toml` is listed there, or marked as not shipped when it only builds or tests the apps. No GPL-only libraries; the desktop app uses FFmpeg's LGPL build on purpose.
 - **Style** is Kotlin's official code style (`kotlin.code.style=official`). Android lint must pass.
 
 ## Pull requests

@@ -41,10 +41,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.platform.LocalUriHandler
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.vandosketch.camgrid.about.PROJECT_URL
 import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.about_license
+import io.github.vandosketch.camgrid.shared.resources.about_project_page
+import io.github.vandosketch.camgrid.shared.resources.about_version
 import io.github.vandosketch.camgrid.shared.resources.add_camera
 import io.github.vandosketch.camgrid.shared.resources.add_view
 import io.github.vandosketch.camgrid.shared.resources.cancel
@@ -59,6 +64,8 @@ import io.github.vandosketch.camgrid.shared.resources.move_down
 import io.github.vandosketch.camgrid.shared.resources.move_up
 import io.github.vandosketch.camgrid.shared.resources.no_cameras
 import io.github.vandosketch.camgrid.shared.resources.open_backup
+import io.github.vandosketch.camgrid.shared.resources.open_licenses
+import io.github.vandosketch.camgrid.shared.resources.section_about
 import io.github.vandosketch.camgrid.shared.resources.section_backup
 import io.github.vandosketch.camgrid.shared.resources.section_cameras
 import io.github.vandosketch.camgrid.shared.resources.section_views
@@ -72,7 +79,8 @@ import io.github.vandosketch.camgrid.core.UrlRedactor
 
 /**
  * Settings, built for the D-pad: Up/Down buttons instead of drag-and-drop for the order of
- * views and cameras. Each view's layout is edited on its own screen.
+ * views and cameras. Each view's layout is edited on its own screen. The About section at the
+ * end shows [appVersion] (what bug reports should name) and opens the license screen.
  */
 @Composable
 fun SettingsScreen(
@@ -86,6 +94,8 @@ fun SettingsScreen(
     onDeleteCamera: (id: String) -> Unit,
     onImport: () -> Unit,
     onBackup: () -> Unit,
+    appVersion: String,
+    onOpenLicenses: () -> Unit,
 ) {
     var pendingDelete by remember { mutableStateOf<Camera?>(null) }
     val doneRequester = remember { FocusRequester() }
@@ -178,6 +188,46 @@ fun SettingsScreen(
                 onEdit = { onEditCamera(camera.id) },
                 onDelete = { pendingDelete = camera },
             )
+        }
+
+        // Last: the cameras list above is what people come here for.
+        item { SectionTitle(stringResource(Res.string.section_about)) }
+        item {
+            Column {
+                Text(
+                    text = stringResource(Res.string.about_version, appVersion),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(Res.string.about_license),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        item {
+            val uriHandler = LocalUriHandler.current
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = onOpenLicenses,
+                    modifier = Modifier.focusBorder(shape = CircleShape),
+                ) {
+                    Text(stringResource(Res.string.open_licenses))
+                }
+                TextButton(
+                    onClick = {
+                        try {
+                            uriHandler.openUri(PROJECT_URL)
+                        } catch (e: RuntimeException) {
+                            // No browser (Fire TV, ActivityNotFoundException) or no desktop
+                            // integration: the address is on the button to type in elsewhere.
+                        }
+                    },
+                    modifier = Modifier.focusBorder(shape = CircleShape),
+                ) {
+                    Text(stringResource(Res.string.about_project_page, PROJECT_URL.removePrefix("https://")))
+                }
+            }
         }
     }
 

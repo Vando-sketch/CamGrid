@@ -1,5 +1,7 @@
 package io.github.vandosketch.camgrid
 
+import io.github.vandosketch.camgrid.about.License
+
 /** The screen currently shown. Navigation is just a value in [CamGridViewModel]. */
 sealed interface Screen {
     data object Grid : Screen
@@ -18,4 +20,10 @@ sealed interface Screen {
 
     /** Layout editor for the view with [viewId]. */
     data class EditView(val viewId: String) : Screen
+
+    /** The third-party components and their licenses, opened from Settings. */
+    data object Licenses : Screen
+
+    /** The full text of one [license]; Back returns to [Licenses]. */
+    data class LicenseText(val license: License) : Screen
 }

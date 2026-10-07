@@ -1,6 +1,7 @@
 package io.github.vandosketch.camgrid
 
 import androidx.compose.runtime.Composable
+import io.github.vandosketch.camgrid.about.License
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.ConfigBackup
@@ -195,6 +196,22 @@ class CamGridViewModelTest {
         assertEquals(1, vm.gridFocusIndex)
         assertTrue(!vm.onMenuKey())
         vm.editCamera(null)
+        vm.back()
+        assertEquals(Screen.Settings, vm.screen)
+        vm.back()
+        assertEquals(Screen.Grid, vm.screen)
+    }
+
+    @Test
+    fun licensesOpenFromSettingsAndBackReturnsStepByStep() = runTest {
+        val vm = viewModel()
+        vm.openSettings()
+        vm.openLicenses()
+        assertEquals(Screen.Licenses, vm.screen)
+        vm.openLicense(License.LGPL_2_1)
+        assertEquals(Screen.LicenseText(License.LGPL_2_1), vm.screen)
+        vm.back()
+        assertEquals(Screen.Licenses, vm.screen)
         vm.back()
         assertEquals(Screen.Settings, vm.screen)
         vm.back()

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- About section in Settings and the open-source license screens. -->
+<resources>
+    <!-- Settings: About -->
+    <string name="section_about">About</string>
+    <string name="about_version">CamGrid %1$s</string>
+    <string name="about_license">Free software under the MIT License.</string>
+    <string name="about_project_page">Project page: %1$s</string>
+    <string name="open_licenses">Open-source licenses</string>
+
+    <!-- Licenses list -->
+    <string name="lic_title">Open-source licenses</string>
+    <string name="lic_back">Back</string>
+    <string name="lic_intro">CamGrid is free software under the MIT License. The apps contain the components below, each under its own license. Select one to read its license text.</string>
+    <string name="lic_section_components">Components</string>
+    <string name="lic_section_texts">License texts</string>
+    <string name="lic_name_version">%1$s %2$s</string>
+    <string name="lic_platforms">In: %1$s</string>
+    <string name="lic_platform_android">Android and Fire TV</string>
+    <string name="lic_platform_desktop">Desktop</string>
+    <string name="lic_platform_ios">iPhone and iPad</string>
+    <string name="lic_note_ffmpeg_desktop">Used as unmodified shared libraries. You may replace them with your own FFmpeg build; desktop/README.md in the CamGrid source explains how. Source: ffmpeg.org and github.com/bytedeco/javacpp-presets (the build scripts).</string>
+    <string name="lic_note_webrtc_ffmpeg_desktop">Chromium’s FFmpeg, built into webrtc-java’s native library for H.264 decoding. That library can be replaced as a whole. Source: Chromium’s third_party/ffmpeg at the WebRTC revision webrtc-java names.</string>
+    <string name="lic_note_vlckit_ios">Used unmodified. The complete CamGrid source is public, so you can rebuild the app against a modified VLCKit; docs/ios.md explains how. Source: code.videolan.org/videolan/VLCKit.</string>
+    <string name="lic_note_jna">Dual licensed under Apache-2.0 and LGPL-2.1; used under Apache-2.0.</string>
+
+    <!-- License text -->
+    <string name="lic_loading">Loading…</string>
+</resources>

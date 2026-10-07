@@ -1,50 +1,118 @@
 CamGrid
-Copyright (c) the CamGrid contributors. Released under the MIT License (see LICENSE).
+Copyright (c) 2026 Vando-sketch. Released under the MIT License (see LICENSE).
+https://github.com/Vando-sketch/CamGrid
 
-CamGrid's own source code is MIT. The apps built from it include the third-party components
-below, each under its own license. The iOS app contains VLCKit and the desktop app contains FFmpeg, both under the GNU LGPL
-(desktop details and how to replace FFmpeg: desktop/README.md).
+CamGrid's own source code is MIT. Every app built from it (the Android / Fire TV APK, the
+desktop installers for Windows, macOS and Linux, and the iOS app) also contains the third-party
+components below, each under its own license. The full license texts are inside every app
+(Settings, About, Open-source licenses, which also lists the exact versions) and in
+shared/src/commonMain/composeResources/files/licenses/. The desktop installers additionally
+carry this file, LICENSE and the license texts in the app's resources folder (legal/).
+
+The desktop app contains FFmpeg and the iOS app contains VLCKit, both under the GNU LGPL. How to
+replace them and where their source is: below, and in desktop/README.md and docs/ios.md.
+
+
+All apps
+--------
+
+Kotlin standard library - Apache License 2.0 - https://github.com/JetBrains/kotlin
+kotlinx.coroutines - Apache License 2.0 - https://github.com/Kotlin/kotlinx.coroutines
+kotlinx.serialization - Apache License 2.0 - https://github.com/Kotlin/kotlinx.serialization
+kotlinx-io - Apache License 2.0 - https://github.com/Kotlin/kotlinx-io
+Ktor client - Apache License 2.0 - https://github.com/ktorio/ktor
+Inter typeface (the wordmark in the icon set, embedded as outlines)
+  SIL Open Font License 1.1 - Copyright (c) 2016 The Inter Project Authors
+  https://github.com/rsms/inter
+
+
+Android / Fire TV app (app/)
+----------------------------
+
+Jetpack Compose (AndroidX) - Apache License 2.0
+AndroidX Activity - Apache License 2.0
+AndroidX Lifecycle - Apache License 2.0
+  https://developer.android.com/jetpack/androidx
+AndroidX Media3 (ExoPlayer) - Apache License 2.0 - https://github.com/androidx/media
+WebRTC (Google libwebrtc, Android build by webrtc-sdk), io.github.webrtc-sdk:android
+  License: BSD 3-Clause, Copyright (c) 2011, The WebRTC project authors, with Google's
+           additional patent grant; bundled third-party code under its own permissive licenses
+  Source:  https://webrtc.googlesource.com/src
+           https://github.com/webrtc-sdk/android (binary packaging)
+
+
+Desktop app (desktop/; Windows, macOS, Linux)
+---------------------------------------------
+
+Compose Multiplatform - Apache License 2.0 - https://github.com/JetBrains/compose-multiplatform
+AndroidX Lifecycle and NavigationEvent (JetBrains multiplatform builds) - Apache License 2.0
+  https://github.com/JetBrains/compose-multiplatform-core
+Skiko with Skia - Skiko: Apache License 2.0; Skia: BSD 3-Clause, Copyright (c) 2011 Google Inc.
+  https://github.com/JetBrains/skiko, https://skia.org
+
+FFmpeg (LGPL build from the JavaCPP presets), org.bytedeco:ffmpeg, FFmpeg version 8.1.2
+  License: GNU Lesser General Public License, version 3 or later (LGPL-3.0-or-later; FFmpeg is
+           built with --enable-version3). The LGPL 3.0 adds permissions to the GNU GPL 3.0, so
+           both texts are included. The libraries FFmpeg links (openssl, libvpx, opus,
+           openh264, lame, speex, opencore-amr, ...) carry their own licenses (Apache-2.0,
+           BSD, LGPL, ...).
+  Source:  https://ffmpeg.org/download.html (version 8.1.2)
+           https://github.com/bytedeco/javacpp-presets/tree/1.5.14/ffmpeg (build scripts)
+  LGPL relinking: FFmpeg is used as unmodified shared libraries, shipped in the JavaCPP jar
+  ffmpeg-<version>-<os>.jar in the app's lib/app (or Contents/app) folder. You may replace
+  that jar, or the libraries JavaCPP loads, with your own build; desktop/README.md explains
+  how. Never use the "-gpl" FFmpeg builds: they would make the installers GPL.
+
+JavaCPP - Apache License 2.0 - https://github.com/bytedeco/javacpp
+
+webrtc-java - Apache License 2.0 - https://github.com/devopvoid/webrtc-java
+WebRTC (Google libwebrtc, inside webrtc-java)
+  License: BSD 3-Clause, Copyright (c) 2011, The WebRTC project authors, with Google's
+           additional patent grant; its third-party parts (BoringSSL, libvpx, libyuv, opus,
+           openh264, ...) are listed in the jar's META-INF/licenses/webrtc/LICENSE.md
+  Source:  https://webrtc.googlesource.com/src
+FFmpeg (Chromium build, inside webrtc-java)
+  License: GNU Lesser General Public License, version 2.1 or later (LGPL-2.1-or-later)
+  Source:  Chromium's third_party/ffmpeg at the WebRTC revision named by webrtc-java
+           (https://chromium.googlesource.com/chromium/third_party/ffmpeg)
+  LGPL relinking: statically linked into webrtc-java's native library for H.264 decoding.
+  That library can be replaced as a whole with one built from the sources above.
+
+JNA - Apache License 2.0 (dual licensed with LGPL-2.1; used under Apache-2.0)
+  https://github.com/java-native-access/jna
+
+Java runtime (OpenJDK), jlink'ed from the build JDK (Eclipse Temurin in CI)
+  License: GNU General Public License, version 2, with the Classpath Exception; the runtime's
+           own legal/ folder lists its third-party parts
+  Source:  https://openjdk.org, https://adoptium.net
 
 
 iOS app (iosApp/)
 -----------------
 
-VLCKit (libVLC and the VLC modules it bundles), version 4.0.0-a25
+Compose Multiplatform, AndroidX Lifecycle and NavigationEvent (JetBrains builds) and Skiko
+with Skia, as in the desktop app.
+
+cryptography-kotlin (backup encryption) - Apache License 2.0
+  https://github.com/whyoleg/cryptography-kotlin
+
+VLCKit (libVLC), with the VLC modules it bundles, version 4.0.0-a25
   License: GNU Lesser General Public License, version 2.1 or later (LGPL-2.1-or-later)
   Source:  https://code.videolan.org/videolan/VLCKit (tag 4.0.0-a25)
            https://code.videolan.org/videolan/vlc (libVLC)
   Used for RTSP playback. The prebuilt framework is downloaded by Swift Package Manager from
   VideoLAN and is not modified. The libraries bundled inside VLCKit carry their own (LGPL or
   more permissive) licenses; VideoLAN lists them with the package.
-
   LGPL relinking: the LGPL lets you replace the library with a modified version. Because the
   complete source of CamGrid is public, you can rebuild the app yourself against a modified
   VLCKit: change the VLCKit package in iosApp/project.yml (or point it to a local package) and
   build as described in docs/ios.md. Anyone distributing a CamGrid build must keep it possible
   to obtain this source.
 
-WebRTC (Google libwebrtc), framework version 154.0.0 packaged by github.com/stasel/WebRTC
-  License: BSD 3-Clause; bundled third-party code (BoringSSL and others) under its own
-           permissive licenses, listed in the framework's LICENSE file
+WebRTC (Google libwebrtc, iOS framework by stasel), version 154.0.0
+  License: BSD 3-Clause, Copyright (c) 2011, The WebRTC project authors, with Google's
+           additional patent grant; bundled third-party code (BoringSSL and others) under its
+           own permissive licenses, listed in the framework's LICENSE file
   Source:  https://webrtc.googlesource.com/src
            https://github.com/stasel/WebRTC (binary packaging)
   Used for WebRTC playback.
-
-
-Android / Fire TV app (app/)
-----------------------------
-
-AndroidX Media3 (ExoPlayer) - Apache License 2.0 - https://github.com/androidx/media
-Google libwebrtc via io.github.webrtc-sdk:android - BSD 3-Clause - https://github.com/webrtc-sdk/android
-
-
-All apps
---------
-
-Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, kotlinx-io
-  Apache License 2.0 - https://github.com/JetBrains/kotlin, https://github.com/Kotlin
-Compose Multiplatform and the AndroidX libraries it builds on (Skiko, with Skia: BSD 3-Clause)
-  Apache License 2.0 - https://github.com/JetBrains/compose-multiplatform
-Ktor client - Apache License 2.0 - https://github.com/ktorio/ktor
-cryptography-kotlin (iOS backup encryption) - Apache License 2.0 - https://github.com/whyoleg/cryptography-kotlin
-Inter (wordmark in the icon set, embedded as outlines) - SIL Open Font License 1.1 - https://github.com/rsms/inter

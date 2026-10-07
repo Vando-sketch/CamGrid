@@ -17,6 +17,11 @@ unsigned: on macOS open the app once, then choose Open Anyway under System Setti
 Security; on Windows choose "More info", "Run anyway". F11 toggles fullscreen. The macOS build is for
 Apple silicon only.
 
+The app shows its version (for example 0.1.0 or 0.1.0-preview.81) in Settings, About. The
+installers carry a separate numeric version, `<major + 1>.<minor>.<build number>` (0.1.0 from
+build 90 is 1.1.90), because MSI, deb, rpm and macOS need plain numbers that only ever grow, and
+the early previews were already numbered 0.2.x and 1.0.x (desktop/build.gradle.kts explains it).
+
 ## Video
 
 Both players draw decoded frames into a Compose `Canvas` (no native view), so overlays work on
@@ -69,7 +74,11 @@ password-protected backup instead.
 
 ## Third-party code in the installers
 
-The app is MIT licensed. The installers also contain:
+The app is MIT licensed. The installers also contain the components below. Their license
+texts are shown in the app (Settings, About, Open-source licenses) and are installed with
+`NOTICE` and `LICENSE` in the app's resources folder, `legal/` (for example
+`/opt/camgrid/lib/app/resources/legal` on Linux, `CamGrid.app/Contents/app/resources/legal` on
+macOS).
 
 | Component | Licence |
 | --- | --- |

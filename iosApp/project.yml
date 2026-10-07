@@ -21,8 +21,14 @@ packages:
 
 settings:
   base:
-    MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: "1"
+    # The version contract (docs/releasing.md). CI overrides these two on the xcodebuild command
+    # line: CAMGRID_MARKETING_VERSION=<camgrid.version from gradle.properties> (iOS only takes
+    # numbers, so no "-preview" suffix) and CAMGRID_BUILD_NUMBER=<CI build number>. The app
+    # shows "<marketing version> (<build number>)" in Settings, About.
+    CAMGRID_MARKETING_VERSION: "0.1.0"
+    CAMGRID_BUILD_NUMBER: "1"
+    MARKETING_VERSION: "$(CAMGRID_MARKETING_VERSION)"
+    CURRENT_PROJECT_VERSION: "$(CAMGRID_BUILD_NUMBER)"
     SWIFT_VERSION: "5.0"
 
 targets:
