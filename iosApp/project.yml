@@ -25,7 +25,7 @@ settings:
     # line: CAMGRID_MARKETING_VERSION=<camgrid.version from gradle.properties> (iOS only takes
     # numbers, so no "-preview" suffix) and CAMGRID_BUILD_NUMBER=<CI build number>. The app
     # shows "<marketing version> (<build number>)" in Settings, About.
-    CAMGRID_MARKETING_VERSION: "0.1.0"
+    CAMGRID_MARKETING_VERSION: "0.1.1"
     CAMGRID_BUILD_NUMBER: "1"
     MARKETING_VERSION: "$(CAMGRID_MARKETING_VERSION)"
     CURRENT_PROJECT_VERSION: "$(CAMGRID_BUILD_NUMBER)"
