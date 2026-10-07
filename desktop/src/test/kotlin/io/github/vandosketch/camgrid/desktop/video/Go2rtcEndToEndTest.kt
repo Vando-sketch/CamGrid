@@ -2,6 +2,9 @@ package io.github.vandosketch.camgrid.desktop.video
 
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.Go2rtc
+import io.github.vandosketch.camgrid.core.StreamFailures
+import io.github.vandosketch.camgrid.core.StreamSourcePlan
+import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import java.awt.image.BufferedImage
 import java.io.File
@@ -17,8 +20,9 @@ import org.junit.Assume.assumeTrue
 
 /**
  * Plays real streams from a go2rtc server named by CAMGRID_IT_GO2RTC (for example
- * `http://127.0.0.1:1984`), with two streams: `baseline` (H.264 Constrained Baseline 640x360
- * with Opus audio) and `high` (H.264 High 1280x720). Skipped without it. See desktop/README.md
+ * `http://127.0.0.1:1984`), with three streams: `baseline` (H.264 Constrained Baseline 640x360
+ * with Opus audio), `high` (H.264 High 1280x720) and `hevc` (H.265 640x360 with G.711 A-law
+ * audio). Skipped without it. See desktop/README.md
  * for the go2rtc config. Each test counts decoded frames over a few seconds and saves one
  * frame as a PNG under desktop/build/e2e/ for a look.
  */
@@ -170,6 +174,59 @@ class Go2rtcEndToEndTest {
         val r = play("rtsp-missing", 3, null) { RtspConnection(rtspUrl(base, "does-not-exist"), it, audioEnabled = false) }
         assertTrue(r.status is StreamStatus.Offline, "status ${r.status}")
         assertEquals(0, r.frames)
+    }
+
+    // Issue #17: an H.265 camera. libwebrtc offers no H.265, so go2rtc refuses WebRTC and the
+    // stream plays as go2rtc's MP4 through FFmpeg instead.
+
+    @Test
+    fun webrtcH265IsRefusedWithTheCodec() {
+        val base = requireServer()
+        val r = play("webrtc-hevc", 3, null) { WebRtcConnection(Go2rtc.webrtcUrl(base, "hevc"), it, audioEnabled = false) }
+        assertEquals("CODEC_H265", (r.status as? StreamStatus.Offline)?.reason, "status ${r.status}")
+        assertEquals(0, r.frames)
+    }
+
+    @Test
+    fun webrtcH265WithMatchingAudioIsRefusedToo() {
+        // The camera's G.711 matches the offer's audio: go2rtc answers with the video inactive.
+        val base = requireServer()
+        val r = play("webrtc-hevc-audio", 3, null) { WebRtcConnection(Go2rtc.webrtcUrl(base, "hevc"), it, audioEnabled = true) }
+        assertEquals(StreamFailures.CODEC_UNSUPPORTED, (r.status as? StreamStatus.Offline)?.reason, "status ${r.status}")
+    }
+
+    @Test
+    fun h265FallsBackToGo2rtcMp4DecodedByFfmpeg() {
+        val base = requireServer()
+        val plan = StreamSourcePlan(Go2rtc.webrtcUrl(base, "hevc"), StreamType.WEBRTC, audio = false)
+        val refused = play("webrtc-hevc-tile", 2, null) { WebRtcConnection(plan.current.url, it, audioEnabled = false) }
+        val mp4 = plan.onFailure((refused.status as StreamStatus.Offline).reason)
+        assertEquals(StreamType.RTSP, mp4?.type)
+        val r = play("mp4-hevc", 6, null) { RtspConnection(mp4!!.url, it, audioEnabled = false) }
+        assertEquals(StreamStatus.Playing, r.status)
+        assertTrue(r.frames >= 75, "only ${r.frames} frames")
+        assertEquals(640 to 360, r.width to r.height)
+    }
+
+    @Test
+    fun h265Mp4WithG711AudioAsFlac() {
+        val base = requireServer()
+        val url = Go2rtc.mp4StreamUrl(Go2rtc.webrtcUrl(base, "hevc"), audio = true)!!
+        val output = CountingOutput()
+        val r = play("mp4-hevc-audio", 6, null) { RtspConnection(url, it, audioEnabled = true, audioOutput = { output }) }
+        assertEquals(StreamStatus.Playing, r.status)
+        assertTrue(r.frames >= 75, "only ${r.frames} frames")
+        // 8 kHz mono resampled to the output format: far more than nothing.
+        println("E2E mp4 audio: ${output.bytes} PCM bytes")
+        assertTrue(output.bytes > 50_000, "only ${output.bytes} audio bytes")
+    }
+
+    @Test
+    fun mp4OfAnUnknownStreamReportsHttp() {
+        val base = requireServer()
+        val url = Go2rtc.mp4StreamUrl(Go2rtc.webrtcUrl(base, "does-not-exist"), audio = false)!!
+        val r = play("mp4-missing", 3, null) { RtspConnection(url, it, audioEnabled = false) }
+        assertEquals("HTTP_404", (r.status as? StreamStatus.Offline)?.reason, "status ${r.status}")
     }
 
     @Test

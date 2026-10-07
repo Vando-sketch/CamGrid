@@ -58,12 +58,23 @@ object WhepClient {
             }
             connection.outputStream.use { it.write(offerSdp.toByteArray(Charsets.UTF_8)) }
             val code = connection.responseCode
-            val body = if (code in 200..299) readLimited(connection) else ""
+            // For an error, go2rtc says why in the body ("codecs not matched"); WebRtcSignaling turns it into a code.
+            val body = if (code in 200..299) readLimited(connection) else errorBody(connection)
             WebRtcSignaling.parseAnswer(code, connection.contentType, body)
         } finally {
             cancelHandle?.dispose()
             connection.disconnect()
         }
+    }
+
+    /** At most [WebRtcSignaling.MAX_ERROR_BYTES] of an error response, or "" when it is longer or unreadable. */
+    private fun errorBody(connection: HttpURLConnection): String = try {
+        connection.errorStream?.use { stream ->
+            val bytes = stream.readNBytes(WebRtcSignaling.MAX_ERROR_BYTES + 1)
+            if (bytes.size > WebRtcSignaling.MAX_ERROR_BYTES) "" else bytes.decodeToString()
+        }.orEmpty()
+    } catch (_: IOException) {
+        ""
     }
 
     private fun readLimited(connection: HttpURLConnection): String =

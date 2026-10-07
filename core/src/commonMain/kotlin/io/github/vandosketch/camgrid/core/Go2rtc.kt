@@ -9,12 +9,14 @@ import kotlinx.serialization.json.JsonObject
  *
  * go2rtc's HTTP API (default port 1984) lists streams at `/api/streams` as a JSON object keyed
  * by stream name. Every stream is also served over RTSP on port 8554 at `rtsp://<host>:8554/<name>`
- * and over WebRTC with signalling at `http://<host>:1984/api/webrtc?src=<name>`.
+ * and over WebRTC with signalling at `http://<host>:1984/api/webrtc?src=<name>`, and as
+ * fragmented MP4 over HTTP at `http://<host>:1984/api/stream.mp4?src=<name>`.
  */
 object Go2rtc {
     const val DEFAULT_RTSP_PORT = 8554
     const val DEFAULT_API_PORT = 1984
     private const val WEBRTC_PATH = "/api/webrtc"
+    private const val MP4_PATH = "/api/stream.mp4"
 
     /** Words that mark a stream as the lower-resolution grid variant. */
     val GRID_SUFFIXES = setOf("medium", "med", "low", "sub", "sd", "lq", "small", "grid")
@@ -73,7 +75,30 @@ object Go2rtc {
      * when [url] is not one. Scheme (ws becomes http, wss https), user-info, port and any path
      * prefix in front of go2rtc's root (a reverse proxy) are kept; other parameters are dropped.
      */
-    fun webrtcEndpoint(url: String): String? {
+    fun webrtcEndpoint(url: String): String? =
+        streamOf(url)?.let { (root, name) -> "$root$WEBRTC_PATH?src=${encodeName(name)}" }
+
+    /**
+     * go2rtc's HTTP MP4 stream (`<root>/api/stream.mp4?src=<name>`) of the same stream as [url],
+     * which may be any go2rtc page or API URL of a stream (as for [webrtcEndpoint]), or null
+     * when it is not one. Root, scheme, user-info and port are kept as [webrtcEndpoint] keeps them.
+     *
+     * Fragmented MP4 over plain HTTP carries H.265, which go2rtc sends over WebRTC only to
+     * clients that offer it (browsers with hardware H.265; not libwebrtc's software decoders),
+     * and it reaches go2rtc on the same port as WebRTC signalling. With [audio] false go2rtc is
+     * asked for video only (`video=h264,h265`); with true for its `mp4=flac` set: H.264 or H.265
+     * with AAC, or with G.711/PCM audio repackaged as FLAC, which every player here decodes.
+     */
+    fun mp4StreamUrl(url: String, audio: Boolean): String? =
+        streamOf(url)?.let { (root, name) ->
+            "$root$MP4_PATH?src=${encodeName(name)}&" + if (audio) "mp4=flac" else "video=h264,h265"
+        }
+
+    /**
+     * For a go2rtc page or API URL of a stream: go2rtc's root (`<http|https>://[userInfo@]host[:port][/prefix]`)
+     * and the stream name; null for anything else.
+     */
+    private fun streamOf(url: String): Pair<String, String>? {
         val parts = UrlParts.parse(url.trim()) ?: return null
         val scheme = when (parts.scheme.lowercase()) {
             "http", "ws" -> "http"
@@ -86,7 +111,7 @@ object Go2rtc {
         val name = queryParameter(parts.rest, "src")?.takeIf { it.isNotEmpty() } ?: return null
         val prefix = path.removeSuffix("/$page")
         val userInfo = parts.userInfo?.let { "$it@" }.orEmpty()
-        return "$scheme://$userInfo${parts.hostPort}$prefix$WEBRTC_PATH?src=${encodeName(name)}"
+        return "$scheme://$userInfo${parts.hostPort}$prefix" to name
     }
 
     /**

@@ -1,6 +1,7 @@
 package io.github.vandosketch.camgrid.data
 
 import io.github.vandosketch.camgrid.core.SignalingException
+import io.github.vandosketch.camgrid.core.WebRtcSignaling
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -83,6 +84,42 @@ class WhepClientTest {
         }
         assertEquals(SignalingException.Reason.HTTP_STATUS, e.reason)
         assertEquals("HTTP_404", e.code)
+    }
+
+    @Test
+    fun go2rtcCodecErrorBecomesACodecRejection() = runTest {
+        // go2rtc's answer to an offer without H.265 for an H.265 camera (issue #17).
+        val e = assertFailsWith<SignalingException> {
+            client {
+                respond(
+                    "streams: codecs not matched: video:H265, audio:PCMA => video:H264\n",
+                    HttpStatusCode.InternalServerError,
+                    headersOf(HttpHeaders.ContentType, "text/plain; charset=utf-8"),
+                )
+            }.exchange("http://192.0.2.10:1984/api/webrtc?src=x", "v=0")
+        }
+        assertEquals(SignalingException.Reason.CODEC, e.reason)
+        assertEquals("CODEC_H265", e.code)
+    }
+
+    @Test
+    fun go2rtcSourceErrorNeverShowsItsText() = runTest {
+        val e = assertFailsWith<SignalingException> {
+            client {
+                respond("streams: rtsp://admin:secret@192.0.2.20/main: EOF", HttpStatusCode.InternalServerError)
+            }.exchange("http://192.0.2.10:1984/api/webrtc?src=x", "v=0")
+        }
+        assertEquals("SOURCE_FAILED", e.code)
+        assertTrue("secret" !in e.message.orEmpty())
+    }
+
+    @Test
+    fun errorBodyOverTheLimitIsIgnored() = runTest {
+        val body = "streams: codecs not matched: video:H265 => video:H264" + " ".repeat(WebRtcSignaling.MAX_ERROR_BYTES)
+        val e = assertFailsWith<SignalingException> {
+            client { respond(body, HttpStatusCode.InternalServerError) }.exchange("http://192.0.2.10:1984/api/webrtc?src=x", "v=0")
+        }
+        assertEquals("HTTP_500", e.code)
     }
 
     @Test

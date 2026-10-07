@@ -12,8 +12,10 @@ import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.WhepClient
+import io.github.vandosketch.camgrid.platform.FallbackSurface
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.VideoPlatform
+import io.github.vandosketch.camgrid.platform.rememberStreamWithFallback
 
 /**
  * Android and Fire TV players: [StreamPlayer] (ExoPlayer) for [StreamType.RTSP] and
@@ -25,13 +27,30 @@ object AndroidVideoPlatform : VideoPlatform {
 
     private val whep by lazy { WhepClient(CamGridHttp.client) }
 
+    @Composable
+    override fun rememberLiveStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? =
+        rememberLiveStream(url, type, label, audioEnabled, lowerResolutionUrl = null)
+
     /**
      * A [LiveStream] for [url] that exists only while the lifecycle is STARTED: it is released
      * when the activity stops (screen off) or the composable leaves the composition, and
-     * recreated on the next start. Returns null while there is no stream.
+     * recreated on the next start. Returns null while there is no stream. A go2rtc WebRTC
+     * stream in a codec libwebrtc does not offer plays as go2rtc's MP4 in ExoPlayer, and a
+     * stream the device cannot decode as [lowerResolutionUrl] ([rememberStreamWithFallback]).
      */
     @Composable
-    override fun rememberLiveStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? {
+    override fun rememberLiveStream(
+        url: String,
+        type: StreamType,
+        label: String,
+        audioEnabled: Boolean,
+        lowerResolutionUrl: String?,
+    ): LiveStream? = rememberStreamWithFallback(url, type, label, audioEnabled, lowerResolutionUrl) { sourceUrl, sourceType ->
+        rememberSourceStream(sourceUrl, sourceType, label, audioEnabled)
+    }
+
+    @Composable
+    private fun rememberSourceStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? {
         val context = LocalContext.current.applicationContext
         var stream by remember { mutableStateOf<LiveStream?>(null) }
         LifecycleStartEffect(url, type, audioEnabled) {
@@ -51,10 +70,12 @@ object AndroidVideoPlatform : VideoPlatform {
     /** Renders [stream] centred in [modifier]'s bounds, letterboxed or cropped per [fit]; black while it is null. */
     @Composable
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode) {
-        when (stream) {
-            is WebRtcStream -> WebRtcSurface(stream, modifier, fit)
-            is StreamPlayer -> VideoSurface(stream.player, modifier, fit)
-            else -> VideoSurface(null, modifier, fit)
+        FallbackSurface(stream, modifier) { own, videoModifier ->
+            when (own) {
+                is WebRtcStream -> WebRtcSurface(own, videoModifier, fit)
+                is StreamPlayer -> VideoSurface(own.player, videoModifier, fit)
+                else -> VideoSurface(null, videoModifier, fit)
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 package io.github.vandosketch.camgrid.desktop.video
 
+import io.github.vandosketch.camgrid.platform.AppLog
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ import org.bytedeco.ffmpeg.global.avcodec.av_packet_unref
 import org.bytedeco.ffmpeg.global.avcodec.avcodec_alloc_context3
 import org.bytedeco.ffmpeg.global.avcodec.avcodec_find_decoder
 import org.bytedeco.ffmpeg.global.avcodec.avcodec_free_context
+import org.bytedeco.ffmpeg.global.avcodec.avcodec_get_name
 import org.bytedeco.ffmpeg.global.avcodec.avcodec_open2
 import org.bytedeco.ffmpeg.global.avcodec.avcodec_parameters_to_context
 import org.bytedeco.ffmpeg.global.avcodec.avcodec_receive_frame
@@ -48,7 +50,9 @@ import org.bytedeco.javacpp.PointerPointer
 
 /**
  * One RTSP session through FFmpeg (the LGPL build from org.bytedeco): RTP over TCP (no lost
- * UDP packets, works through NAT and firewalls), no input buffering, low-delay decoding.
+ * UDP packets, works through NAT and firewalls), no input buffering, low-delay decoding. Also
+ * plays http(s) media URLs, such as go2rtc's MP4 (`/api/stream.mp4`), the fallback for WebRTC
+ * streams in a codec webrtc-java cannot decode (H.265), with the same options.
  * Decoded video is scaled to the viewport and converted to BGRA into [frames]. With
  * [audioEnabled] the audio track is decoded and played ([AudioOut]); without it only video is
  * set up, so the server sends no audio at all.
@@ -62,6 +66,8 @@ class RtspConnection(
 ) : StreamConnection {
 
     @Volatile private var muted = false
+
+    private val overHttp = url.trim().substringBefore("://").lowercase() in setOf("http", "https")
 
     override fun setMuted(muted: Boolean) {
         this.muted = muted
@@ -115,13 +121,18 @@ class RtspConnection(
             if (opened < 0) {
                 // avformat_open_input frees the context on failure.
                 format = null
-                throw StreamFailure(Ffmpeg.errorCode(opened))
+                throw StreamFailure(Ffmpeg.errorCode(opened, overHttp))
             }
             check(avformat_find_stream_info(fmt, null as PointerPointer<*>?), "NO_STREAM_INFO")
 
             val videoIndex = av_find_best_stream(fmt, AVMEDIA_TYPE_VIDEO, -1, -1, null as PointerPointer<*>?, 0)
             if (videoIndex < 0) throw StreamFailure("NO_VIDEO")
-            video = openDecoder(fmt, videoIndex, lowDelay = true) ?: throw StreamFailure("NO_DECODER")
+            video = openDecoder(fmt, videoIndex, lowDelay = true) ?: run {
+                val params = fmt.streams(videoIndex).codecpar()
+                // The codec and size only, for a report; never the URL.
+                AppLog.w("No FFmpeg decoder for ${avcodec_get_name(params.codec_id()).string} ${params.width()}x${params.height()}")
+                throw StreamFailure("NO_DECODER")
+            }
             val audioIndex = if (audioEnabled) av_find_best_stream(fmt, AVMEDIA_TYPE_AUDIO, -1, videoIndex, null as PointerPointer<*>?, 0) else -1
             if (audioIndex >= 0) {
                 audio = openDecoder(fmt, audioIndex, lowDelay = false)?.let { AudioDecoder(it, audioOutput()) { muted } }
@@ -131,7 +142,7 @@ class RtspConnection(
                 val read = av_read_frame(fmt, packet)
                 if (read < 0) {
                     if (stop.get()) return
-                    throw StreamFailure(Ffmpeg.errorCode(read))
+                    throw StreamFailure(Ffmpeg.errorCode(read, overHttp))
                 }
                 try {
                     when (packet.stream_index()) {

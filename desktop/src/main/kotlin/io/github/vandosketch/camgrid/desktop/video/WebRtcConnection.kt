@@ -36,6 +36,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * ICE gathering (no trickle), POST, apply the answer. Decoded frames are scaled to the
  * viewport and converted to BGRA into [frames].
  *
+ * libwebrtc offers H.264, VP8, VP9 and AV1 here, never H.265 (it has no H.265 decoder of its
+ * own), so go2rtc refuses an H.265 camera: HTTP 500 "codecs not matched" (`CODEC_H265`), or an
+ * answer without video when the audio codec matched (`CODEC_UNSUPPORTED`). The platform then
+ * plays go2rtc's MP4 of the stream with FFmpeg instead (`rememberStreamWithFallback`).
+ *
  * @param audioEnabled false for grid tiles: only video is negotiated, so no audio is received.
  */
 class WebRtcConnection(

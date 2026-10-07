@@ -95,7 +95,9 @@ fun FullscreenScreen(
         }
     }
 
-    val stream = video.rememberLiveStream(camera.fullscreenUrl, camera.streamType, camera.name, audioEnabled = true)
+    val stream = video.rememberLiveStream(
+        camera.fullscreenUrl, camera.streamType, camera.name, audioEnabled = true, lowerResolutionUrl = camera.gridUrl,
+    )
     SideEffect { stream?.setMuted(muted) }
 
     // The root box takes focus so it receives the D-pad keys.

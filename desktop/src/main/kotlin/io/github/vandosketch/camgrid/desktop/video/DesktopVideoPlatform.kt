@@ -21,9 +21,11 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.platform.AppLog
+import io.github.vandosketch.camgrid.platform.FallbackSurface
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.platform.VideoPlatform
+import io.github.vandosketch.camgrid.platform.rememberStreamWithFallback
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,12 +47,29 @@ object DesktopVideoPlatform : VideoPlatform {
     /** Status changes run on the UI thread (Swing). */
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    @Composable
+    override fun rememberLiveStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? =
+        rememberLiveStream(url, type, label, audioEnabled, lowerResolutionUrl = null)
+
     /**
      * A stream that exists while the window is started (not minimised) and the composable is
-     * in the composition; recreated when the window comes back.
+     * in the composition; recreated when the window comes back. An H.265 camera, which go2rtc
+     * cannot send to webrtc-java over WebRTC, plays as go2rtc's MP4 through FFmpeg
+     * ([rememberStreamWithFallback]).
      */
     @Composable
-    override fun rememberLiveStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? {
+    override fun rememberLiveStream(
+        url: String,
+        type: StreamType,
+        label: String,
+        audioEnabled: Boolean,
+        lowerResolutionUrl: String?,
+    ): LiveStream? = rememberStreamWithFallback(url, type, label, audioEnabled, lowerResolutionUrl) { sourceUrl, sourceType ->
+        rememberSourceStream(sourceUrl, sourceType, label, audioEnabled)
+    }
+
+    @Composable
+    private fun rememberSourceStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? {
         var stream by remember { mutableStateOf<DesktopLiveStream?>(null) }
         LifecycleStartEffect(url, type, audioEnabled) {
             val created = DesktopLiveStream(uiScope, url, type, label, audioEnabled)
@@ -65,7 +84,9 @@ object DesktopVideoPlatform : VideoPlatform {
 
     @Composable
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode) {
-        VideoCanvas((stream as? DesktopLiveStream)?.frames, modifier, fit)
+        FallbackSurface(stream, modifier) { own, videoModifier ->
+            VideoCanvas((own as? DesktopLiveStream)?.frames, videoModifier, fit)
+        }
     }
 }
 

@@ -19,10 +19,12 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.data.WebRtcOfferExchange
+import io.github.vandosketch.camgrid.platform.FallbackSurface
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.platform.StreamSupervisor
 import io.github.vandosketch.camgrid.platform.VideoPlatform
+import io.github.vandosketch.camgrid.platform.rememberStreamWithFallback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -40,12 +42,29 @@ class IosVideoPlatform(
 
     override val supportedTypes: Set<StreamType> = setOf(StreamType.RTSP, StreamType.WEBRTC)
 
+    @Composable
+    override fun rememberLiveStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? =
+        rememberLiveStream(url, type, label, audioEnabled, lowerResolutionUrl = null)
+
     /**
      * A stream that exists only while the app is in the foreground and the composable is in the
-     * composition, like on Android: released when the app goes to the background.
+     * composition, like on Android: released when the app goes to the background. A go2rtc
+     * WebRTC stream in a codec the WebRTC framework does not offer plays as go2rtc's MP4 in
+     * VLCKit ([rememberStreamWithFallback]).
      */
     @Composable
-    override fun rememberLiveStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? {
+    override fun rememberLiveStream(
+        url: String,
+        type: StreamType,
+        label: String,
+        audioEnabled: Boolean,
+        lowerResolutionUrl: String?,
+    ): LiveStream? = rememberStreamWithFallback(url, type, label, audioEnabled, lowerResolutionUrl) { sourceUrl, sourceType ->
+        rememberSourceStream(sourceUrl, sourceType, label, audioEnabled)
+    }
+
+    @Composable
+    private fun rememberSourceStream(url: String, type: StreamType, label: String, audioEnabled: Boolean): LiveStream? {
         var stream by remember { mutableStateOf<NativeLiveStream?>(null) }
         LifecycleStartEffect(url, type, audioEnabled) {
             val created = NativeLiveStream(factory, offers, url, type, label, audioEnabled)
@@ -60,6 +79,11 @@ class IosVideoPlatform(
 
     @Composable
     override fun Surface(stream: LiveStream?, modifier: Modifier, fit: FitMode) {
+        FallbackSurface(stream, modifier) { own, videoModifier -> NativeSurface(own, videoModifier, fit) }
+    }
+
+    @Composable
+    private fun NativeSurface(stream: LiveStream?, modifier: Modifier, fit: FitMode) {
         Box(modifier.background(Color.Black).clipToBounds()) {
             val native = (stream as? NativeLiveStream)?.current ?: return@Box
             // A new native player (after a reconnect) gets a new interop view.

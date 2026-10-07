@@ -26,6 +26,14 @@ class FfmpegErrorTest {
         assertEquals("RTSP_5XX", Ffmpeg.tagCode(averrorHttpServerError))
     }
 
+    @Test
+    fun statusErrorsOverHttpAreNamedHttp() {
+        // go2rtc's MP4 fallback for H.265 WebRTC streams is played over HTTP.
+        assertEquals("HTTP_5XX", Ffmpeg.tagCode(averrorHttpServerError, overHttp = true))
+        assertEquals("HTTP_404", Ffmpeg.errorCode(averrorHttpNotFound, overHttp = true))
+        assertEquals("ENDED", Ffmpeg.tagCode(averrorEof, overHttp = true))
+    }
+
     /** Also proves the native FFmpeg libraries load on this OS (CI runs all three). */
     @Test
     fun matchesTheNativeLibrary() {
