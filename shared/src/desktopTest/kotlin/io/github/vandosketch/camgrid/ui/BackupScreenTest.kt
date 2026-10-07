@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -123,14 +125,15 @@ class BackupScreenTest {
         show(
             Files(tv = true),
             calls,
-            lanTransfer = { LanTransferState.Running("http://192.0.2.20:8765", "482915") },
+            lanTransfer = { LanTransferState.Running("http://192.0.2.20:8765", "482915", KEY) },
             downloadName = { download },
         )
 
         onNodeWithText("Transfer with your phone or computer").assertExists()
         onNodeWithText("http://192.0.2.20:8765").assertExists()
         onNodeWithText("PIN: 482915").assertExists()
-        onNodeWithTag(QR_TAG).assertExists()
+        // The QR code carries the long key; the PIN is only for typing the address by hand.
+        onNodeWithTag(QR_TAG).assert(SemanticsMatcher.expectValue(QrText, "http://192.0.2.20:8765/#key=$KEY"))
 
         download = "camgrid-backup-2026-10-07-120000.json"
         waitForIdle()
@@ -222,4 +225,19 @@ class BackupScreenTest {
         assertTrue(files.saved == 1)
         assertEquals(1, calls.folderExports)
     }
+
+    @Test
+    fun tvExplainsThatPlainExportsAreNotDownloadable() = runComposeUiTest {
+        val calls = Calls()
+        show(Files(tv = true), calls, lanTransfer = { LanTransferState.Running("http://192.0.2.20:8765", "482915", KEY) })
+
+        onNodeWithText("not offered for download", substring = true).assertDoesNotExist()
+        onNodeWithText("Export without password").performScrollTo().performClick()
+        onNodeWithText("Export").performClick()
+        waitForIdle()
+        assertEquals(1, calls.folderExports)
+        onNodeWithText("not offered for download", substring = true).assertExists()
+    }
 }
+
+private const val KEY = "0f1e2d3c4b5a69788796a5b4c3d2e1f0"

@@ -354,6 +354,7 @@ class CamGridViewModelTest {
         settle(vm)
         val running = assertIs<LanTransferState.Running>(vm.lanTransfer)
         assertEquals("http://192.0.2.20:8765", running.url)
+        assertTrue(Regex("[0-9a-f]{32}").matches(running.key), "the QR code's key")
         assertTrue(lan.running)
         return running.pin
     }
@@ -405,7 +406,7 @@ class CamGridViewModelTest {
     }
 
     @Test
-    fun exportOnTheTvCanBeDownloaded() = runTest {
+    fun onlyPasswordProtectedExportsCanBeDownloaded() = runTest {
         files = FolderFiles(lan)
         store.json = ConfigCodec.encode(configWith(kitchen))
         val vm = viewModel()
@@ -414,14 +415,28 @@ class CamGridViewModelTest {
         assertEquals(404, lan.send("GET", "/download", pin).first)
         assertNull(vm.lanDownloadName)
 
+        // The page is plain HTTP: an unencrypted backup is never offered to the network.
         vm.exportBackupToFolder(password = null)
         settle(vm)
         assertEquals(BackupState.Exported("/backups/camgrid-backup.json"), vm.backupState)
+        assertNull(vm.lanDownloadName)
+        assertEquals(404, lan.send("GET", "/download", pin).first)
+
+        vm.exportBackupToFolder(password = "pw".toCharArray())
+        settle(vm)
         assertEquals("camgrid-backup.json", vm.lanDownloadName)
         val (status, body) = lan.send("GET", "/download", pin)
         assertEquals(200, status)
-        assertEquals(listOf(kitchen), ConfigBackup.import(body, password = null).cameras)
+        assertEquals(listOf(kitchen), ConfigBackup.import(body, password = "pw".toCharArray()).cameras)
         assertEquals(files.files["camgrid-backup.json"], body)
+
+        // A later export without a password withdraws the offer, so the TV never shows an older file as ready.
+        vm.exportBackupToFolder(password = null)
+        settle(vm)
+        assertNull(vm.lanDownloadName)
+        assertEquals(404, lan.send("GET", "/download", pin).first)
+        vm.exportBackupToFolder(password = "pw".toCharArray())
+        settle(vm)
 
         // The download survives a restart (the TV went to the background), with a new PIN...
         vm.stopLanTransfer()

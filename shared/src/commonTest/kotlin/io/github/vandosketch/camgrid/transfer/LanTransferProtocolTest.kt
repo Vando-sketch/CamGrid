@@ -11,7 +11,7 @@ class LanTransferProtocolTest {
 
     private val uploads = mutableListOf<String>()
     private var lockedCalls = 0
-    private val protocol = LanTransferProtocol(pin = PIN, onUpload = { uploads += it }, onLocked = { lockedCalls++ })
+    private val protocol = LanTransferProtocol(pin = PIN, key = KEY, onUpload = { uploads += it }, onLocked = { lockedCalls++ })
         .apply { host = HOST }
 
     /** Sends [raw] through the whole stack (parsing, routing, encoding) and parses the reply. */
@@ -209,6 +209,38 @@ class LanTransferProtocolTest {
     }
 
     @Test
+    fun linkCarriesTheKeyInTheFragment() {
+        // Browsers never send the fragment, so the key stays out of request lines; the page reads it from there.
+        assertEquals("http://192.0.2.20:8765/#key=$KEY", LanTransferProtocol.linkWithKey("http://192.0.2.20:8765", KEY))
+        assertEquals("http://192.0.2.20:8765/#key=$KEY", LanTransferProtocol.linkWithKey("http://192.0.2.20:8765/", KEY))
+    }
+
+    @Test
+    fun theKeyFromTheQrCodeWorksLikeThePin() {
+        protocol.download = TransferDownload("camgrid-backup.json", "{}")
+        assertEquals(200, request("GET", "/", pin = KEY).status)
+        assertEquals(200, request("GET", "/download", pin = KEY).status)
+        assertEquals(200, request("POST", "/upload", pin = KEY, body = "{}".encodeToByteArray()).status)
+        assertEquals(listOf("{}"), uploads)
+        // A near miss is a wrong guess like any other.
+        assertEquals(403, request("GET", "/", pin = KEY.dropLast(1) + "1").status)
+    }
+
+    @Test
+    fun keysAreLongAndRandom() {
+        val keys = List(50) { LanTransferProtocol.newKey() }
+        keys.forEach { assertTrue(Regex("[0-9a-f]{32}").matches(it), it) }
+        assertEquals(50, keys.toSet().size)
+    }
+
+    @Test
+    fun pageTakesTheKeyFromTheLinkAndForgetsIt() {
+        val page = TransferPage.HTML
+        assertTrue(page.contains("location.hash"), "reads the key from the fragment")
+        assertTrue(page.contains("history.replaceState"), "removes the PIN from the address bar and history")
+    }
+
+    @Test
     fun pinsAreSixRandomDigits() {
         val pins = List(50) { LanTransferProtocol.newPin() }
         pins.forEach { assertTrue(Regex("[0-9]{6}").matches(it), it) }
@@ -238,6 +270,7 @@ class LanTransferProtocolTest {
 
     private companion object {
         const val PIN = "482915"
+        const val KEY = "0f1e2d3c4b5a69788796a5b4c3d2e1f0"
         const val HOST = "192.0.2.20:8765"
     }
 }

@@ -4,6 +4,12 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Changed
+
+- **Fire TV backup transfer: no PIN typing after scanning.** The QR code on the TV's backup screen now carries a long random key, so the transfer page opens connected and nobody on the network can guess its way in. The key sits in the part of the link a browser never sends, and the page removes it from the address bar at once. The 6-digit PIN is still there for typing the address by hand. ([#33](https://github.com/Vando-sketch/CamGrid/issues/33))
+- **Fire TV backup transfer: only backups with a password can be downloaded.** The transfer page is plain HTTP, so anyone on the Wi-Fi could read a backup without a password, camera logins included. The TV now says so and asks you to export again with a password. ([#33](https://github.com/Vando-sketch/CamGrid/issues/33))
+- **The transfer page and the TV's transfer panel match the app's dark style**, with larger buttons and file picker for phones and a clear success or error message. ([#33](https://github.com/Vando-sketch/CamGrid/issues/33))
+
 ### Fixed
 
 - **Fire TV: the app no longer crashes when a WebRTC camera starts playing.** ([#34](https://github.com/Vando-sketch/CamGrid/issues/34))

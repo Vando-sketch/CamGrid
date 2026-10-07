@@ -29,11 +29,13 @@ class TransferDownload(val name: String, val text: String)
  * calls [serve] for each connection, one at a time on its single thread. Nothing here logs
  * request contents.
  *
+ * @param key the QR code's secret, from [newKey].
  * @param onUpload receives an uploaded file as text (at most [MAX_BACKUP_BYTES]), on the server thread.
  * @param onLocked called once, on the server thread, when too many wrong PINs locked the transfer.
  */
 class LanTransferProtocol(
     private val pin: String,
+    private val key: String = newKey(),
     private val onUpload: (String) -> Unit,
     private val onLocked: () -> Unit = {},
 ) : TransferConnectionHandler {
@@ -77,7 +79,10 @@ class LanTransferProtocol(
         if (given == null) {
             return if (head.path == "/") page(401) else HttpResponse.text(401, "Enter the PIN shown on the TV.")
         }
-        if (!sameSecret(given, pin)) {
+        // Both compared in full every time, so timing does not tell which one was close.
+        val rightPin = sameSecret(given, pin)
+        val rightKey = sameSecret(given, key)
+        if (!rightPin && !rightKey) {
             if (++failures >= MAX_PIN_FAILURES) {
                 locked = true
                 onLocked()
@@ -103,7 +108,7 @@ class LanTransferProtocol(
     }
 
     private fun download(): HttpResponse {
-        val file = download ?: return HttpResponse.text(404, "Nothing to download yet. Export on the TV first.")
+        val file = download ?: return HttpResponse.text(404, "Nothing to download yet. Export on the TV with a password first.")
         val name = file.name.map { if (it.isLetterOrDigit() && it.code < 128 || it in "._-") it else '_' }.joinToString("")
         return HttpResponse(
             status = 200,
@@ -128,6 +133,15 @@ class LanTransferProtocol(
 
         /** The method of each route. */
         private val ROUTES = mapOf("/" to "GET", "/upload" to "POST", "/download" to "GET")
+
+        /**
+         * [url] with [key] in the fragment, for the QR code: the page takes the key from there.
+         * Browsers never send the fragment, so the key only travels in the PIN header.
+         */
+        fun linkWithKey(url: String, key: String): String = "${url.trimEnd('/')}/#key=$key"
+
+        /** A fresh 32-hex-digit key (122 random bits, [Uuid.random]): no guessing within [MAX_PIN_FAILURES]. */
+        fun newKey(): String = Uuid.random().toHexString()
 
         /** A fresh six-digit PIN from a cryptographically secure source ([Uuid.random]). */
         fun newPin(): String {
