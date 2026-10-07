@@ -13,8 +13,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * WebRTC signalling over HTTP (WHEP style, as go2rtc's `/api/webrtc?src=...` and MediaMTX's
- * `/<path>/whep` serve it): POSTs the complete SDP offer and returns the SDP answer. The
- * desktop twin of the Android app's `WhepClient`.
+ * `/<path>/whep` serve it): POSTs the complete SDP offer and returns the SDP answer. A
+ * HttpURLConnection twin of the shared Ktor `io.github.vandosketch.camgrid.data.WhepClient`,
+ * which Android and iOS use; merging the two is open work.
  */
 object WhepClient {
     private const val CONNECT_TIMEOUT_MS = 5_000

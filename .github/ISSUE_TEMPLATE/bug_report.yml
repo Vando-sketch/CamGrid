@@ -1,0 +1,76 @@
+name: Bug report
+description: Something in CamGrid does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please do not paste stream URLs with user names, passwords or tokens, or your public IP address. Replace them with placeholders such as `rtsp://user:pass@192.0.2.20/stream1`.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - Android phone or tablet
+        - Fire TV / Android TV
+        - macOS
+        - Windows
+        - Linux
+        - iPhone / iPad
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS version
+      placeholder: "Fire TV Stick 4K (2nd gen), Fire OS 8"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: CamGrid build
+      description: The build number from the release you installed, for example "Android build 81", or the commit if you built it yourself.
+    validations:
+      required: true
+  - type: dropdown
+    id: stream-type
+    attributes:
+      label: Stream type of the affected camera
+      options:
+        - RTSP
+        - WebRTC
+        - Both
+        - Not related to streams
+  - type: input
+    id: camera
+    attributes:
+      label: Camera codec and resolution
+      description: As go2rtc shows them in its web UI (stream info), if the problem is about playback.
+      placeholder: "H.265 2560x1440, sub stream H.264 640x360"
+  - type: input
+    id: go2rtc
+    attributes:
+      label: go2rtc version
+      placeholder: "1.9.14, or none (direct camera URL)"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead. Include what the tile shows, for example "Offline · retry in 4 s" and the short error code.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Settings > Views
+        2. ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: Optional. On Android and Fire TV, run `adb logcat -s CamGrid` while reproducing. On desktop, start CamGrid from a terminal; it logs there. CamGrid does not log stream URLs, but check before pasting.
+      render: text

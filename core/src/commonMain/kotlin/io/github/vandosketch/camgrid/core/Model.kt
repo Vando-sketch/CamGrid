@@ -5,7 +5,10 @@ import kotlinx.serialization.Serializable
 /** How a camera's URLs are played. Stored by name in the config. */
 @Serializable
 enum class StreamType {
-    /** Played by ExoPlayer: rtsp:// or rtsps://, or an http(s) media URL such as HLS. */
+    /**
+     * Played by the platform's media player (ExoPlayer on Android, FFmpeg on desktop, VLCKit on
+     * iOS): rtsp:// or rtsps://, or an http(s) media URL such as HLS or go2rtc's MP4.
+     */
     RTSP,
 
     /**

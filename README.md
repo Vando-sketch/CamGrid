@@ -6,7 +6,7 @@ A personal camera wall for Android phones, Fire TV, iPhone and iPad, and desktop
 
 ![A 3x2 camera grid with one camera offline (UI mockup)](docs/images/grid.png)
 
-*The images in this README are rendered from a UI mockup with simulated video and example cameras, not screenshots from a device. See [docs/mockup](#ui-mockup).*
+*The images in this README are rendered from a UI mockup with simulated video and example cameras, not screenshots from a device. See [docs/mockup](CONTRIBUTING.md#ui-mockup).*
 
 > **Status:** CamGrid builds and its core logic is covered by unit tests in CI. A first test on a phone, with WebRTC streams, worked. It has not been tested on a real Fire TV yet. The desktop app plays go2rtc streams in CI's Linux tests; the iOS app compiles but has not run on a device yet. Expect rough edges.
 
@@ -78,7 +78,7 @@ Not in the App Store: build it with Xcode and your own Apple ID, or sign the uns
 
 ### Updating
 
-Android installs a new APK over the old one only when both are signed with the same key and the new one has a higher version code. Once the repository has its signing key set up (see [CI and signing](#ci-and-signing)), both are true for every CI build: install the new APK over the old one on a phone, or run `adb install -r CamGrid-Android.apk` again on the Fire TV. Settings are kept.
+Android installs a new APK over the old one only when both are signed with the same key and the new one has a higher version code. Once the repository has its signing key set up (see [docs/releasing.md](docs/releasing.md#signing-key)), both are true for every CI build: install the new APK over the old one on a phone, or run `adb install -r CamGrid-Android.apk` again on the Fire TV. Settings are kept.
 
 The release notes of each preview say which key the build was signed with: `stable` (installs over the previous build) or `one-off` (no signing key was set; uninstall the old app first with `adb uninstall io.github.vandosketch.camgrid`).
 
@@ -209,90 +209,21 @@ On a Fire TV Stick, keep views to about **4 tiles**. A stick can only decode abo
 
 Pages run across views: Right past the edge of the last page of one view goes to the first page of the next.
 
-## UI mockup
+## Building and contributing
 
-[`docs/mockup/camgrid-mockup.html`](docs/mockup/camgrid-mockup.html) is a clickable HTML mockup of the app's screens, built from the Compose code as it was before views, backup and the stream type setting existed. Open it in a browser and use the mouse or the arrow keys, Enter, Esc and M like a Fire TV remote. It loads its fonts from Google Fonts, and its cameras use the documentation-only address range 192.0.2.x.
-
-The README images are rendered from it with Playwright's Chromium:
+CamGrid is Kotlin Multiplatform with Compose Multiplatform: one shared UI for Android, Fire TV, desktop and iOS. With only a JDK 21 you can build and test the shared code and the desktop app:
 
 ```sh
-NODE_PATH=$(npm root -g) node docs/mockup/render.mjs   # writes docs/images/*.png
+./gradlew -Pcamgrid.skipAndroid=true :core:jvmTest :shared:desktopTest :desktop:test
+./gradlew -Pcamgrid.skipAndroid=true :desktop:run
 ```
 
-## Building
+The Android app additionally needs the Android SDK, the iOS app a Mac with Xcode.
 
-Requirements: JDK 21 (what CI uses) and the Android SDK (Gradle configures the shared module's Android target even for desktop and iOS builds). The Gradle wrapper downloads Gradle itself. The iOS app needs a Mac with Xcode, see [docs/ios.md](docs/ios.md).
-
-```sh
-./gradlew :core:jvmTest :shared:desktopTest :app:testDebugUnitTest   # unit tests
-./gradlew :app:lintDebug        # Android lint
-./gradlew :app:assembleDebug    # app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:assembleRelease  # minified release APK
-./gradlew :desktop:run          # the desktop app
-```
-
-Modules:
-
-- **`:core`**: Kotlin Multiplatform (JVM and iOS), no platform dependencies. Config model and JSON codec with migration, backup export and import with password encryption, views and the view editor's edits, view paging and D-pad navigation, go2rtc stream pairing and URL conversion, URL validation and redaction, reconnect backoff, stream watchdog, WebRTC signalling parsing. All of it has unit tests that run on the JVM and in the iOS simulator.
-- **`:shared`**: the app itself in Compose Multiplatform, for every platform. Screens (grid, fullscreen, settings, view editor, camera editor, go2rtc import, backup), navigation and state, and the go2rtc and WHEP HTTP clients (Ktor). What differs per platform comes in through the interfaces in its `platform` package: video players, encrypted config storage, backup files.
-- **`:app`**: the Android and Fire TV shell: the activity, the ExoPlayer and WebRTC players, Keystore-encrypted config storage, backup files.
-- **`:desktop`**: the desktop shell: FFmpeg and webrtc-java players, config storage, file dialogs, installers. See [desktop/README.md](desktop/README.md).
-- **`iosApp/`**: the iOS shell (XcodeGen project): VLCKit and WebRTC players in Swift, Keychain config storage. See [docs/ios.md](docs/ios.md).
-
-The APK contains native libwebrtc for `armeabi-v7a`, `arm64-v8a` and `x86_64` (the last for the emulator).
-
-### CI and signing
-
-`.github/workflows/android.yml` runs unit tests, lint and both APK builds on every push to `main` and `claude/**` branches, on pull requests and on manual runs. Both APKs are uploaded as the `CamGrid-Android-build-<n>` workflow artifact (`CamGrid-Android.apk` to install, plus the minified `CamGrid-Android-minified.apk`). On a push or manual run, `CamGrid-Android.apk` is also published as a pre-release: `preview` for `main`, `preview-<last part of the branch name>` for other branches. Each push replaces the previous pre-release of the same tag.
-
-`.github/workflows/desktop.yml` runs the desktop tests (including end-to-end playback against a real go2rtc on Linux) and builds the installers on macOS, Windows and Linux; on a push they are published as `preview-desktop` (`main`) or `preview-desktop-<branch>`. `.github/workflows/ios.yml` runs the shared tests in the iOS simulator and builds the app for the simulator; the unsigned device app `CamGrid-iOS-unsigned.ipa` is built on `main` and on manual runs and published as `preview-ios` (`main`) or `preview-ios-<branch>`. Pull requests from branches of this repository don't repeat the push runs.
-
-Each build gets the workflow run number as its version code (version name `0.2.<run number>`), so every build is an upgrade of the one before.
-
-**Why updates used to need an uninstall:** Android only installs an update that is signed with the same key as the installed app. Without signing secrets, every CI run signs with a debug key that is generated fresh on the runner, so each build has a different key and Android refuses it as an update. The fix is one stable key, stored as repository secrets. With it, both the debug and the release APK of every build are signed with that key.
-
-#### Setting up the signing key (once)
-
-1. Create a keystore on your own computer. `keytool` comes with any JDK; Android Studio has one in its bundled JDK (`jbr/bin`).
-
-   ```sh
-   keytool -genkeypair -v -keystore camgrid-release.jks -storetype PKCS12 -alias camgrid -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=CamGrid"
-   ```
-
-   It asks for a password. PKCS12 uses the same password for the store and the key.
-2. Base64-encode it:
-
-   ```sh
-   base64 -w0 camgrid-release.jks > keystore.txt            # Linux
-   base64 -i camgrid-release.jks -o keystore.txt           # macOS
-   ```
-
-   ```powershell
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("camgrid-release.jks")) > keystore.txt   # Windows PowerShell
-   ```
-3. On GitHub, open the repository's Settings > Secrets and variables > Actions > **New repository secret** and add four secrets:
-
-   | Secret | Value |
-   | --- | --- |
-   | `CAMGRID_KEYSTORE_BASE64` | The contents of `keystore.txt` |
-   | `CAMGRID_KEYSTORE_PASSWORD` | The password from step 1 |
-   | `CAMGRID_KEY_ALIAS` | `camgrid` |
-   | `CAMGRID_KEY_PASSWORD` | The same password |
-
-   Or with the GitHub CLI, from the folder with the files:
-
-   ```sh
-   gh secret set CAMGRID_KEYSTORE_BASE64 < keystore.txt
-   gh secret set CAMGRID_KEYSTORE_PASSWORD     # prompts for the value
-   gh secret set CAMGRID_KEY_ALIAS --body camgrid
-   gh secret set CAMGRID_KEY_PASSWORD          # prompts for the value
-   ```
-4. Delete `keystore.txt`. Keep `camgrid-release.jks` and its password safe and backed up (a password manager is a good place for both). Never commit them; `.gitignore` already excludes `*.jks` and `*.keystore`. If the key is lost, new builds get a new key, and every device has to uninstall again.
-5. Push to `main` (or re-run the workflow). Then do the one-time switch described in [Updating](#updating): export settings, uninstall, install the new build, import.
-
-Without the secrets, CI still builds and publishes APKs, but the run shows a "No signing key" warning, the release notes say `Signing key: one-off`, and every update needs an uninstall.
-
-Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the keystore and `CAMGRID_KEYSTORE_PASSWORD`, `CAMGRID_KEY_ALIAS` and `CAMGRID_KEY_PASSWORD` are set; set `CAMGRID_BUILD_NUMBER` for a version code above 1.
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup per platform, every build and test command, conventions, how CI runs.
+- [docs/architecture.md](docs/architecture.md): modules, platform seams, how streams are played, config storage and migration.
+- [docs/releasing.md](docs/releasing.md): CI workflows, preview releases, version numbers and the signing key.
+- [docs/view-format.md](docs/view-format.md) and [docs/backup-format.md](docs/backup-format.md): the JSON formats.
 
 ## Privacy and security
 
@@ -312,6 +243,10 @@ Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the key
 - The iOS app has to be re-signed every 7 days with a free Apple ID (yearly with a paid developer account). There is no Apple TV version.
 - Typing URLs with a TV remote is slow. Importing from go2rtc saves most of the typing.
 
+## Reporting problems
+
+Open an [issue](https://github.com/Vando-sketch/CamGrid/issues/new/choose) with the bug report form, which asks for the device, the build number and the camera's codec. Logs help: on Android and Fire TV run `adb logcat -s CamGrid` while the problem happens; on desktop start CamGrid from a terminal. Leave stream URLs with passwords and your public IP address out of issues. Security problems: see [SECURITY.md](SECURITY.md).
+
 ## License
 
 CamGrid is released under the [MIT License](LICENSE). The icon artwork is original and covered by the same license.
@@ -320,7 +255,7 @@ Third-party components:
 
 - [AndroidX Media3](https://github.com/androidx/media) (ExoPlayer), Apache License 2.0.
 - Google's libwebrtc, BSD 3-Clause License, via the prebuilt [`io.github.webrtc-sdk:android`](https://github.com/webrtc-sdk/android) package.
-- Shared UI: [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform), [Ktor](https://github.com/ktor/ktor) and, on iOS, [cryptography-kotlin](https://github.com/whyoleg/cryptography-kotlin), all Apache License 2.0.
+- Shared UI: [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform), [Ktor](https://github.com/ktorio/ktor) and, on iOS, [cryptography-kotlin](https://github.com/whyoleg/cryptography-kotlin), all Apache License 2.0.
 - Desktop app: [webrtc-java](https://github.com/devopvoid/webrtc-java) (Apache License 2.0, bundling libwebrtc, BSD 3-Clause) and [FFmpeg](https://ffmpeg.org) via [JavaCPP presets](https://github.com/bytedeco/javacpp-presets) (FFmpeg's LGPL build, GNU LGPL 3 or later). See [desktop/README.md](desktop/README.md) for how to replace the bundled FFmpeg.
 - iOS app: [VLCKit](https://code.videolan.org/videolan/VLCKit) (libVLC), GNU LGPL 2.1 or later, and Google's libwebrtc, BSD 3-Clause License, via [stasel/WebRTC](https://github.com/stasel/WebRTC). See [NOTICE](NOTICE), including how to rebuild with a modified VLCKit.
 - The wordmark in the icon set uses [Inter](https://github.com/rsms/inter), SIL Open Font License 1.1, embedded as outlines (see [design/icon/README.md](design/icon/README.md)).

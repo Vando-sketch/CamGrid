@@ -57,7 +57,7 @@ jobs:
       - name: Warn about missing signing key
         if: env.KEYSTORE_BASE64 == ''
         run: |
-          echo "::warning title=No signing key::CAMGRID_KEYSTORE_BASE64 is not set. This build is signed with a one-off debug key, so it cannot update an installed CamGrid (uninstall first). See README, CI and signing."
+          echo "::warning title=No signing key::CAMGRID_KEYSTORE_BASE64 is not set. This build is signed with a one-off debug key, so it cannot update an installed CamGrid (uninstall first). See docs/releasing.md, Signing key."
           echo "CAMGRID_SIGNING=one-off" >> "$GITHUB_ENV"
 
       - name: Unit tests
