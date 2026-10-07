@@ -17,7 +17,11 @@ class WebRtcOfferExchangeTest {
     private val urls = mutableListOf<String>()
     private val bodies = mutableListOf<String>()
 
-    private fun exchange(status: HttpStatusCode = HttpStatusCode.Created, failure: Exception? = null) =
+    private fun exchange(
+        status: HttpStatusCode = HttpStatusCode.Created,
+        failure: Exception? = null,
+        body: String = "v=0\r\nanswer",
+    ) =
         WebRtcOfferExchange(
             WhepClient(
                 createCamGridHttpClient(
@@ -25,7 +29,7 @@ class WebRtcOfferExchangeTest {
                         urls += request.url.toString()
                         bodies += request.body.toByteArray().decodeToString()
                         if (failure != null) throw failure
-                        respond("v=0\r\nanswer", status, headersOf(HttpHeaders.ContentType, "application/sdp"))
+                        respond(body, status, headersOf(HttpHeaders.ContentType, "application/sdp"))
                     },
                 ),
             ),
@@ -59,6 +63,14 @@ class WebRtcOfferExchangeTest {
     fun httpErrorsBecomeTheirCode() = runTest {
         val result = exchange(HttpStatusCode.NotFound).exchange("http://192.0.2.10:1984/api/webrtc?src=x", offer)
         assertEquals(WebRtcOfferExchange.Result.Failed("HTTP_404"), result)
+    }
+
+    @Test
+    fun go2rtcCodecRejectionBecomesItsCode() = runTest {
+        // The iOS player hands this code to the fallback: go2rtc's MP4 played by VLCKit (issue #17).
+        val result = exchange(HttpStatusCode.InternalServerError, body = "streams: codecs not matched: video:H265 => video:H264")
+            .exchange("http://192.0.2.10:1984/api/webrtc?src=x", offer)
+        assertEquals(WebRtcOfferExchange.Result.Failed("CODEC_H265"), result)
     }
 
     @Test

@@ -10,6 +10,7 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.content.TextContent
+import io.ktor.utils.io.ByteReadChannel
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -39,7 +40,8 @@ class WhepClient(private val http: HttpClient) {
                     readLimited(response.bodyAsChannel(), MAX_ANSWER_BYTES)
                         ?: throw SignalingException(SignalingException.Reason.BAD_ANSWER, "BAD_ANSWER")
                 } else {
-                    ""
+                    // go2rtc says why in the body ("codecs not matched"); WebRtcSignaling turns it into a code.
+                    errorBody(response.bodyAsChannel())
                 }
                 WebRtcSignaling.parseAnswer(code, response.headers[HttpHeaders.ContentType], body)
             }
@@ -52,6 +54,15 @@ class WhepClient(private val http: HttpClient) {
         } catch (e: Exception) {
             throw networkError(e)
         }
+    }
+
+    /** At most [WebRtcSignaling.MAX_ERROR_BYTES] of an error response, or "" when it is longer or unreadable. */
+    private suspend fun errorBody(channel: ByteReadChannel): String = try {
+        readLimited(channel, WebRtcSignaling.MAX_ERROR_BYTES).orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        ""
     }
 
     // The type only: the original message may contain the URL (Ktor's timeout messages do).

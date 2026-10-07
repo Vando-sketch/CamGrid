@@ -143,6 +143,10 @@ The stream type is set per camera. When you switch it in the camera editor, go2r
 - **RTSP** is the default and the safer choice. It runs over TCP, which avoids lost packets on Wi-Fi, and plays whatever ExoPlayer can decode. Expect about a second of delay.
 - **WebRTC** has lower delay. It needs H264 video, and fullscreen sound only works with Opus or G.711 audio. CamGrid uses no STUN or TURN server, so the phone or Fire TV must reach go2rtc directly, which in practice means the same LAN.
 
+When go2rtc cannot send a camera over WebRTC because of its video codec (usually H.265, which go2rtc only sends to players that offer it; the desktop app never does), CamGrid plays the same go2rtc stream as MP4 over HTTP (`/api/stream.mp4?src=<name>`, same host and port) with its RTSP player instead, and the tile shows "H.265 via MP4". That has a little more delay than WebRTC. To check a camera's codec and resolution, open go2rtc's web UI (port 1984) and look at the stream's info, or set the camera itself to H.264.
+
+When a device cannot decode a camera's fullscreen stream, typically a Fire TV with a portrait or very high resolution main stream (a 1536x2048 doorbell on a 1080p decoder), fullscreen shows the camera's grid stream instead, marked "Lower resolution".
+
 ## Views
 
 A view is one screen layout: a canvas of up to 12x12 cells with up to 16 tiles on it. A tile can span several cells, so portrait and landscape tiles can sit side by side, and cells may stay empty. You can have several views; the grid shows them one after the other, and the page indicator at the top shows the view's name and the page number.
@@ -299,7 +303,7 @@ Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the key
 ## Known limitations
 
 - Not yet tested on a real Fire TV (see Status above).
-- WebRTC works on the local network only (no STUN/TURN) and needs H264 video.
+- WebRTC works on the local network only (no STUN/TURN) and needs H264 video; go2rtc streams in other codecs play as MP4 instead (see [RTSP or WebRTC?](#rtsp-or-webrtc)).
 - No recording, playback of past footage, motion alerts, PTZ or two-way audio. It is a live viewer only.
 - Uninstalling the app deletes the configuration (and on a Fire TV the backup folder). Export a backup first and keep it off the device.
 - Backup on a Fire TV goes through the transfer page (a phone or computer in the same network) or `adb push` / `adb pull`, since the system file picker there cannot open files.

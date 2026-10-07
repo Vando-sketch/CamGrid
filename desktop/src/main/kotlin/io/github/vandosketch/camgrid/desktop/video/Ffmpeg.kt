@@ -21,16 +21,23 @@ object Ffmpeg {
      * A short code for an FFmpeg error that never contains the URL: `RTSP_401` for the HTTP-
      * style status errors RTSP reports, `ENDED`, `CANCELLED` and `INVALID_DATA` for FFmpeg's
      * own, otherwise the C library's error text in upper snake case (`CONNECTION_REFUSED`).
+     * With [overHttp] (an http(s) URL) the status errors are named `HTTP_404` and so on.
      */
-    fun errorCode(error: Int): String = tagCode(error) ?: run {
+    fun errorCode(error: Int, overHttp: Boolean = false): String = tagCode(error, overHttp) ?: run {
         val buffer = ByteArray(128)
         av_strerror(error, buffer, buffer.size.toLong())
         val text = buffer.decodeToString().substringBefore('\u0000')
         snakeCase(text).ifEmpty { "FFMPEG_${-error}" }
     }
 
-    /** The code for FFmpeg's tagged errors (FFERRTAG), or null for an errno. */
-    fun tagCode(error: Int): String? = when (error) {
+    /**
+     * The code for FFmpeg's tagged errors (FFERRTAG), or null for an errno. RTSP and HTTP share
+     * the status tags; [overHttp] names them `HTTP_...` instead of `RTSP_...`.
+     */
+    fun tagCode(error: Int, overHttp: Boolean = false): String? =
+        rawTagCode(error)?.let { if (overHttp && it.startsWith("RTSP_")) "HTTP_" + it.removePrefix("RTSP_") else it }
+
+    private fun rawTagCode(error: Int): String? = when (error) {
         tag(0xF8, '4', '0', '0') -> "RTSP_400"
         tag(0xF8, '4', '0', '1') -> "RTSP_401"
         tag(0xF8, '4', '0', '3') -> "RTSP_403"

@@ -2,7 +2,8 @@ import CamGridShared
 import UIKit
 import VLCKit
 
-/// One RTSP stream played by libVLC (VLCKit) with low latency over TCP. Main thread only.
+/// One RTSP stream (or http(s) media URL, such as go2rtc's MP4 fallback for WebRTC streams in
+/// a codec WebRTC does not offer) played by libVLC (VLCKit) with low latency. Main thread only.
 /// Kotlin reconnects after a failure by creating a new instance.
 final class VlcStream: NSObject, NativeStream, VLCMediaPlayerDelegate {
     let view: UIView = {

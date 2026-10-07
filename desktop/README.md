@@ -23,8 +23,8 @@ top of the video. Frames are scaled down to the tile size before they reach the 
 
 | Stream type | Library | Notes |
 | --- | --- | --- |
-| WebRTC (go2rtc `/api/webrtc?src=`, WHEP) | [webrtc-java](https://github.com/devopvoid/webrtc-java) (libwebrtc) | H.264 decoded by libwebrtc's built-in decoder; Constrained Baseline offered first (see `core/H264OfferOrder`) |
-| RTSP (`rtsp://`, go2rtc port 8554) | FFmpeg via [JavaCPP presets](https://github.com/bytedeco/javacpp-presets/tree/master/ffmpeg) | RTP over TCP, no input buffering, low-delay decoding; H.264 and H.265 |
+| WebRTC (go2rtc `/api/webrtc?src=`, WHEP) | [webrtc-java](https://github.com/devopvoid/webrtc-java) (libwebrtc) | H.264 decoded by libwebrtc's built-in decoder; Constrained Baseline offered first (see `core/H264OfferOrder`). libwebrtc has no H.265 decoder, so go2rtc refuses H.265 cameras (`CODEC_H265`); those play as go2rtc's MP4 (`/api/stream.mp4`) through FFmpeg instead (`core/StreamSourcePlan`) |
+| RTSP (`rtsp://`, go2rtc port 8554) | FFmpeg via [JavaCPP presets](https://github.com/bytedeco/javacpp-presets/tree/master/ffmpeg) | RTP over TCP, no input buffering, low-delay decoding; H.264 and H.265. Also plays http(s) media URLs (the MP4 fallback above) |
 
 Grid tiles negotiate no audio at all. Fullscreen plays audio: WebRTC through libwebrtc's audio
 device, RTSP decoded by FFmpeg and played with Java Sound. Every stream reconnects with the
@@ -34,7 +34,7 @@ same backoff and frozen-video watchdog as the Android app (`StreamRunner`).
 
 `Go2rtcEndToEndTest` plays real streams over both transports and counts decoded frames. It is
 skipped unless `CAMGRID_IT_GO2RTC` names a go2rtc server with the streams from
-[`e2e/go2rtc.yaml`](e2e/go2rtc.yaml) (needs `ffmpeg` with libx264 and libopus):
+[`e2e/go2rtc.yaml`](e2e/go2rtc.yaml) (needs `ffmpeg` with libx264, libx265 and libopus):
 
 ```sh
 go2rtc -config desktop/e2e/go2rtc.yaml &

@@ -15,7 +15,11 @@ import platform.UIKit.UIView
 
 /** Creates one native player per connection attempt. Implemented in Swift. */
 interface NativeStreamFactory {
-    /** Plays an RTSP(S) URL (with user-info credentials, if any) with low latency over TCP. */
+    /**
+     * Plays an RTSP(S) URL (with user-info credentials, if any) with low latency over TCP, or an
+     * http(s) media URL such as go2rtc's MP4 (`/api/stream.mp4`), the fallback for WebRTC streams
+     * in a codec the WebRTC framework does not offer.
+     */
     fun createRtspStream(url: String, audioEnabled: Boolean, events: NativeStreamEvents): NativeStream
 
     /**
