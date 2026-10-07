@@ -4,6 +4,11 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Changed
+
+- **Fire TV backup transfer: the QR code fills in the PIN.** Scanning the code on the TV's backup screen opens the transfer page with the PIN already entered, so you only type it when you enter the address by hand. The PIN travels in the part of the link a browser never sends, and the page removes it from the address bar at once. ([#33](https://github.com/Vando-sketch/CamGrid/issues/33))
+- **The transfer page and the TV's transfer panel match the app's dark style**, with larger buttons and file picker for phones and a clear success or error message. ([#33](https://github.com/Vando-sketch/CamGrid/issues/33))
+
 ## [0.2.0] - 2026-10-07
 
 ### Fixed

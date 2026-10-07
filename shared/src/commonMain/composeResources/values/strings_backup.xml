@@ -4,7 +4,8 @@
 <resources>
     <!-- Transfer with a phone or computer -->
     <string name="bk_lan_title">Transfer with your phone or computer</string>
-    <string name="bk_lan_open">On a phone or computer in the same Wi-Fi, scan the code or open this address in the browser:</string>
+    <string name="bk_lan_open">Scan the code with a phone in the same Wi-Fi. The page it opens fills in the PIN.</string>
+    <string name="bk_lan_address">Or open this address in a browser and enter the PIN:</string>
     <string name="bk_lan_pin">PIN: %1$s</string>
     <string name="bk_lan_how">To import, choose the backup file on that page and send it: this TV then asks for the password of the backup, if it has one, and before it replaces anything. To get a backup from this TV, export below, then press Download on that page.</string>
     <string name="bk_lan_unencrypted">The transfer is not encrypted. Protect your backups with a password.</string>

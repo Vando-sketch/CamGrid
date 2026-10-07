@@ -129,6 +129,12 @@ class LanTransferProtocol(
         /** The method of each route. */
         private val ROUTES = mapOf("/" to "GET", "/upload" to "POST", "/download" to "GET")
 
+        /**
+         * [url] with [pin] in the fragment, for the QR code: the page fills the PIN in from there.
+         * Browsers never send the fragment, so the PIN stays out of every request.
+         */
+        fun linkWithPin(url: String, pin: String): String = "${url.trimEnd('/')}/#pin=$pin"
+
         /** A fresh six-digit PIN from a cryptographically secure source ([Uuid.random]). */
         fun newPin(): String {
             val bytes = Uuid.random().toByteArray()

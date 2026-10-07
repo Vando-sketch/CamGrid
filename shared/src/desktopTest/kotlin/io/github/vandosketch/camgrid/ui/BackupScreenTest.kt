@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -130,7 +132,8 @@ class BackupScreenTest {
         onNodeWithText("Transfer with your phone or computer").assertExists()
         onNodeWithText("http://192.0.2.20:8765").assertExists()
         onNodeWithText("PIN: 482915").assertExists()
-        onNodeWithTag(QR_TAG).assertExists()
+        // The QR code fills the PIN in on the phone; the address typed by hand stays short.
+        onNodeWithTag(QR_TAG).assert(SemanticsMatcher.expectValue(QrText, "http://192.0.2.20:8765/#pin=482915"))
 
         download = "camgrid-backup-2026-10-07-120000.json"
         waitForIdle()

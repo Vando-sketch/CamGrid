@@ -21,6 +21,8 @@ class QrCodeTest {
             "http://192.0.2.20:8765",
             "http://192.0.2.254:65535",
             "http://198.51.100.123:40000/",
+            // The link the TV shows: the longest IPv4 address and port, with the PIN.
+            LanTransferProtocol.linkWithPin("http://255.255.255.255:65535", "999999"),
         ).forEach { url -> assertEquals(url, decode(QrCode.encode(url))) }
     }
 

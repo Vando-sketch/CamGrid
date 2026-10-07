@@ -209,6 +209,20 @@ class LanTransferProtocolTest {
     }
 
     @Test
+    fun linkCarriesThePinInTheFragment() {
+        // Browsers never send the fragment, so the PIN stays out of requests; the page reads it from there.
+        assertEquals("http://192.0.2.20:8765/#pin=482915", LanTransferProtocol.linkWithPin("http://192.0.2.20:8765", "482915"))
+        assertEquals("http://192.0.2.20:8765/#pin=482915", LanTransferProtocol.linkWithPin("http://192.0.2.20:8765/", "482915"))
+    }
+
+    @Test
+    fun pageTakesThePinFromTheLinkAndForgetsIt() {
+        val page = TransferPage.HTML
+        assertTrue(page.contains("location.hash"), "reads the PIN from the fragment")
+        assertTrue(page.contains("history.replaceState"), "removes the PIN from the address bar and history")
+    }
+
+    @Test
     fun pinsAreSixRandomDigits() {
         val pins = List(50) { LanTransferProtocol.newPin() }
         pins.forEach { assertTrue(Regex("[0-9]{6}").matches(it), it) }
