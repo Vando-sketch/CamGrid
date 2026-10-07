@@ -139,7 +139,9 @@ internal class MonitoredVideoDecoder(private val delegate: VideoDecoder, private
         return delegate.initDecode(settings, decodeCallback).also { report(it, setup = true) }
     }
 
-    override fun decode(frame: EncodedImage, info: VideoDecoder.DecodeInfo): VideoCodecStatus {
+    // libwebrtc's native wrapper passes no DecodeInfo (null), and the stock decoders ignore it.
+    // A non-null parameter here threw on the decoder thread and crashed the app (issue #34).
+    override fun decode(frame: EncodedImage, info: VideoDecoder.DecodeInfo?): VideoCodecStatus {
         // Key frames carry the size; a new size makes the decoder reconfigure itself.
         val resized = frame.encodedWidth > 0 && frame.encodedHeight > 0 &&
             (frame.encodedWidth != width || frame.encodedHeight != height)
@@ -154,10 +156,12 @@ internal class MonitoredVideoDecoder(private val delegate: VideoDecoder, private
 
     override fun getImplementationName(): String = delegate.implementationName
 
-    private fun report(status: VideoCodecStatus, setup: Boolean) {
+    // Runs on libwebrtc's decoder thread, where any exception aborts the app: reporting never throws.
+    private fun report(status: VideoCodecStatus?, setup: Boolean) {
         val failed = status !in HARMLESS
         if (!failed && !setup) return
-        val report = WebRtcDecoderReports.Report(SystemClock.elapsedRealtime(), codec, delegate.implementationName, width, height, status.name)
+        val decoder = runCatching { delegate.implementationName }.getOrNull() ?: "unknown"
+        val report = WebRtcDecoderReports.Report(SystemClock.elapsedRealtime(), codec, decoder, width, height, status?.name ?: "null")
         if (setup) WebRtcDecoderReports.lastSetup = report
         if (failed) WebRtcDecoderReports.lastError = report
     }
