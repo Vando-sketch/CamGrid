@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keyboard and mouse: the shortcuts help, the fullscreen close button and the keyboard hint. -->
+<resources>
+    <string name="close">Close</string>
+    <string name="fullscreen_hint_keys">← → or 1–9: switch camera · M: sound on/off · Esc: grid · ?: all shortcuts</string>
+
+    <!-- Shortcuts help -->
+    <string name="keys_title">Keyboard shortcuts</string>
+    <string name="keys_section_grid">Camera wall</string>
+    <string name="keys_section_fullscreen">One camera</string>
+    <string name="keys_section_general">Everywhere</string>
+    <string name="keys_arrows">Arrow keys</string>
+    <string name="keys_grid_arrows">Select a camera; past the left or right edge, the next page</string>
+    <string name="keys_enter">Enter</string>
+    <string name="keys_grid_enter">Open the selected camera</string>
+    <string name="keys_digits">1 – 9</string>
+    <string name="keys_grid_digits">Open camera 1 to 9 of the page</string>
+    <string name="keys_page">Page Up / Page Down</string>
+    <string name="keys_grid_page">Previous or next page</string>
+    <string name="keys_left_right">← / →</string>
+    <string name="keys_fullscreen_left_right">Previous or next camera</string>
+    <string name="keys_fullscreen_digits">Switch to camera 1 to 9</string>
+    <string name="keys_sound">M, Space or Enter</string>
+    <string name="keys_fullscreen_sound">Sound on or off</string>
+    <string name="keys_back">Esc or Backspace</string>
+    <string name="keys_back_action">Back; from one camera to the wall</string>
+    <string name="keys_window">F11 or F</string>
+    <string name="keys_window_action">Window fullscreen on or off</string>
+    <string name="keys_help">? or F1</string>
+    <string name="keys_help_action">Show this help</string>
+</resources>

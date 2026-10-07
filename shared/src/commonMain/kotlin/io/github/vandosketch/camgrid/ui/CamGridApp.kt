@@ -10,7 +10,19 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isBackPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.vandosketch.camgrid.CamGridViewModel
@@ -18,7 +30,11 @@ import io.github.vandosketch.camgrid.Screen
 import io.github.vandosketch.camgrid.platform.VideoPlatform
 
 /**
- * Root composable: shows the current [Screen] and routes Back.
+ * Root composable: shows the current [Screen] and routes Back: the platform's Back (key, gesture)
+ * and, on every screen but the grid, Esc and Backspace (when no text field took it) and the
+ * mouse's back button where there is a mouse ([LocalHasKeyboardAndMouse]). Those go through
+ * the platform's Back as well, so an inner [BackHandler] (the view editor's) still comes first.
+ * On the grid and in fullscreen, ? or F1 shows the [ShortcutsDialog].
  *
  * Only one screen is in the composition at a time. That is what releases the grid's players
  * before fullscreen starts its own: Compose disposes the leaving grid tiles (releasing their
@@ -42,11 +58,48 @@ fun CamGridApp(viewModel: CamGridViewModel, video: VideoPlatform, onImmersiveCha
     // The grid is the home screen: Back there leaves the app (default behaviour).
     BackHandler(enabled = screen !is Screen.Grid) { viewModel.back() }
 
+    val dispatchBack = rememberBackDispatcher()
+    var showShortcuts by remember { mutableStateOf(false) }
+    val currentScreen by rememberUpdatedState(screen)
+    // Desktop only: on Android the system turns the mouse's back button into a Back key itself.
+    val mouseBack = if (LocalHasKeyboardAndMouse.current) {
+        Modifier.pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    if (event.type == PointerEventType.Press && event.buttons.isBackPressed && currentScreen !is Screen.Grid) {
+                        event.changes.forEach { it.consume() }
+                        dispatchBack()
+                    }
+                }
+            }
+        }
+    } else {
+        Modifier
+    }
+
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                // Around the screens: only keys the focused screen did not handle arrive here.
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    when {
+                        // Not on the grid: Back there would leave the app on Android.
+                        event.key.isBackShortcut() && screen !is Screen.Grid -> {
+                            dispatchBack()
+                            true
+                        }
+                        event.isHelpShortcut() && immersive -> {
+                            showShortcuts = true
+                            true
+                        }
+                        else -> false
+                    }
+                }
+                .then(mouseBack),
         ) {
             when (screen) {
                 Screen.Grid -> GridScreen(
@@ -129,6 +182,7 @@ fun CamGridApp(viewModel: CamGridViewModel, video: VideoPlatform, onImmersiveCha
                     }
                 }
             }
+            if (showShortcuts && immersive) ShortcutsDialog(onDismiss = { showShortcuts = false })
         }
     }
 }

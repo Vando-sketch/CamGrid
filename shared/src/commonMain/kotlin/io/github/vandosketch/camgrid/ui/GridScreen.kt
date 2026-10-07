@@ -1,8 +1,13 @@
 package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,11 +30,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -37,11 +46,16 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,19 +72,31 @@ import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.Direction
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.GridPosition
+import io.github.vandosketch.camgrid.core.Tile
 import io.github.vandosketch.camgrid.core.TileNavigator
 import io.github.vandosketch.camgrid.core.ViewPaging
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.platform.VideoPlatform
+
+/** Width of the ring around the selected tile. */
+private val SelectionWidth = 5.dp
+
+/** Space around every tile. */
+private val TileGap = 2.dp
 
 /**
  * The camera wall: the config's views one after the other, each as one or more pages of tiles
  * (see [ViewPaging]), playing muted low-res streams. Tiles can have any size on the view's cell
  * canvas, so portrait and landscape tiles can sit side by side.
  *
- * D-pad arrows are handled here (not by Compose's default focus search) with core's
- * [TileNavigator], so moving off the left/right edge switches page. On touch screens a
- * horizontal swipe switches page and a tap opens the camera.
+ * The wall is one focusable container that handles the keys itself; the selected tile is plain
+ * state ([focusIndex]), never Compose focus on a tile, so the selection does not depend on focus
+ * landing next to a video view. Arrows move it with core's [TileNavigator] (off the left/right
+ * edge to the other page, off the top edge to the settings button), OK/Enter opens it, 1-9 open
+ * the Nth camera of the page and Page Up/Down (or the channel and track keys) switch page. The
+ * selection ring is drawn over all tiles while the wall has focus in key mode, so phones never
+ * show it. On touch screens a horizontal swipe switches page and a tap opens the camera; a mouse
+ * gets a lighter hover ring and the hand cursor.
  */
 @Composable
 fun GridScreen(
@@ -95,22 +121,27 @@ fun GridScreen(
     // tile with a camera then. -1 when the page has none.
     val currentIndex = focusIndex.takeIf { tiles.getOrNull(it)?.camera != null }
         ?: tiles.indexOfFirst { it.camera != null }
-    val tileRequesters = remember(tiles.size) { List(tiles.size) { FocusRequester() } }
+    val gridRequester = remember { FocusRequester() }
     val settingsRequester = remember { FocusRequester() }
-    val inputModeManager = LocalInputModeManager.current
+    var gridFocused by remember { mutableStateOf(false) }
+    var hoveredIndex by remember { mutableIntStateOf(-1) }
+    val keyMode = LocalInputModeManager.current.inputMode == InputMode.Keyboard
+    val showSelection = gridFocused && keyMode && currentIndex >= 0
 
-    // Put focus on the current tile when the page or target changes (and on entering the grid).
-    // Only in key mode: on a phone a focus border on a random tile would just be noise.
-    LaunchedEffect(currentPage, currentIndex, gridPage.view) {
-        if (inputModeManager.inputMode == InputMode.Keyboard && currentIndex >= 0) {
-            tileRequesters[currentIndex].tryRequestFocus()
-        }
-    }
+    // The wall takes the keys on entering the grid and keeps focus across page switches.
+    LaunchedEffect(Unit) { gridRequester.tryRequestFocus() }
 
     val pageCount = pages.size
-    val swipeToPage by rememberUpdatedState { delta: Int ->
+    val switchPage by rememberUpdatedState { delta: Int ->
         val target = currentPage + delta
         if (target in 0 until pageCount) onPositionChange(GridPosition(target, 0))
+    }
+    val openTile by rememberUpdatedState { index: Int ->
+        val camera = tiles.getOrNull(index)?.camera
+        if (camera != null) {
+            onPositionChange(GridPosition(currentPage, index))
+            onOpenCamera(camera.id)
+        }
     }
 
     Box(
@@ -122,23 +153,43 @@ fun GridScreen(
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    val direction = event.key.toDirection() ?: return@onPreviewKeyEvent false
-                    if (currentIndex < 0) return@onPreviewKeyEvent false
-                    val from = GridPosition(currentPage, currentIndex)
-                    val to = TileNavigator.move(pages, from, direction)
+                .focusRequester(gridRequester)
+                .onFocusChanged { gridFocused = it.isFocused }
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    val key = event.key
+                    val direction = key.toDirection()
+                    val digit = key.digit()
                     when {
-                        to != from -> {
-                            onPositionChange(to)
-                            // Same page: move focus right away; a new page focuses via the effect above.
-                            if (to.page == currentPage) tileRequesters[to.index].tryRequestFocus()
+                        direction != null -> {
+                            val from = GridPosition(currentPage, currentIndex)
+                            val to = if (currentIndex >= 0) TileNavigator.move(pages, from, direction) else from
+                            when {
+                                to != from -> onPositionChange(to)
+                                // Top edge: go up to the settings button in the corner.
+                                direction == Direction.UP -> settingsRequester.tryRequestFocus()
+                            }
+                            true
                         }
-                        // Top edge: go up to the settings button in the corner.
-                        direction == Direction.UP -> settingsRequester.tryRequestFocus()
+                        key.isConfirm() -> {
+                            // A held OK must not reach fullscreen as a burst of sound toggles.
+                            if (!event.isRepeat) openTile(currentIndex)
+                            true
+                        }
+                        digit != null -> {
+                            val index = tiles.indices.filter { tiles[it].camera != null }.getOrNull(digit - 1)
+                            if (index != null && !event.isRepeat) openTile(index)
+                            true
+                        }
+                        key.pageDelta() != 0 -> {
+                            switchPage(key.pageDelta())
+                            true
+                        }
+                        // Unhandled keys (Esc, ?, F...) go on to the app and the window.
+                        else -> false
                     }
-                    true
                 }
+                .focusable()
                 .pointerInput(Unit) {
                     val threshold = 80.dp.toPx()
                     var total = 0f
@@ -146,8 +197,8 @@ fun GridScreen(
                         onDragStart = { total = 0f },
                         onDragEnd = {
                             when {
-                                total < -threshold -> swipeToPage(1)
-                                total > threshold -> swipeToPage(-1)
+                                total < -threshold -> switchPage(1)
+                                total > threshold -> switchPage(-1)
                             }
                         },
                     ) { change, dragAmount ->
@@ -159,29 +210,48 @@ fun GridScreen(
             val view = gridPage.view
             val cellWidth = maxWidth / view.columns
             val cellHeight = maxHeight / view.rows
+            val slot = { tile: Tile ->
+                Modifier
+                    .offset(x = cellWidth * tile.x, y = cellHeight * tile.y)
+                    .size(width = cellWidth * tile.w, height = cellHeight * tile.h)
+                    .padding(TileGap)
+            }
             tiles.forEachIndexed { index, placed ->
-                val tile = placed.tile
-                Box(
-                    Modifier
-                        .offset(x = cellWidth * tile.x, y = cellHeight * tile.y)
-                        .size(width = cellWidth * tile.w, height = cellHeight * tile.h)
-                        .padding(2.dp),
-                ) {
+                Box(slot(placed.tile)) {
                     // A tile showing a different camera after a page switch restarts its player,
                     // because rememberLiveStream is keyed by the URL. A fixed tile that keeps its
                     // camera across pages keeps playing.
                     val camera = placed.camera
                     if (camera != null) {
+                        val ringed = showSelection && index == currentIndex
                         CameraTile(
                             video = video,
                             camera = camera,
-                            fit = tile.fit,
-                            focusRequester = tileRequesters[index],
-                            onFocused = { onPositionChange(GridPosition(currentPage, index)) },
-                            onClick = { onOpenCamera(camera.id) },
+                            fit = placed.tile.fit,
+                            selected = index == currentIndex,
+                            // Inside the ring, so the ring never covers the video, even where a
+                            // video view draws over the window's content.
+                            modifier = Modifier.padding(if (ringed) SelectionWidth + 1.dp else 0.dp),
+                            onHoverChange = { hovered ->
+                                if (hovered) {
+                                    hoveredIndex = index
+                                } else if (hoveredIndex == index) {
+                                    hoveredIndex = -1
+                                }
+                            },
+                            onClick = { openTile(index) },
                         )
                     }
                 }
+            }
+
+            // The rings come last, so they are drawn over every tile.
+            val hovered = tiles.getOrNull(hoveredIndex)?.takeIf { it.camera != null }
+            if (hovered != null && !(showSelection && hoveredIndex == currentIndex)) {
+                Box(slot(hovered.tile).border(3.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(4.dp)))
+            }
+            if (showSelection) {
+                Box(slot(tiles[currentIndex].tile).border(SelectionWidth, FocusColor, RoundedCornerShape(4.dp)))
             }
         }
 
@@ -211,13 +281,14 @@ fun GridScreen(
                 .padding(8.dp)
                 .focusBorder(width = 3.dp, shape = CircleShape)
                 .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                .pointerHoverIcon(PointerIcon.Hand)
                 .focusRequester(settingsRequester)
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (event.key) {
-                        // Back into the grid, to the tile that had focus before.
+                        // Back into the grid, to the tile that was selected before.
                         Key.DirectionDown, Key.DirectionLeft -> {
-                            if (currentIndex >= 0) tileRequesters[currentIndex].tryRequestFocus()
+                            gridRequester.tryRequestFocus()
                             true
                         }
                         Key.DirectionUp, Key.DirectionRight -> true
@@ -234,22 +305,32 @@ fun GridScreen(
     }
 }
 
+/**
+ * One camera on the wall. Clickable for touch and mouse but never focusable: the wall's
+ * container owns the keys, and [selected] is its state (exposed to accessibility and tests).
+ */
 @Composable
 private fun CameraTile(
     video: VideoPlatform,
     camera: Camera,
     fit: FitMode,
-    focusRequester: FocusRequester,
-    onFocused: () -> Unit,
+    selected: Boolean,
+    modifier: Modifier,
+    onHoverChange: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
     val stream = video.rememberLiveStream(camera.gridUrl, camera.streamType, camera.name, audioEnabled = false)
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    val currentOnHoverChange by rememberUpdatedState(onHoverChange)
+    LaunchedEffect(hovered) { currentOnHoverChange(hovered) }
     Box(
-        Modifier
+        modifier
             .fillMaxSize()
-            .focusBorder(width = 5.dp, shape = RoundedCornerShape(4.dp))
-            .focusRequester(focusRequester)
-            .onFocusChanged { if (it.isFocused) onFocused() }
+            .semantics { this.selected = selected }
+            .focusProperties { canFocus = false }
+            .hoverable(hoverSource)
+            .pointerHoverIcon(PointerIcon.Hand)
             .clickable(onClick = onClick)
             .background(Color.Black),
     ) {
