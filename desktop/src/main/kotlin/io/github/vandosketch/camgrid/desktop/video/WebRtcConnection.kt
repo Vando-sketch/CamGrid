@@ -15,12 +15,8 @@ import dev.onvoid.webrtc.RTCRtpTransceiverInit
 import dev.onvoid.webrtc.RTCSdpType
 import dev.onvoid.webrtc.RTCSessionDescription
 import dev.onvoid.webrtc.SetSessionDescriptionObserver
-import dev.onvoid.webrtc.media.FourCC
 import dev.onvoid.webrtc.media.audio.AudioTrack
-import dev.onvoid.webrtc.media.video.VideoBufferConverter
-import dev.onvoid.webrtc.media.video.VideoFrame
 import dev.onvoid.webrtc.media.video.VideoTrack
-import dev.onvoid.webrtc.media.video.VideoTrackSink
 import io.github.vandosketch.camgrid.core.Go2rtc
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
@@ -70,7 +66,7 @@ class WebRtcConnection(
         val factory = WebRtcEngine.factory
         val failed = CompletableDeferred<String>()
         val gatheringComplete = CompletableDeferred<Unit>()
-        val sink = Sink(frames)
+        val sink = WebRtcFrameSink(this.frames, frames, isClosed = { closed })
         var videoTrack: VideoTrack? = null
 
         val observer = object : PeerConnectionObserver {
@@ -134,27 +130,6 @@ class WebRtcConnection(
                 } catch (e: Exception) {
                     System.err.println("CamGrid: WebRTC close failed (${e.javaClass.simpleName})")
                 }
-            }
-        }
-    }
-
-    /** Converts each decoded frame (on a libwebrtc decoder thread) into the frame holder. */
-    private inner class Sink(private val listener: FrameListener) : VideoTrackSink {
-        override fun onVideoFrame(frame: VideoFrame) {
-            if (closed) return
-            listener.onFrame()
-            val buffer = frame.buffer
-            val (width, height) = frames.targetSize(buffer.width, buffer.height)
-            val scaled = if (width == buffer.width && height == buffer.height) {
-                null
-            } else {
-                buffer.cropAndScale(0, 0, buffer.width, buffer.height, width, height)
-            }
-            try {
-                // libyuv's "ARGB" is B, G, R, A in memory: Skia's BGRA_8888.
-                frames.write(width, height) { pixels -> VideoBufferConverter.convertFromI420(scaled ?: buffer, pixels, FourCC.ARGB) }
-            } finally {
-                scaled?.release()
             }
         }
     }

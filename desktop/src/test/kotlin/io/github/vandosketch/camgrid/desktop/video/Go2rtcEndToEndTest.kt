@@ -129,6 +129,51 @@ class Go2rtcEndToEndTest {
         assertEquals(1280 to 720, r.width to r.height)
     }
 
+    // Issue #24: memory must stay flat while a grid plays. Six tiles as in the report, half of
+    // them 720p; resident memory is compared between two points after the streams settled.
+
+    private fun residentMemoryGrowth(connect: (Int, FrameHolder) -> StreamConnection): Long {
+        assumeTrue("needs /proc (Linux)", File("/proc/self/status").exists())
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val holders = List(6) { FrameHolder().apply { viewport = FrameHolder.Viewport(640, 360, FitMode.FIT) } }
+        val runners = holders.mapIndexed { i, holder -> StreamRunner(scope, "tile-$i", connect = { connect(i, holder) }) }
+        try {
+            runners.forEach { it.start() }
+            Thread.sleep(4_000)
+            val framesBefore = holders.sumOf { it.framesWritten }
+            val before = TestMemory.residentBytes()
+            Thread.sleep(8_000)
+            val growth = TestMemory.residentBytes() - before
+            val frames = holders.sumOf { it.framesWritten } - framesBefore
+            println("E2E six tiles: ${growth / 1_000_000} MB growth over $frames frames in 8 s")
+            assertTrue(runners.all { it.status == StreamStatus.Playing }, "not all playing: ${runners.map { it.status }}")
+            assertTrue(frames >= 6 * 150, "only $frames frames")
+            return growth
+        } finally {
+            runners.forEach { it.release() }
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun sixWebrtcTilesKeepMemoryFlat() {
+        val base = requireServer()
+        val growth = residentMemoryGrowth { i, holder ->
+            WebRtcConnection(Go2rtc.webrtcUrl(base, if (i % 2 == 0) "baseline" else "high"), holder, audioEnabled = false)
+        }
+        // Unreleased frames were 4 GB here (3 x 1.4 MB + 3 x 0.35 MB, 25 fps, 8 s).
+        assertTrue(growth < 150_000_000, "grew ${growth / 1_000_000} MB in 8 s")
+    }
+
+    @Test
+    fun sixRtspTilesKeepMemoryFlat() {
+        val base = requireServer()
+        val growth = residentMemoryGrowth { i, holder ->
+            RtspConnection(rtspUrl(base, if (i % 2 == 0) "baseline" else "high"), holder, audioEnabled = false)
+        }
+        assertTrue(growth < 150_000_000, "grew ${growth / 1_000_000} MB in 8 s")
+    }
+
     /** Counts the PCM bytes the decoder plays instead of using a sound card. */
     private class CountingOutput : AudioOutput {
         @Volatile var bytes = 0L

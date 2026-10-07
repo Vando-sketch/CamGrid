@@ -4,6 +4,10 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+
+- **Desktop: memory no longer grows while WebRTC streams play.** Every decoded WebRTC frame was kept in memory, about 25 MB per second for each 720p stream, until the system closed the app. ([#24](https://github.com/Vando-sketch/CamGrid/issues/24))
+
 ## [0.1.0] - 2026-10-07
 
 The first stable release.
