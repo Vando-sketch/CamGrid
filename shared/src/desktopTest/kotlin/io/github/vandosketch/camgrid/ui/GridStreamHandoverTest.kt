@@ -117,7 +117,8 @@ class GridStreamHandoverTest {
     }
 
     private fun ComposeUiTest.assertVideoShown(url: String, shown: Boolean = true) {
-        val count = onAllNodes(hasTestTag("video $url")).fetchSemanticsNodes().size
+        // Unmerged: a clickable grid tile merges its children's semantics into its own.
+        val count = onAllNodes(hasTestTag("video $url"), useUnmergedTree = true).fetchSemanticsNodes().size
         assertEquals(shown, count > 0, "video $url shown")
     }
 
