@@ -4,6 +4,10 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+
+- **Fire TV: the app no longer crashes when a WebRTC camera starts playing.** ([#34](https://github.com/Vando-sketch/CamGrid/issues/34))
+
 ## [0.2.0] - 2026-10-07
 
 ### Fixed
