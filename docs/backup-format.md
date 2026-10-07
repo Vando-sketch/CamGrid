@@ -61,13 +61,19 @@ If the file is encrypted, the app asks for the password. It then shows how many 
 ## Where files go
 
 - **Phone:** the system file picker. Export suggests the name `camgrid-backup-<date>-<time>.json`; save it wherever you like (Downloads, a cloud drive).
-- **Fire TV:** there is no file picker. Export saves to the app's own folder, and Import lists the `.json` files in that folder, newest first:
+- **Fire TV and other Android TVs:** the app never opens the system file picker (Fire TV's only shows recently used files, so a backup could not be found). Instead:
+  - **Transfer page (easiest).** While Settings > Backup is open, the TV runs a small web page on the local network and shows its address (for example `http://192.0.2.30:8765`), a QR code of it and a 6-digit PIN. Open the address on a phone or computer in the same Wi-Fi and enter the PIN. *Send to TV* uploads a backup file: the TV then asks for its password, if it has one, and before replacing anything. To get a backup off the TV, export on the TV first, then press *Download backup* on the page.
 
-  ```
-  /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups
-  ```
+    The page only exists while the backup screen is visible (it stops when you leave the screen or the app goes to the background), listens only on the TV's local network address, and answers only requests with the PIN. Every visit to the screen gets a new PIN, and after 10 wrong PINs the page closes until the screen is opened again. Uploads are limited to 2 MB. The connection is plain HTTP, not encrypted, so export with a password.
+  - **The app's own folder.** Export also saves there, and *Show backup files on this TV* lists the `.json` files in it, newest first:
 
-  Copy files off and on with `adb`:
+    ```
+    /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups
+    ```
+
+  - **Download folder (Android 10 / Fire OS 7 and older).** *Also look in the Download folder* asks for storage access once and then lists the `.json` files in `/sdcard/Download` too. Newer Android versions only grant photos and videos with that permission, so the button is not offered there.
+
+  Copy files off and on the app's folder with `adb`:
 
   ```sh
   adb connect 192.0.2.30:5555
@@ -78,9 +84,9 @@ If the file is encrypted, the app asks for the password. It then shows how many 
   adb push camgrid-backup-2026-10-06-120000.json /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups/
   ```
 
-**Uninstalling the app deletes this folder too.** Pull the backup to a computer before you uninstall.
+**Uninstalling the app deletes this folder too.** Download or pull the backup to another device before you uninstall.
 
-A backup made on a phone can be pushed to a Fire TV and imported there, and the other way round.
+A backup made on a phone can be sent to a Fire TV and imported there, and the other way round.
 
 ## Config file
 

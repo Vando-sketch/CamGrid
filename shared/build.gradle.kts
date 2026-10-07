@@ -59,6 +59,8 @@ kotlin {
             implementation(compose.desktop.currentOs)
             // Compose UI tests of the shared screens, run on the JVM (runComposeUiTest).
             implementation(libs.cmp.ui.test)
+            // Decodes the transfer QR code in tests; not part of any app.
+            implementation(libs.zxing.core)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

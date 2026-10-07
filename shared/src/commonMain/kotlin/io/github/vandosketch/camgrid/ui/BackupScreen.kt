@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,14 +39,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import io.github.vandosketch.camgrid.BackupError
 import io.github.vandosketch.camgrid.BackupState
+import io.github.vandosketch.camgrid.LanTransferState
 import io.github.vandosketch.camgrid.platform.BackupDocument
 import io.github.vandosketch.camgrid.platform.BackupFiles
 import io.github.vandosketch.camgrid.shared.resources.Res
 import io.github.vandosketch.camgrid.shared.resources.bk_back
 import io.github.vandosketch.camgrid.shared.resources.bk_cameras
 import io.github.vandosketch.camgrid.shared.resources.bk_cancel
+import io.github.vandosketch.camgrid.shared.resources.bk_downloads_ask
+import io.github.vandosketch.camgrid.shared.resources.bk_downloads_denied
 import io.github.vandosketch.camgrid.shared.resources.bk_error_newer_version
 import io.github.vandosketch.camgrid.shared.resources.bk_error_password_empty
 import io.github.vandosketch.camgrid.shared.resources.bk_error_password_mismatch
@@ -60,6 +65,7 @@ import io.github.vandosketch.camgrid.shared.resources.bk_folder_files
 import io.github.vandosketch.camgrid.shared.resources.bk_folder_help
 import io.github.vandosketch.camgrid.shared.resources.bk_import_from_file
 import io.github.vandosketch.camgrid.shared.resources.bk_imported
+import io.github.vandosketch.camgrid.shared.resources.bk_lan_title
 import io.github.vandosketch.camgrid.shared.resources.bk_password
 import io.github.vandosketch.camgrid.shared.resources.bk_password_repeat
 import io.github.vandosketch.camgrid.shared.resources.bk_plain_confirm
@@ -73,6 +79,7 @@ import io.github.vandosketch.camgrid.shared.resources.bk_saved_plain_reminder
 import io.github.vandosketch.camgrid.shared.resources.bk_section_export
 import io.github.vandosketch.camgrid.shared.resources.bk_section_import
 import io.github.vandosketch.camgrid.shared.resources.bk_title
+import io.github.vandosketch.camgrid.shared.resources.bk_tv_import_local
 import io.github.vandosketch.camgrid.shared.resources.bk_unlock
 import io.github.vandosketch.camgrid.shared.resources.bk_unlock_message
 import io.github.vandosketch.camgrid.shared.resources.bk_unlock_title
@@ -93,9 +100,16 @@ private class PendingExport {
 
 /**
  * Export of all settings to a (optionally password-encrypted) file and import from one. Uses
- * the platform's file picker from [files]; devices without one (Fire TV) fall back to the app's
- * own folder at [folderPath], filled with adb push. The work and its result live in the
- * ViewModel ([state]).
+ * the platform's file picker from [files]; devices without one fall back to the app's own
+ * folder at [folderPath] (adb push / pull).
+ *
+ * On a TV ([BackupFiles.lanServer] set) there is no usable picker. While this screen is visible
+ * (started, in lifecycle terms) the TV serves a transfer page on the local network
+ * ([onStartLanTransfer] / [onStopLanTransfer], shown from [lanTransfer]): a phone or computer
+ * uploads a backup there, which runs through the same password and confirmation dialogs, or
+ * downloads the file exported here ([lanDownloadName]). On older Android TVs the public
+ * Download folder ([BackupFiles.downloads]) is listed too. The work and its result live in
+ * the ViewModel ([state]).
  */
 @Composable
 fun BackupScreen(
@@ -104,15 +118,31 @@ fun BackupScreen(
     folderPath: String?,
     suggestedName: String,
     listFolderFiles: () -> List<String>,
+    lanTransfer: LanTransferState,
+    lanDownloadName: String?,
+    onStartLanTransfer: () -> Unit,
+    onStopLanTransfer: () -> Unit,
     onExport: (target: BackupDocument, password: CharArray?) -> Unit,
     onExportToFolder: (password: CharArray?) -> Unit,
     onImport: (source: BackupDocument) -> Unit,
     onImportFromFolder: (name: String) -> Unit,
+    onImportFromDownloads: (name: String) -> Unit,
     onSubmitPassword: (CharArray) -> Unit,
     onConfirmImport: () -> Unit,
     onReset: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val isTv = files.lanServer != null
+    if (isTv) {
+        val start by rememberUpdatedState(onStartLanTransfer)
+        val stop by rememberUpdatedState(onStopLanTransfer)
+        // Serves only while the screen is visible: stops when leaving it or going to the background.
+        LifecycleStartEffect(Unit) {
+            start()
+            onStopOrDispose { stop() }
+        }
+    }
+    val downloads = files.downloads
     // Plain remember, not rememberSaveable: passwords stay out of the saved state.
     var password by remember { mutableStateOf("") }
     var repeat by remember { mutableStateOf("") }
@@ -122,6 +152,9 @@ fun BackupScreen(
     var lastExportPlain by remember { mutableStateOf(false) }
     // Files in the app folder, listed once the open dialog turned out to be missing.
     var folderFiles by remember { mutableStateOf<List<String>?>(null) }
+    // Files in the public Download folder (older Android TVs), once readable and asked for.
+    var downloadFiles by remember { mutableStateOf<List<String>?>(null) }
+    var downloadsDenied by remember { mutableStateOf(false) }
     val pending = remember { PendingExport() }
 
     val pickers = files.rememberPickers(
@@ -171,6 +204,11 @@ fun BackupScreen(
 
         // Progress and results sit right under the header, where they are seen without scrolling.
         StatusMessage(state = state, lastExportPlain = lastExportPlain)
+
+        if (isTv) {
+            SectionTitle(stringResource(Res.string.bk_lan_title))
+            LanTransferPanel(state = lanTransfer, downloadName = lanDownloadName)
+        }
 
         SectionTitle(stringResource(Res.string.bk_section_export))
         HelpText(stringResource(Res.string.bk_export_help))
@@ -225,27 +263,34 @@ fun BackupScreen(
         Button(
             onClick = {
                 if (!pickers.launchOpen()) {
-                    // No file picker (Fire TV): offer the files in the app folder instead.
+                    // No usable file picker (TV): offer the files in the app folder instead.
                     folderFiles = listFolderFiles()
+                    if (downloads != null && !downloads.needsPermission) downloadFiles = downloads.list()
                 }
             },
             modifier = Modifier.focusBorder(shape = CircleShape),
         ) {
-            Text(stringResource(Res.string.bk_import_from_file))
+            Text(stringResource(if (isTv) Res.string.bk_tv_import_local else Res.string.bk_import_from_file))
         }
         folderFiles?.let { names ->
-            val folder = folderPath.orEmpty()
-            if (names.isEmpty()) {
-                HelpText(stringResource(Res.string.bk_folder_empty, folder))
-            } else {
-                HelpText(stringResource(Res.string.bk_folder_files, folder))
-                names.forEach { name ->
+            FileList(folder = folderPath.orEmpty(), names = names, onPick = onImportFromFolder)
+            if (downloads != null) {
+                val listed = downloadFiles
+                if (listed != null) {
+                    FileList(folder = downloads.path, names = listed, onPick = onImportFromDownloads)
+                } else {
                     OutlinedButton(
-                        onClick = { onImportFromFolder(name) },
+                        onClick = {
+                            pickers.requestDownloadsAccess { granted ->
+                                downloadsDenied = !granted
+                                if (granted) downloadFiles = downloads.list()
+                            }
+                        },
                         modifier = Modifier.focusBorder(shape = CircleShape),
                     ) {
-                        Text(name)
+                        Text(stringResource(Res.string.bk_downloads_ask))
                     }
+                    if (downloadsDenied) HelpText(stringResource(Res.string.bk_downloads_denied))
                 }
             }
         }
@@ -296,6 +341,24 @@ fun BackupScreen(
             onCancel = onReset,
         )
         else -> Unit
+    }
+}
+
+/** The backup files [names] in [folder], one button each; a note when there are none. */
+@Composable
+private fun FileList(folder: String, names: List<String>, onPick: (String) -> Unit) {
+    if (names.isEmpty()) {
+        HelpText(stringResource(Res.string.bk_folder_empty, folder))
+        return
+    }
+    HelpText(stringResource(Res.string.bk_folder_files, folder))
+    names.forEach { name ->
+        OutlinedButton(
+            onClick = { onPick(name) },
+            modifier = Modifier.focusBorder(shape = CircleShape),
+        ) {
+            Text(name)
+        }
     }
 }
 
@@ -460,7 +523,7 @@ private fun PasswordField(
 }
 
 @Composable
-private fun HelpText(text: String) {
+internal fun HelpText(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,

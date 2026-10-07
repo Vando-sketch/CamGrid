@@ -107,7 +107,7 @@
     <!-- Backup: import -->
     <string name="bk_section_import">Import settings</string>
     <string name="bk_import_from_file">Import from file</string>
-    <string name="bk_folder_help">Without a file picker (Fire TV), backups are saved to and read from: %1$s. Copy files there with adb push.</string>
+    <string name="bk_folder_help">Without a file picker (TVs), backups are saved to and read from %1$s. With adb, copy files there with adb push and back with adb pull.</string>
     <string name="bk_folder_empty">No backup files in %1$s</string>
     <string name="bk_folder_files">Backup files in %1$s:</string>
 
