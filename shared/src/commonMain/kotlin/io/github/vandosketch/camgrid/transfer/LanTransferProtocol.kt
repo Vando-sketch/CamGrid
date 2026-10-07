@@ -72,7 +72,8 @@ class LanTransferProtocol(
             return HttpResponse.text(421, "Open the address shown on the TV.")
         }
         if (locked) return HttpResponse.text(429, "Too many wrong PINs. Open the backup screen on the TV again.")
-        val given = head.header(PIN_HEADER)
+        // Blank counts as missing, not as a wrong guess: the page sends the header before anything was typed.
+        val given = head.header(PIN_HEADER)?.takeIf { it.isNotBlank() }
         if (given == null) {
             return if (head.path == "/") page(401) else HttpResponse.text(401, "Enter the PIN shown on the TV.")
         }

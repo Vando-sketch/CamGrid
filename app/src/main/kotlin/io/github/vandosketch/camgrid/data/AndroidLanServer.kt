@@ -11,11 +11,13 @@ import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * The socket side of the backup transfer on TVs (the protocol is common code): one
  * [ServerSocket] bound to the device's private IPv4 address on Wi-Fi or Ethernet, never to all
- * interfaces, and one daemon thread that handles one connection at a time. Needs no permission
+ * interfaces, and one daemon thread that handles one connection at a time, each with a deadline. Needs no permission
  * beyond INTERNET. Logs only exception types, never request contents.
  */
 class AndroidLanServer : LanServer {
@@ -25,6 +27,11 @@ class AndroidLanServer : LanServer {
     /** The connection being handled, closed by [stop] so the thread does not wait for a slow client. */
     @Volatile
     private var client: Socket? = null
+
+    /** Closes connections that run past [CONNECTION_DEADLINE_MS]. */
+    private val watchdog = Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "camgrid-transfer-watchdog").apply { isDaemon = true }
+    }
 
     @Synchronized
     override fun start(handler: TransferConnectionHandler): String? {
@@ -47,14 +54,17 @@ class AndroidLanServer : LanServer {
     }
 
     /** A server socket on [port] (0: any free port), or null when it is taken. */
-    private fun bind(address: InetAddress, port: Int): ServerSocket? = try {
-        ServerSocket().apply {
-            reuseAddress = true
-            bind(InetSocketAddress(address, port), BACKLOG)
+    private fun bind(address: InetAddress, port: Int): ServerSocket? {
+        val socket = ServerSocket()
+        return try {
+            socket.reuseAddress = true
+            socket.bind(InetSocketAddress(address, port), BACKLOG)
+            socket
+        } catch (e: IOException) {
+            closeQuietly(socket)
+            AppLog.w("Backup transfer cannot listen: ${e.javaClass.simpleName}")
+            null
         }
-    } catch (e: IOException) {
-        AppLog.w("Backup transfer cannot listen: ${e.javaClass.simpleName}")
-        null
     }
 
     private fun serve(socket: ServerSocket, handler: TransferConnectionHandler) {
@@ -66,6 +76,8 @@ class AndroidLanServer : LanServer {
                 break
             }
             client = connection
+            // A client that trickles bytes must not hold the only thread: close it at the deadline.
+            val deadline = watchdog.schedule(Runnable { closeQuietly(connection) }, CONNECTION_DEADLINE_MS, TimeUnit.MILLISECONDS)
             try {
                 connection.use { handle(it, handler) }
             } catch (e: IOException) {
@@ -74,7 +86,9 @@ class AndroidLanServer : LanServer {
                 // A bug must not end the server while the screen still shows its address.
                 AppLog.e("Backup transfer request failed: ${e.javaClass.simpleName}")
             } finally {
-                client = null
+                deadline.cancel(false)
+                // After a stop() and start() the new thread may already have its own client.
+                if (client === connection) client = null
             }
         }
     }
@@ -107,7 +121,11 @@ class AndroidLanServer : LanServer {
         /** Easy to type; any free port when it is taken. */
         const val PREFERRED_PORT = 8765
         const val BACKLOG = 4
-        const val READ_TIMEOUT_MS = 15_000
+        /** Per read; short, so an idle speculative browser connection does not stall the real request long. */
+        const val READ_TIMEOUT_MS = 5_000
+
+        /** Whole connection, upload included (2 MB on a LAN takes well under a second). */
+        const val CONNECTION_DEADLINE_MS = 20_000L
         const val DRAIN_TIMEOUT_MS = 2_000
         const val MAX_DRAIN_BYTES = 4L * 1024 * 1024
 

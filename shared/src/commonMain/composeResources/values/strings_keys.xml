@@ -24,7 +24,7 @@
     <string name="keys_fullscreen_sound">Sound on or off</string>
     <string name="keys_back">Esc or Backspace</string>
     <string name="keys_back_action">Back; from one camera to the wall</string>
-    <string name="keys_window">F11 or F</string>
+    <string name="keys_window">F11</string>
     <string name="keys_window_action">Window fullscreen on or off</string>
     <string name="keys_help">? or F1</string>
     <string name="keys_help_action">Show this help</string>

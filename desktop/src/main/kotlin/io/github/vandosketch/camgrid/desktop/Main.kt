@@ -44,8 +44,8 @@ import javax.imageio.ImageIO
  * the players without touching the saved config: `rtsp://` URLs play over RTSP, anything else
  * over WebRTC (go2rtc's `/api/webrtc?src=...`).
  *
- * The window comes back with the size, position and placement it had when last closed. F11 or
- * F toggle window fullscreen, and on the camera wall and fullscreen the mouse cursor hides
+ * The window comes back with the size, position and placement it had when last closed. F11
+ * toggles window fullscreen (not a bare F: text fields leave letter key presses unconsumed), and on the camera wall and fullscreen the mouse cursor hides
  * while it rests.
  */
 fun main(args: Array<String>) {
@@ -71,15 +71,6 @@ fun main(args: Array<String>) {
             onPreviewKeyEvent = { event ->
                 // F11 toggles fullscreen from anywhere, like browsers and video players.
                 if (event.isPlainPress(Key.F11)) {
-                    windowState.toggleFullscreen()
-                    true
-                } else {
-                    false
-                }
-            },
-            onKeyEvent = { event ->
-                // F like video players, but only when nothing took the key: in a text field it is text.
-                if (event.isPlainPress(Key.F)) {
                     windowState.toggleFullscreen()
                     true
                 } else {

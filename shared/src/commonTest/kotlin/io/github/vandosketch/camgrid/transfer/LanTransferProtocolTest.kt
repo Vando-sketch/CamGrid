@@ -96,6 +96,15 @@ class LanTransferProtocolTest {
     }
 
     @Test
+    fun emptyPinsDoNotCountAsGuesses() {
+        // The page sends the header even before anything was typed.
+        repeat(LanTransferProtocol.MAX_PIN_FAILURES * 2) {
+            assertEquals(401, request("POST", "/upload", pin = " ", body = "{}".encodeToByteArray()).status)
+        }
+        assertFalse(protocol.locked)
+    }
+
+    @Test
     fun uploadPassesTheBytesThrough() {
         val text = """{"format":"camgrid-backup","note":"äöü ✓"}"""
         val reply = request("POST", "/upload", body = text.encodeToByteArray())
