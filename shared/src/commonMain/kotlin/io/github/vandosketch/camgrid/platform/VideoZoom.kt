@@ -27,17 +27,19 @@ class VideoZoom private constructor(
      * the spot between two pinching fingers.
      */
     fun zoomBy(factor: Float, focusX: Float = 0.5f, focusY: Float = 0.5f): VideoZoom {
-        val newScale = scale * factor
-        // The focus point relative to the centre, and where in the unmagnified picture it is.
-        val fx = focusX - 0.5f
-        val fy = focusY - 0.5f
+        // Clamped first, so zooming past the limits never moves the picture.
+        val newScale = (scale * factor.finiteOr(1f)).coerceIn(1f, MAX_SCALE)
+        // The focus point relative to the centre (the centre when unknown, NaN), and where in
+        // the unmagnified picture it is.
+        val fx = focusX.finiteOr(0.5f) - 0.5f
+        val fy = focusY.finiteOr(0.5f) - 0.5f
         val pictureX = (fx - offsetX) / scale
         val pictureY = (fy - offsetY) / scale
         return of(newScale, fx - pictureX * newScale, fy - pictureY * newScale)
     }
 
     /** Moves the picture by [dx] and [dy], fractions of the bounds' width and height. */
-    fun panBy(dx: Float, dy: Float): VideoZoom = of(scale, offsetX + dx, offsetY + dy)
+    fun panBy(dx: Float, dy: Float): VideoZoom = of(scale, offsetX + dx.finiteOr(0f), offsetY + dy.finiteOr(0f))
 
     /** The scale with one decimal, "2.5", for the fullscreen hint. */
     fun scaleText(): String {
@@ -122,3 +124,5 @@ internal fun zoomLayoutScale(scale: Float, side: Int, maxLayoutSide: Int): Float
     if (side <= 0) return scale
     return minOf(scale, maxLayoutSide.toFloat() / side).coerceAtLeast(1f)
 }
+
+private fun Float.finiteOr(fallback: Float): Float = if (isFinite()) this else fallback

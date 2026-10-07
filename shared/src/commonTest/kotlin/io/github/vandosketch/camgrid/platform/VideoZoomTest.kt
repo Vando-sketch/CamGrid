@@ -13,6 +13,25 @@ class VideoZoomTest {
     }
 
     @Test
+    fun anUnknownFocusPointZoomsAroundTheCentre() {
+        // A gesture event can report an unspecified (NaN) centroid; it must not poison the zoom.
+        val zoom = VideoZoom.None.zoomBy(2f, Float.NaN, Float.NaN)
+        assertEquals(2f, zoom.scale)
+        assertEquals(0f, zoom.offsetX)
+        assertEquals(0f, zoom.offsetY)
+        val panned = zoom.panBy(Float.NaN, 0.1f)
+        assertEquals(0f, panned.offsetX)
+        assertNear(0.1f, panned.offsetY)
+    }
+
+    @Test
+    fun zoomingPastTheMaximumKeepsTheFocusPointStill() {
+        // Pinching past 4x must not move the picture as if it had zoomed further.
+        val atMax = VideoZoom.None.zoomBy(4f, 0.6f, 0.5f)
+        assertEquals(atMax, atMax.zoomBy(2f, 0.6f, 0.5f))
+    }
+
+    @Test
     fun noneShowsTheWholePicture() {
         val none = VideoZoom.None
         assertEquals(1f, none.scale)
