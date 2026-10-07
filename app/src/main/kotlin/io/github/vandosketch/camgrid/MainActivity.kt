@@ -5,6 +5,7 @@ import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -20,6 +21,7 @@ import io.github.vandosketch.camgrid.player.AndroidVideoPlatform
 import io.github.vandosketch.camgrid.player.StreamPlayer
 import io.github.vandosketch.camgrid.ui.CamGridApp
 import io.github.vandosketch.camgrid.ui.CamGridTheme
+import io.github.vandosketch.camgrid.ui.LocalDpadFirst
 
 /** The only activity. Opens straight into the camera grid. */
 class MainActivity : ComponentActivity() {
@@ -48,13 +50,17 @@ class MainActivity : ComponentActivity() {
         }
         viewModel = ViewModelProvider(this, factory)[CamGridViewModel::class.java]
 
+        // On a TV the D-pad only highlights text fields, so it can move past them; OK types.
+        val dpadFirst = isTvDevice()
         setContent {
             CamGridTheme {
-                CamGridApp(
-                    viewModel = viewModel,
-                    video = AndroidVideoPlatform,
-                    onImmersiveChange = ::setSystemBarsHidden,
-                )
+                CompositionLocalProvider(LocalDpadFirst provides dpadFirst) {
+                    CamGridApp(
+                        viewModel = viewModel,
+                        video = AndroidVideoPlatform,
+                        onImmersiveChange = ::setSystemBarsHidden,
+                    )
+                }
             }
         }
     }
