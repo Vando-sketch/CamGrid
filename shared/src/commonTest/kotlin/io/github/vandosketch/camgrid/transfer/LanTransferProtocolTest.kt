@@ -223,7 +223,7 @@ class LanTransferProtocolTest {
         assertEquals(200, request("POST", "/upload", pin = KEY, body = "{}".encodeToByteArray()).status)
         assertEquals(listOf("{}"), uploads)
         // A near miss is a wrong guess like any other.
-        assertEquals(403, request("GET", "/", pin = KEY.dropLast(1) + "0").status)
+        assertEquals(403, request("GET", "/", pin = KEY.dropLast(1) + "1").status)
     }
 
     @Test
