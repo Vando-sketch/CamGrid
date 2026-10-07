@@ -1,0 +1,38 @@
+{
+  "views": [
+    {
+      "id": "home",
+      "name": "Home",
+      "columns": 8,
+      "rows": 4,
+      "tiles": [
+        { "x": 0, "y": 0, "w": 2, "h": 4, "camera": "go2rtc:doorbell", "fit": "CROP" },
+        { "x": 2, "y": 0, "w": 4, "h": 2, "camera": "go2rtc:front_door", "fit": "CROP" },
+        { "x": 6, "y": 0, "w": 2, "h": 1, "camera": "go2rtc:driveway", "fit": "CROP" },
+        { "x": 6, "y": 1, "w": 2, "h": 1, "camera": "go2rtc:garden", "fit": "CROP" },
+        { "x": 2, "y": 2, "w": 3, "h": 2, "camera": "go2rtc:garage", "fit": "CROP" },
+        { "x": 5, "y": 2, "w": 3, "h": 2, "camera": "go2rtc:backyard", "fit": "CROP" }
+      ]
+    },
+    {
+      "id": "main",
+      "name": "All cameras",
+      "columns": 3,
+      "rows": 2,
+      "tiles": [
+        { "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": 2, "y": 0 },
+        { "x": 0, "y": 1 }, { "x": 1, "y": 1 }, { "x": 2, "y": 1 }
+      ]
+    }
+  ],
+  "cameras": [
+    { "id": "go2rtc:front_door", "name": "Front door", "gridUrl": "http://192.0.2.10:1984/api/webrtc?src=front_door", "streamType": "WEBRTC" },
+    { "id": "go2rtc:driveway", "name": "Driveway", "gridUrl": "http://192.0.2.10:1984/api/webrtc?src=driveway", "streamType": "WEBRTC" },
+    { "id": "go2rtc:garden", "name": "Garden", "gridUrl": "http://192.0.2.10:1984/api/webrtc?src=garden", "streamType": "WEBRTC" },
+    { "id": "go2rtc:garage", "name": "Garage", "gridUrl": "http://192.0.2.10:1984/api/webrtc?src=garage", "streamType": "WEBRTC" },
+    { "id": "go2rtc:doorbell", "name": "Doorbell", "gridUrl": "http://192.0.2.10:1984/api/webrtc?src=doorbell", "streamType": "WEBRTC" },
+    { "id": "go2rtc:backyard", "name": "Backyard", "gridUrl": "http://192.0.2.10:1984/api/webrtc?src=backyard", "streamType": "WEBRTC" }
+  ],
+  "go2rtcBaseUrl": "http://192.0.2.10:1984",
+  "version": 2
+}
