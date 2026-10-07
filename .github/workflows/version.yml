@@ -1,0 +1,80 @@
+name: Version
+
+# Called by the Android, Desktop and iOS workflows before they build, so every build of a run
+# gets the same version and a release tag that does not match fails before anything is built.
+# See docs/releasing.md, Version numbers.
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: "CAMGRID_VERSION: X.Y.Z on a vX.Y.Z tag, X.Y.Z-preview.<run> on main, X.Y.Z-dev.<run> otherwise"
+        value: ${{ jobs.version.outputs.version }}
+      base:
+        description: "camgrid.version from gradle.properties (X.Y.Z, numeric)"
+        value: ${{ jobs.version.outputs.base }}
+      channel:
+        description: "stable (a vX.Y.Z tag), preview (main) or dev (anything else)"
+        value: ${{ jobs.version.outputs.channel }}
+    # Only checked for being set: a release tag fails in every workflow, before anything is
+    # built or published, when the Android signing key is missing (see docs/releasing.md).
+    secrets:
+      CAMGRID_KEYSTORE_BASE64:
+        required: false
+      CAMGRID_KEYSTORE_PASSWORD:
+        required: false
+      CAMGRID_KEY_ALIAS:
+        required: false
+      CAMGRID_KEY_PASSWORD:
+        required: false
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      base: ${{ steps.version.outputs.base }}
+      channel: ${{ steps.version.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Work out the version
+        id: version
+        env:
+          HAS_SIGNING_KEY: ${{ secrets.CAMGRID_KEYSTORE_BASE64 != '' && secrets.CAMGRID_KEYSTORE_PASSWORD != '' && secrets.CAMGRID_KEY_ALIAS != '' && secrets.CAMGRID_KEY_PASSWORD != '' }}
+        run: |
+          set -euo pipefail
+          base=$(sed -n 's/^camgrid\.version[[:space:]]*=[[:space:]]*//p' gradle.properties | tr -d '[:space:]')
+          if ! [[ "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error file=gradle.properties::camgrid.version must be set to a version like 0.1.0 (found '${base}')."
+            exit 1
+          fi
+          run="$GITHUB_RUN_NUMBER"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            if [ "$GITHUB_REF_NAME" != "v$base" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match camgrid.version=$base in gradle.properties. Release tags are v<camgrid.version>, here v$base. Fix gradle.properties or the tag."
+              exit 1
+            fi
+            if ! grep -qF "## [$base]" CHANGELOG.md; then
+              echo "::error file=CHANGELOG.md::CHANGELOG.md has no '## [$base]' section for the release notes."
+              exit 1
+            fi
+            if [ "$HAS_SIGNING_KEY" != true ]; then
+              echo "::error title=No signing key::A release needs the CAMGRID_KEYSTORE_BASE64, CAMGRID_KEYSTORE_PASSWORD, CAMGRID_KEY_ALIAS and CAMGRID_KEY_PASSWORD secrets, so the APK installs over earlier ones. See docs/releasing.md, Signing key."
+              exit 1
+            fi
+            version="$base"; channel=stable
+          elif [ "$GITHUB_REF" = refs/heads/main ]; then
+            version="$base-preview.$run"; channel=preview
+          else
+            version="$base-dev.$run"; channel=dev
+          fi
+          echo "CamGrid $version ($channel), build number $run"
+          {
+            echo "version=$version"
+            echo "base=$base"
+            echo "channel=$channel"
+          } >> "$GITHUB_OUTPUT"
