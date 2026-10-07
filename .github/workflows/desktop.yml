@@ -7,6 +7,7 @@ run-name: "Desktop build ${{ github.run_number }} on ${{ github.ref_name }}"
 on:
   push:
     branches: [main, "claude/**"]
+    tags: ["v*"] # a stable release, see docs/releasing.md
   pull_request:
   workflow_dispatch:
 
@@ -15,10 +16,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version:
+    # A branch of this repository already runs on push; its pull request would run everything
+    # twice. Skipping this job skips the jobs that need it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    uses: ./.github/workflows/version.yml
+    permissions:
+      contents: read
+    secrets: # only checked for being set, on a release tag
+      CAMGRID_KEYSTORE_BASE64: ${{ secrets.CAMGRID_KEYSTORE_BASE64 }}
+      CAMGRID_KEYSTORE_PASSWORD: ${{ secrets.CAMGRID_KEYSTORE_PASSWORD }}
+      CAMGRID_KEY_ALIAS: ${{ secrets.CAMGRID_KEY_ALIAS }}
+      CAMGRID_KEY_PASSWORD: ${{ secrets.CAMGRID_KEY_PASSWORD }}
+
   build:
     name: Desktop ${{ matrix.name }}
-    # A branch of this repository already runs on push; its pull request would run everything twice.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -33,6 +46,8 @@ jobs:
     timeout-minutes: 60
     env:
       CAMGRID_BUILD_NUMBER: ${{ github.run_number }}
+      # X.Y.Z on a release tag, X.Y.Z-preview.<run> on main, X.Y.Z-dev.<run> otherwise.
+      CAMGRID_VERSION: ${{ needs.version.outputs.version }}
       # Also test the real OS credential store (Keychain, DPAPI); Linux runners have no
       # Secret Service, so the key file vault is what is tested there.
       CAMGRID_TEST_OS_VAULT: ${{ matrix.name != 'Linux' && '1' || '' }}
@@ -99,20 +114,21 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  # Its own release tag, separate from the Android workflow's "preview" release: that one is
-  # deleted and recreated on every Android build, which would race with uploads from here and
-  # drop the installers. One job collects all three OSes and replaces the release in one go.
+  # Main only. Its own pre-release, separate from the Android workflow's "preview" release: that
+  # one is deleted and recreated on every Android build, which would race with uploads from here
+  # and drop the installers. One job collects all three OSes and replaces the release in one go.
+  # Other branches keep their installers in the workflow artifacts only.
   publish:
-    name: Publish desktop release
-    needs: build
-    if: github.event_name == 'push'
+    name: Publish desktop preview
+    needs: [version, build]
+    if: needs.version.outputs.channel == 'preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v5
         with:
-          pattern: CamGrid-*
+          pattern: CamGrid-*-build-*
           path: dist
           merge-multiple: true
 
@@ -120,12 +136,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          BUILD: ${{ github.run_number }}
+          CAMGRID_VERSION: ${{ needs.version.outputs.version }}
         run: |
           ls -l dist
-          if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview-desktop; else tag="preview-desktop-${GITHUB_REF_NAME##*/}"; fi
+          tag=preview-desktop
           gh release delete "$tag" --cleanup-tag --yes || true
           gh release create "$tag" dist/* \
             --prerelease \
+            --latest=false \
             --target "$GITHUB_SHA" \
-            --title "CamGrid Desktop build ${{ github.run_number }} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
-            --notes "Desktop test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. macOS: CamGrid-macOS-AppleSilicon.dmg. Windows: CamGrid-Windows-x64.msi. Unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info, Run anyway. Linux: .deb (Debian, Ubuntu) or .rpm (Fedora, openSUSE). Bundles FFmpeg (LGPL build) and libwebrtc; see desktop/README.md for licences and sources."
+            --title "CamGrid Desktop preview build ${BUILD} (${GITHUB_SHA::7})" \
+            --notes "Preview build ${BUILD} of main, not a stable release; the stable release is at https://github.com/${GITHUB_REPOSITORY}/releases/latest. Desktop, version ${CAMGRID_VERSION}, commit ${GITHUB_SHA::7}. macOS: CamGrid-macOS-AppleSilicon.dmg. Windows: CamGrid-Windows-x64.msi. Unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info, Run anyway. Linux: .deb (Debian, Ubuntu) or .rpm (Fedora, openSUSE). Bundles FFmpeg (LGPL build) and libwebrtc; see desktop/README.md for licences and sources."
+
+  # On a vX.Y.Z tag: the four installers on the "CamGrid X.Y.Z" release.
+  release:
+    name: Release
+    needs: [version, build]
+    if: needs.version.outputs.channel == 'stable'
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.version.outputs.version }}
+      artifact-pattern: CamGrid-*-build-*
+      files: CamGrid-macOS-AppleSilicon.dmg CamGrid-Windows-x64.msi CamGrid-Linux-x64.deb CamGrid-Linux-x64.rpm

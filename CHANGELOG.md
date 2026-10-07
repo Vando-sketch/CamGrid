@@ -1,0 +1,34 @@
+# Changelog
+
+All notable changes to CamGrid are listed here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and CamGrid uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Each release on the [releases page](https://github.com/Vando-sketch/CamGrid/releases) takes its notes from the matching section below.
+
+## [Unreleased]
+
+## [0.1.0] - 2026-10-07
+
+The first stable release.
+
+### Added
+
+- **Apps for every screen.** One APK for Android phones and Fire TV (Android 7.1 / Fire OS 6 and newer), installers for macOS (Apple silicon), Windows and Linux (.deb and .rpm), and an unsigned iPhone and iPad app (iOS 15 and newer) to sign with your own Apple ID. All of them share the same screens and settings format.
+- **Camera grid and fullscreen.** Live streams in a grid with low-resolution, muted tiles. Tap a tile or press OK to watch that camera fullscreen with its high-resolution stream and sound, and switch to the next or previous camera from there.
+- **Views with free layouts.** Tiles on a canvas of up to 12x12 cells can span several cells, so portrait and landscape cameras sit side by side. Up to 16 tiles per view and several views one after the other. A tile shows a fixed camera or the next camera in order, and crops or fits the picture.
+- **View editor** that works with a Fire TV remote and by touch: select, move and resize tiles, presets for common layouts, and a warning when a view plays more streams than a Fire TV Stick can decode.
+- **Fire TV remote and touch controls** throughout: D-pad navigation, paging across views, swipe on phones, and keyboard shortcuts on desktop.
+- **RTSP and WebRTC streams.** RTSP over TCP, and WebRTC through a WHEP-style endpoint such as go2rtc's. When go2rtc cannot send a camera over WebRTC because it is H.265, CamGrid plays go2rtc's MP4 stream of it instead. When a device cannot decode a camera's fullscreen stream, fullscreen falls back to the camera's lower-resolution grid stream.
+- **Import from go2rtc.** Fetch a go2rtc server's stream list and import cameras, with `_medium` / `_high` style pairs matched into grid and fullscreen streams.
+- **Reconnect and watchdog.** Dropped or stalled streams reconnect on their own with backoff, and the tile shows the retry countdown and a short error code.
+- **Encrypted settings.** The configuration, including stream URLs and any passwords in them, is stored encrypted with the platform's key store (Android Keystore, iOS Keychain, macOS Keychain, Windows DPAPI or the Linux Secret Service).
+- **Backup.** Export all settings to one file, encrypted with a password if you want, and import them on any CamGrid device. On a Fire TV, a transfer page on the local network (address, QR code and PIN) sends backups to and from a phone or computer.
+- **About screen** with the app version and the open-source licenses of the bundled components.
+
+### Known limitations
+
+- Not yet tested on a real Fire TV.
+- A Fire TV Stick plays about 4 streams at once; larger views need a stronger device.
+- The desktop installers and the iOS app are not signed. macOS and Windows warn the first time you open the app, and the iOS app has to be signed with your own Apple ID.
+- WebRTC works on the local network only and needs H.264 video (H.265 cameras play as MP4 through go2rtc instead).
+- A live viewer only: no recording, playback, motion alerts, PTZ or two-way audio.
+
+[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Vando-sketch/CamGrid/releases/tag/v0.1.0

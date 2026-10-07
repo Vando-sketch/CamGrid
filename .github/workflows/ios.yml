@@ -2,14 +2,20 @@ name: iOS
 run-name: "iOS build ${{ github.run_number }} on ${{ github.ref_name }}"
 
 # The iOS app: Kotlin tests in the simulator, a simulator build, and an UNSIGNED device .ipa
-# (CamGrid-iOS-unsigned.ipa on the preview-ios release) to sign with your own Apple ID, see docs/ios.md. No signing
-# identity, team or provisioning profile is used or stored here.
+# (CamGrid-iOS-unsigned.ipa on the release and the preview-ios pre-release) to sign with your
+# own Apple ID, see docs/ios.md. No signing identity, team or provisioning profile is used or
+# stored here.
+#
+# The path filters only apply to branch pushes and pull requests: GitHub does not evaluate path
+# filters for tag pushes, so a vX.Y.Z tag always builds the release .ipa. If a tag run is ever
+# missing, run this workflow by hand on the tag (Run workflow > Use workflow from > Tags).
 on:
   push:
     branches: [main, "claude/**"]
-    paths: ["core/**", "shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", "gradle.properties", ".github/workflows/ios.yml"]
+    tags: ["v*"] # a stable release, see docs/releasing.md
+    paths: ["core/**", "shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", "gradle.properties", ".github/workflows/ios.yml", ".github/workflows/version.yml", ".github/workflows/release.yml"]
   pull_request:
-    paths: ["core/**", "shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", "gradle.properties", ".github/workflows/ios.yml"]
+    paths: ["core/**", "shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", "gradle.properties", ".github/workflows/ios.yml", ".github/workflows/version.yml", ".github/workflows/release.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -17,15 +23,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version:
+    # A branch of this repository already runs on push; its pull request would run everything
+    # twice. Skipping this job skips the jobs that need it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    uses: ./.github/workflows/version.yml
+    permissions:
+      contents: read
+    secrets: # only checked for being set, on a release tag
+      CAMGRID_KEYSTORE_BASE64: ${{ secrets.CAMGRID_KEYSTORE_BASE64 }}
+      CAMGRID_KEYSTORE_PASSWORD: ${{ secrets.CAMGRID_KEYSTORE_PASSWORD }}
+      CAMGRID_KEY_ALIAS: ${{ secrets.CAMGRID_KEY_ALIAS }}
+      CAMGRID_KEY_PASSWORD: ${{ secrets.CAMGRID_KEY_PASSWORD }}
+
   ios:
     name: iOS
-    # A branch of this repository already runs on push; its pull request would run everything twice.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    needs: version
     runs-on: macos-latest
     timeout-minutes: 90
     env:
       PROJECT: iosApp/CamGrid.xcodeproj
       PACKAGES: ${{ github.workspace }}/.spm
+      CAMGRID_BUILD_NUMBER: ${{ github.run_number }}
+      CAMGRID_VERSION: ${{ needs.version.outputs.version }}
+      # Passed to xcodebuild as the MARKETING_VERSION and CURRENT_PROJECT_VERSION build settings:
+      # iOS needs a numeric version (X.Y.Z, without -preview.N); the build number is the run number.
+      IOS_MARKETING_VERSION: ${{ needs.version.outputs.base }}
+      # The device .ipa takes 10+ minutes; feature branches stop at the simulator build. Run the
+      # workflow by hand on a branch to get an .ipa from it.
+      BUILD_IPA: ${{ (needs.version.outputs.channel != 'dev' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -90,23 +116,24 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -clonedSourcePackagesDirPath "$PACKAGES" \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            MARKETING_VERSION="$IOS_MARKETING_VERSION" CURRENT_PROJECT_VERSION="$CAMGRID_BUILD_NUMBER" \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Build the unsigned device app
         # The release build for devices links Kotlin/Native with full optimisation, which takes
-        # 10+ minutes; feature branches stop at the simulator build. Run the workflow by hand on
-        # a branch to get an .ipa from it.
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        # 10+ minutes; only main, release tags and manual runs build it (BUILD_IPA).
+        if: env.BUILD_IPA == 'true'
         run: |
           xcodebuild archive \
             -project "$PROJECT" -scheme CamGrid -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/CamGrid.xcarchive" \
             -clonedSourcePackagesDirPath "$PACKAGES" \
+            MARKETING_VERSION="$IOS_MARKETING_VERSION" CURRENT_PROJECT_VERSION="$CAMGRID_BUILD_NUMBER" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: Package the unsigned .ipa
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: env.BUILD_IPA == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
           cp -R "$RUNNER_TEMP/CamGrid.xcarchive/Products/Applications/CamGrid.app" "$RUNNER_TEMP/ipa/Payload/"
@@ -114,7 +141,7 @@ jobs:
           ls -l dist
 
       - name: Upload the unsigned .ipa
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: env.BUILD_IPA == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: CamGrid-iOS-unsigned-build-${{ github.run_number }}
@@ -131,11 +158,12 @@ jobs:
           if-no-files-found: ignore
 
   # A plain download link next to the Android and desktop ones (artifacts need a GitHub login).
-  # Published from Linux like the desktop installers, once the macOS job has uploaded the .ipa.
+  # Main only; published from Linux like the desktop installers, once the macOS job has uploaded
+  # the .ipa. Manual runs of other branches keep the .ipa in the workflow artifact only.
   publish:
-    name: Publish iOS release
-    needs: ios
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    name: Publish iOS preview
+    needs: [version, ios]
+    if: needs.version.outputs.channel == 'preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -149,12 +177,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          BUILD: ${{ github.run_number }}
+          CAMGRID_VERSION: ${{ needs.version.outputs.version }}
         run: |
           ls -l dist
-          if [ "$GITHUB_REF_NAME" = "main" ]; then tag=preview-ios; else tag="preview-ios-${GITHUB_REF_NAME##*/}"; fi
+          tag=preview-ios
           gh release delete "$tag" --cleanup-tag --yes || true
           gh release create "$tag" dist/CamGrid-iOS-unsigned.ipa \
             --prerelease \
+            --latest=false \
             --target "$GITHUB_SHA" \
-            --title "CamGrid iOS build ${{ github.run_number }} (${GITHUB_REF_NAME##*/}, ${GITHUB_SHA::7})" \
-            --notes "Unsigned iPhone/iPad test build ${{ github.run_number }} from ${GITHUB_REF_NAME} at commit ${GITHUB_SHA::7}. Sign CamGrid-iOS-unsigned.ipa with your own Apple ID (Sideloadly or AltStore), see docs/ios.md. Bundles VLCKit (LGPL) and WebRTC; see NOTICE."
+            --title "CamGrid iOS preview build ${BUILD} (${GITHUB_SHA::7})" \
+            --notes "Preview build ${BUILD} of main, not a stable release; the stable release is at https://github.com/${GITHUB_REPOSITORY}/releases/latest. Unsigned iPhone/iPad build, version ${CAMGRID_VERSION}, commit ${GITHUB_SHA::7}. Sign CamGrid-iOS-unsigned.ipa with your own Apple ID (Sideloadly or AltStore), see docs/ios.md. Bundles VLCKit (LGPL) and WebRTC; see NOTICE."
+
+  # On a vX.Y.Z tag: CamGrid-iOS-unsigned.ipa on the "CamGrid X.Y.Z" release.
+  release:
+    name: Release
+    needs: [version, ios]
+    if: needs.version.outputs.channel == 'stable'
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.version.outputs.version }}
+      artifact-pattern: CamGrid-iOS-unsigned-build-*
+      files: CamGrid-iOS-unsigned.ipa

@@ -1,0 +1,112 @@
+name: Release
+
+# Called by the Android, Desktop and iOS workflows on a vX.Y.Z tag. All three add their files to
+# the same GitHub Release "CamGrid X.Y.Z", so whichever finishes first creates it and the others
+# find it. See docs/releasing.md, Cutting a release.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "X.Y.Z (the tag is vX.Y.Z)"
+        required: true
+        type: string
+      artifact-pattern:
+        description: "Workflow artifacts of this run that hold the files"
+        required: true
+        type: string
+      files:
+        description: "Space-separated file names to attach; each must be in the artifacts"
+        required: true
+        type: string
+      legal-files:
+        description: "Also attach NOTICE and LICENSE (one workflow does, so uploads don't collide)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      # CHANGELOG.md for the notes, NOTICE and LICENSE.
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: ${{ inputs.artifact-pattern }}
+          path: artifacts
+          merge-multiple: true
+
+      - name: Collect files
+        env:
+          FILES: ${{ inputs.files }}
+          LEGAL: ${{ inputs.legal-files }}
+        run: |
+          set -euo pipefail
+          mkdir -p upload
+          for name in $FILES; do
+            f=$(find artifacts -type f -name "$name" | head -n 1)
+            if [ -z "$f" ]; then
+              echo "::error::$name is missing from the build artifacts; not publishing an incomplete release."
+              exit 1
+            fi
+            cp "$f" "upload/$name"
+          done
+          if [ "$LEGAL" = true ]; then cp NOTICE LICENSE upload/; fi
+          ls -l upload
+
+      - name: Release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # The lines between "## [X.Y.Z]" and the next "## [" heading (or the link definitions at
+          # the end of the file), without leading blank lines.
+          awk -v head="## [$VERSION]" '
+            /^## \[/ { if (found) exit; if (index($0, head) == 1) { found = 1; next } }
+            found && /^\[[^]]+\]: / { exit }
+            found { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error file=CHANGELOG.md::No '## [$VERSION]' section (or it is empty)."
+            exit 1
+          fi
+          {
+            echo
+            echo "## Install"
+            echo
+            echo "Which file to download for your device and how to install it: see [Install in the README](https://github.com/${GITHUB_REPOSITORY}#install). Android and Fire TV: CamGrid-Android.apk. macOS: CamGrid-macOS-AppleSilicon.dmg. Windows: CamGrid-Windows-x64.msi. Linux: CamGrid-Linux-x64.deb or .rpm. iPhone and iPad: CamGrid-iOS-unsigned.ipa, to sign with your own Apple ID."
+          } >> notes.md
+          cat notes.md
+
+      # The three workflows run at the same time. Create the release if it is missing; if the
+      # create fails because another workflow created it a moment ago, carry on with that one.
+      # Then make sure it is a published, non-prerelease release with these notes, and attach
+      # the files (--clobber replaces them when a workflow is re-run).
+      - name: Publish to release v${{ inputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if [ "$GITHUB_REF" != "refs/tags/$tag" ]; then
+            echo "::error::Release $tag can only be published from its own tag, not from $GITHUB_REF."
+            exit 1
+          fi
+          if ! gh release view "$tag" > /dev/null 2>&1; then
+            if ! gh release create "$tag" --verify-tag --title "CamGrid $VERSION" --notes-file notes.md --latest; then
+              sleep 5
+              gh release view "$tag" > /dev/null || { echo "::error::Could not create release $tag."; exit 1; }
+              echo "Release $tag was created by another workflow at the same time; using it."
+            fi
+          fi
+          # No --latest here: a re-run of an old tag must not take "Latest" from a newer release.
+          gh release edit "$tag" --title "CamGrid $VERSION" --notes-file notes.md --draft=false --prerelease=false
+          gh release upload "$tag" upload/* --clobber
+          echo "Published to https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag"
