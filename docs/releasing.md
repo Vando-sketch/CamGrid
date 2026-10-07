@@ -94,8 +94,7 @@ Every build gets two values from `version.yml`, as environment variables for Gra
 | Desktop (macOS, Windows, Linux) | `CAMGRID_VERSION` | run number of the Desktop workflow | `desktop/build.gradle.kts` |
 | iOS | `MARKETING_VERSION` = `camgrid.version` (numeric, also for previews) | `CURRENT_PROJECT_VERSION` = run number of the iOS workflow | Passed to `xcodebuild` as build settings in `ios.yml`; defaults in `iosApp/project.yml` |
 
-Installers need a purely numeric package version (macOS one with a major version of at least 1), which `desktop/build.gradle.kts` derives from these values:
-<!-- desktop/macOS internal package version: see desktop/build.gradle.kts -->
+Installers need a purely numeric package version, and macOS needs a major version of at least 1. `desktop/build.gradle.kts` therefore packages every desktop build as `<major + 1>.<minor>.<run number>`, so 0.1.0 from Desktop run 90 is installer version 1.1.90. That also sorts above the early previews (0.2.N, and 1.0.N on macOS), so they upgrade without an uninstall. The app itself shows `CAMGRID_VERSION`; only Add or Remove Programs and package managers show the installer version.
 
 Run numbers are per workflow, so the Android, desktop and iOS build numbers of the same commit differ. A local build without `CAMGRID_BUILD_NUMBER` has build number (Android version code) 1, so it cannot replace a CI build.
 
