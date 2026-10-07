@@ -4,6 +4,8 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-07
+
 ### Changed
 
 - **Fire TV backup transfer: no PIN typing after scanning.** The QR code on the TV's backup screen now carries a long random key, so the transfer page opens connected and nobody on the network can guess its way in. The key sits in the part of the link a browser never sends, and the page removes it from the address bar at once. The 6-digit PIN is still there for typing the address by hand. ([#33](https://github.com/Vando-sketch/CamGrid/issues/33))
@@ -65,7 +67,8 @@ The first stable release.
 - WebRTC works on the local network only and needs H.264 video (H.265 cameras play as MP4 through go2rtc instead).
 - A live viewer only: no recording, playback, motion alerts, PTZ or two-way audio.
 
-[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Vando-sketch/CamGrid/releases/tag/v0.1.0
