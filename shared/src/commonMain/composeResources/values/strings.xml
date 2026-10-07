@@ -140,7 +140,7 @@
         <item quantity="other">%1$d views</item>
     </plurals>
 
-    <!-- View editor: header -->
+    <!-- View editor: header and view -->
     <string name="ve_title">Edit view</string>
     <string name="ve_done">Done</string>
     <string name="ve_view_id">View ID: %1$s</string>
@@ -148,7 +148,7 @@
     <string name="ve_name_hint">For example Living room</string>
 
     <!-- View editor: preview and modes -->
-    <string name="ve_preview_description">Layout preview. OK switches between select, move and resize.</string>
+    <string name="ve_preview_description">Layout preview. Arrows pick a tile, OK opens its options.</string>
     <string name="ve_tile_auto">Auto</string>
     <string name="ve_camera_missing">Removed camera</string>
     <string name="ve_fit_crop">Crop</string>
@@ -157,9 +157,9 @@
     <string name="ve_mode_move">Move</string>
     <string name="ve_mode_resize">Resize</string>
     <string name="ve_mode_current">Mode: %1$s</string>
-    <string name="ve_hint_select">Arrows: pick a tile · OK: move mode</string>
-    <string name="ve_hint_move">Arrows: move the tile · OK: resize mode · Back: select</string>
-    <string name="ve_hint_resize">Right/Down: grow · Left/Up: shrink · OK: select mode</string>
+    <string name="ve_hint_select">Arrows or tap: pick a tile · OK or tap again: tile options</string>
+    <string name="ve_hint_move">Arrows: move the tile · OK or Back: done</string>
+    <string name="ve_hint_resize">Right/Down: grow · Left/Up: shrink · OK or Back: done</string>
     <string name="ve_arrow_up">Up</string>
     <string name="ve_arrow_down">Down</string>
     <string name="ve_arrow_left">Left</string>
@@ -170,8 +170,6 @@
     <string name="ve_tile_number">Tile %1$d of %2$d</string>
     <string name="ve_no_tiles">No tiles. Add one or pick a preset.</string>
     <string name="ve_camera">Camera</string>
-    <string name="ve_camera_previous">Previous camera</string>
-    <string name="ve_camera_next">Next camera</string>
     <string name="ve_help_camera_auto">Auto tiles take the next camera in the camera order. With more cameras than tiles, the view repeats on more pages.</string>
     <string name="ve_fit">Picture</string>
     <string name="ve_help_fit_crop">Crop fills the tile and cuts off the edges of the picture.</string>
@@ -180,8 +178,7 @@
     <string name="ve_remove_tile">Remove tile</string>
     <string name="ve_fill_empty">Fill empty cells</string>
 
-    <!-- View editor: canvas and presets -->
-    <string name="ve_section_canvas">Canvas</string>
+    <!-- View editor: layout -->
     <string name="ve_columns">Columns</string>
     <string name="ve_rows">Rows</string>
     <string name="ve_decrease">Decrease %1$s</string>
