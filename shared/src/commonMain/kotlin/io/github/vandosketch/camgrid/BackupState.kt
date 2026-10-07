@@ -40,3 +40,20 @@ sealed interface BackupState {
 
     data class Failed(val error: BackupError) : BackupState
 }
+
+/** The local network transfer on a TV's backup screen (see [CamGridViewModel.startLanTransfer]). */
+sealed interface LanTransferState {
+    /** Not running: not a TV, or the backup screen is not visible. */
+    data object Off : LanTransferState
+
+    data object Starting : LanTransferState
+
+    /** Serving the transfer page at [url]; every request needs [pin]. */
+    data class Running(val url: String, val pin: String) : LanTransferState
+
+    /** No local network address (no Wi-Fi or Ethernet), or the server could not start. */
+    data object Unavailable : LanTransferState
+
+    /** Too many wrong PINs; reopening the backup screen starts again with a new PIN. */
+    data object Locked : LanTransferState
+}

@@ -32,6 +32,8 @@ jna = "5.19.1"
 navigationEventMultiplatform = "1.1.0"
 # Apache-2.0. HTTP for go2rtc and WebRTC signalling on every platform.
 ktor = "3.6.0"
+# Apache-2.0. Tests only: decodes the QR codes the app draws for the TV transfer address.
+zxing = "3.5.3"
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -63,6 +65,7 @@ cmp-resources = { module = "org.jetbrains.compose.components:components-resource
 cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
 cmp-material-icons = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "composeMaterialIcons" }
 cmp-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 lifecycle-viewmodel-compose-mp = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleMultiplatform" }
 lifecycle-runtime-compose-mp = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleMultiplatform" }
 coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }

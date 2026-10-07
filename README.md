@@ -84,7 +84,7 @@ The release notes of each preview say which key the build was signed with: `stab
 
 **Switching to the stable key once.** Builds made before the key was set were each signed with their own random key, so the first build with the stable key cannot update them. This needs one last uninstall, and uninstalling deletes the configuration. So:
 
-1. In the old app, open Settings > Backup and export your settings, with a password. On a Fire TV, copy the file to your computer, because uninstalling also deletes the app's backup folder:
+1. In the old app, open Settings > Backup and export your settings, with a password. On a Fire TV, copy the file to another device, because uninstalling also deletes the app's backup folder: download it from the transfer page shown on the backup screen (builds that have it), or with adb:
 
    ```sh
    adb pull /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups/ .
@@ -93,7 +93,7 @@ The release notes of each preview say which key the build was signed with: `stab
    This only works if the installed build already has Settings > Backup. Builds from before Backup have no way to export: note your cameras and views, or plan to re-import the cameras from go2rtc, and rebuild the views in the editor.
 2. Uninstall the old app (`adb uninstall io.github.vandosketch.camgrid`, or long-press the app on a phone).
 3. Install the new build.
-4. Import the backup under Settings > Backup > Import from file. On a phone, pick the file. On a Fire TV, push it into the app's folder first, then pick it from the list:
+4. Import the backup under Settings > Backup. On a phone, use Import from file and pick the file. On a Fire TV, open the address shown under "Transfer with your phone or computer" on a phone or computer and send the file, or push it into the app's folder and pick it under Show backup files on this TV:
 
    ```sh
    adb shell mkdir -p /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups
@@ -173,7 +173,9 @@ Settings > **Backup** exports all settings (views, cameras with their URLs, the 
 - **Export without password**: readable JSON that contains the camera URLs including any user names and passwords in them. The app warns before exporting this way.
 - **Import from file** accepts a backup or a bare config JSON (any version the app can migrate). It asks for the password if the file is encrypted, then asks before replacing all current settings.
 
-On a phone, export and import use the system file picker. A Fire TV has no file picker, so the app saves backups to and reads them from its own folder, `/sdcard/Android/data/io.github.vandosketch.camgrid/files/backups`; copy files with `adb`:
+On a phone, export and import use the system file picker. On a Fire TV (or another Android TV) the system picker is useless, so the backup screen offers a **transfer page** instead: it shows an address such as `http://192.0.2.30:8765`, a QR code of it and a PIN. Open that address on a phone or computer in the same Wi-Fi, enter the PIN, and send a backup file to the TV (the TV asks for the password and before replacing anything) or, after exporting on the TV, download the backup. The page only runs while the backup screen is visible, needs the PIN for every request and is plain HTTP, so export with a password. Details: [docs/backup-format.md](docs/backup-format.md#where-files-go).
+
+Exports on a TV are also saved in the app's own folder, `/sdcard/Android/data/io.github.vandosketch.camgrid/files/backups`, and **Show backup files on this TV** lists that folder (and, on Android 10 / Fire OS 7 and older, the Download folder after asking for storage access). With `adb`:
 
 ```sh
 adb pull /sdcard/Android/data/io.github.vandosketch.camgrid/files/backups/ .     # Fire TV -> computer
@@ -290,7 +292,7 @@ Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the key
 
 ## Privacy and security
 
-- The configuration, including stream URLs and any credentials in them, is stored encrypted. On Android it is one file encrypted with AES-256-GCM whose key lives in the Android Keystore and never leaves the device. On iOS it is a Keychain item for this device only. On desktop it is an AES-256-GCM file whose key is kept in the macOS Keychain, Windows DPAPI or the Linux Secret Service; without a Secret Service (some Linux desktops) the key falls back to an owner-only file next to the config, which only protects against other users. Android backup and device-to-device transfer are turned off for the app; the only way settings leave the device is a backup you export yourself (password-protected unless you choose otherwise, see [Backup](#backup)).
+- The configuration, including stream URLs and any credentials in them, is stored encrypted. On Android it is one file encrypted with AES-256-GCM whose key lives in the Android Keystore and never leaves the device. On iOS it is a Keychain item for this device only. On desktop it is an AES-256-GCM file whose key is kept in the macOS Keychain, Windows DPAPI or the Linux Secret Service; without a Secret Service (some Linux desktops) the key falls back to an owner-only file next to the config, which only protects against other users. Android backup and device-to-device transfer are turned off for the app; the only way settings leave the device is a backup you export yourself (password-protected unless you choose otherwise, see [Backup](#backup)). On a TV, the backup transfer page listens on the local network only while the backup screen is open and answers only requests that carry the PIN shown on screen.
 - CamGrid does not log stream URLs. Logs name the camera and a short error code instead, player error text passes through a redactor that masks user info and password or token parameters, and Media3's own logging is switched off because its messages can contain URLs.
 - No cloud, account, analytics or telemetry. The app only talks to the addresses you configure. Cleartext HTTP is allowed because go2rtc usually runs on the LAN without TLS.
 
@@ -300,7 +302,7 @@ Locally, the same signing applies when `CAMGRID_KEYSTORE_FILE` points to the key
 - WebRTC works on the local network only (no STUN/TURN) and needs H264 video.
 - No recording, playback of past footage, motion alerts, PTZ or two-way audio. It is a live viewer only.
 - Uninstalling the app deletes the configuration (and on a Fire TV the backup folder). Export a backup first and keep it off the device.
-- Backup on a Fire TV goes through `adb push` / `adb pull`, since there is no file picker.
+- Backup on a Fire TV goes through the transfer page (a phone or computer in the same network) or `adb push` / `adb pull`, since the system file picker there cannot open files.
 - A Fire TV Stick can play only about four streams at once; larger views need a stronger device.
 - Desktop decodes video on the CPU, so many high-resolution tiles need a strong machine. Desktop installers and the iOS app are unsigned (see Install).
 - The iOS app has to be re-signed every 7 days with a free Apple ID (yearly with a paid developer account). There is no Apple TV version.

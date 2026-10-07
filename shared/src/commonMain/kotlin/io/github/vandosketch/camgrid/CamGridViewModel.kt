@@ -24,6 +24,8 @@ import io.github.vandosketch.camgrid.platform.BackupDocument
 import io.github.vandosketch.camgrid.platform.BackupFileException
 import io.github.vandosketch.camgrid.platform.BackupFiles
 import io.github.vandosketch.camgrid.platform.ConfigStore
+import io.github.vandosketch.camgrid.transfer.LanTransferProtocol
+import io.github.vandosketch.camgrid.transfer.TransferDownload
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +33,8 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** State of the "Import from go2rtc" screen. */
@@ -123,6 +127,7 @@ class CamGridViewModel(
 
     fun openBackup() {
         resetBackup()
+        leaveLanTransfer()
         screen = Screen.Backup
     }
 
@@ -144,6 +149,7 @@ class CamGridViewModel(
             is Screen.EditCamera, Screen.Go2rtcImport, is Screen.EditView -> Screen.Settings
             Screen.Backup -> {
                 resetBackup()
+                leaveLanTransfer()
                 Screen.Settings
             }
         }
@@ -295,12 +301,22 @@ class CamGridViewModel(
             target.displayName
         }
 
-    /** Exports into [backupFolderPath], for devices without a file picker. */
-    fun exportBackupToFolder(password: CharArray?) = runExport(password) { text -> backupFiles.writeToFolder(text) }
+    /**
+     * Exports into [backupFolderPath], for devices without a file picker. On a TV the file is
+     * also offered for download on the transfer page ([lanDownloadName]).
+     */
+    fun exportBackupToFolder(password: CharArray?) =
+        runExport(password, onWritten = ::offerLanDownload) { text -> backupFiles.writeToFolder(text) }
 
     fun importBackup(source: BackupDocument) = runRead { source.read() }
 
     fun importBackupFromFolder(name: String) = runRead { backupFiles.readFromFolder(name) }
+
+    /** Imports [name] from the public Download folder (older Android TVs). */
+    fun importBackupFromDownloads(name: String) = runRead {
+        val downloads = backupFiles.downloads ?: throw BackupFileException("No Download folder")
+        downloads.read(name)
+    }
 
     /** Tries [password] on the encrypted file read last. */
     fun submitBackupPassword(password: CharArray) {
@@ -331,14 +347,26 @@ class CamGridViewModel(
         backupState = BackupState.Idle
     }
 
-    private fun runExport(password: CharArray?, write: (String) -> String) {
+    /**
+     * Exports the config with [write], which returns where the file went. [onWritten] gets the
+     * file's text and location on the main thread once it is written.
+     */
+    private fun runExport(
+        password: CharArray?,
+        onWritten: (text: String, where: String) -> Unit = { _, _ -> },
+        write: (String) -> String,
+    ) {
         backupJob?.cancel()
         backupState = BackupState.Working
         val snapshot = config.value
         backupJob = viewModelScope.launch {
             backupState = try {
                 // Off the main thread: deriving the key from the password takes about a second.
-                val where = withContext(ioDispatcher) { write(ConfigBackup.export(snapshot, password)) }
+                val (text, where) = withContext(ioDispatcher) {
+                    val text = ConfigBackup.export(snapshot, password)
+                    text to write(text)
+                }
+                onWritten(text, where)
                 BackupState.Exported(where)
             } catch (e: BackupFileException) {
                 AppLog.w("Backup export failed: ${e::class.simpleName}")
@@ -379,6 +407,91 @@ class CamGridViewModel(
             BackupException.Reason.NEWER_VERSION -> BackupState.Failed(BackupError.NEWER_VERSION)
             BackupException.Reason.UNREADABLE -> BackupState.Failed(BackupError.UNREADABLE)
         }
+    }
+
+    // --- Local network transfer (TVs) ---
+
+    /** Whether the backup screen offers the transfer over the local network (TVs). */
+    val lanTransferAvailable: Boolean get() = backupFiles.lanServer != null
+
+    var lanTransfer by mutableStateOf<LanTransferState>(LanTransferState.Off)
+        private set
+
+    /** File name of the backup offered on the transfer page; null until the user exports on this screen. */
+    var lanDownloadName by mutableStateOf<String?>(null)
+        private set
+
+    /** The running protocol; requests from an older one (a server already stopped) are ignored. */
+    private var lanProtocol: LanTransferProtocol? = null
+    private var lanDownload: TransferDownload? = null
+    private var lanJob: Job? = null
+
+    /** Keeps starts and stops of the server in order, although they run off the main thread. */
+    private val lanMutex = Mutex()
+
+    /**
+     * Starts the transfer server with a new PIN, while the backup screen is visible on a TV. An
+     * uploaded file goes through the same steps as a picked one (password, confirmation); an
+     * export on this screen becomes downloadable. Does nothing where [lanTransferAvailable] is false.
+     */
+    fun startLanTransfer() {
+        val server = backupFiles.lanServer ?: return
+        stopLanTransfer()
+        val pin = LanTransferProtocol.newPin()
+        lateinit var protocol: LanTransferProtocol
+        // Both callbacks come from the server thread; launching hands them to the main thread.
+        protocol = LanTransferProtocol(
+            pin = pin,
+            onUpload = { text -> viewModelScope.launch { if (lanProtocol === protocol) runRead { text } } },
+            onLocked = {
+                viewModelScope.launch { if (lanProtocol === protocol) lanTransfer = LanTransferState.Locked }
+            },
+        )
+        protocol.download = lanDownload
+        lanProtocol = protocol
+        lanTransfer = LanTransferState.Starting
+        lanJob = viewModelScope.launch {
+            val address = lanMutex.withLock { withContext(ioDispatcher) { server.start(protocol) } }
+            if (address == null) {
+                AppLog.w("Backup transfer server did not start")
+                lanTransfer = LanTransferState.Unavailable
+                return@launch
+            }
+            protocol.host = address
+            lanTransfer = LanTransferState.Running(url = "http://$address", pin = pin)
+        }
+    }
+
+    /** Stops the transfer server (the screen left or the app went to the background). */
+    fun stopLanTransfer() {
+        val server = backupFiles.lanServer ?: return
+        lanJob?.cancel()
+        lanJob = null
+        lanProtocol = null
+        lanTransfer = LanTransferState.Off
+        // After any start still in progress: the mutex is fair, so a later start comes after this.
+        viewModelScope.launch { lanMutex.withLock { withContext(ioDispatcher) { server.stop() } } }
+    }
+
+    /** Leaving the backup screen: stop the server and forget the exported file. */
+    private fun leaveLanTransfer() {
+        stopLanTransfer()
+        lanDownload = null
+        lanDownloadName = null
+    }
+
+    private fun offerLanDownload(text: String, where: String) {
+        if (backupFiles.lanServer == null) return
+        val download = TransferDownload(where.substringAfterLast('/').substringAfterLast('\\'), text)
+        lanDownload = download
+        lanDownloadName = download.name
+        lanProtocol?.download = download
+    }
+
+    override fun onCleared() {
+        // viewModelScope is already cancelled, so stop directly; closing sockets does not block.
+        lanProtocol = null
+        backupFiles.lanServer?.stop()
     }
 
     private fun edit(transform: (CamGridConfig) -> CamGridConfig) {
