@@ -14,15 +14,19 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runComposeUiTest
 import io.github.vandosketch.camgrid.CamGridViewModel
+import io.github.vandosketch.camgrid.ReturnToGrid
 import io.github.vandosketch.camgrid.Screen
 import io.github.vandosketch.camgrid.about.License
 import io.github.vandosketch.camgrid.core.ConfigCodec
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.createCamGridHttpClient
+import io.github.vandosketch.camgrid.platform.MemoryDevicePreferences
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import kotlin.test.AfterTest
@@ -51,11 +55,16 @@ class CamGridAppKeysTest {
     @AfterTest
     fun resetMain() = Dispatchers.resetMain()
 
-    private fun ComposeUiTest.showApp(cameras: Int = 4, keyboardAndMouse: Boolean = false): CamGridViewModel {
+    private fun ComposeUiTest.showApp(
+        cameras: Int = 4,
+        keyboardAndMouse: Boolean = false,
+        devicePreferences: MemoryDevicePreferences = MemoryDevicePreferences(),
+    ): CamGridViewModel {
         val viewModel = CamGridViewModel(
             configStore = MemoryConfigStore(ConfigCodec.encode(testConfig(cameras))),
             backupFiles = NoBackupFiles,
             go2rtcClient = Go2rtcClient(createCamGridHttpClient(MockEngine { respond("") })),
+            devicePreferences = devicePreferences,
         )
         setContent {
             CompositionLocalProvider(LocalHasKeyboardAndMouse provides keyboardAndMouse) {
@@ -166,6 +175,96 @@ class CamGridAppKeysTest {
         assertFalse(focusRingVisible())
         assertEquals(1, viewModel.gridFocusIndex)
         press(Key.DirectionLeft)
+        assertTrue(focusRingVisible())
+    }
+
+    /** A device where fullscreen goes back to the grid after [minutes] without input. */
+    private fun returnAfter(minutes: Int) =
+        MemoryDevicePreferences(mutableMapOf(ReturnToGrid.PREFERENCE_KEY to minutes))
+
+    private fun ComposeUiTest.wait(millis: Long) {
+        mainClock.advanceTimeBy(millis)
+        waitForIdle()
+    }
+
+    @Test
+    fun anUntouchedFullscreenGoesBackToTheGridAfterTheChosenTime() = runComposeUiTest {
+        val viewModel = showApp(devicePreferences = returnAfter(2))
+        viewModel.openCamera("cam3")
+        waitForIdle()
+        wait(2 * 60_000L - 1_000)
+        assertEquals(Screen.Fullscreen("cam3"), viewModel.screen)
+        wait(2_000)
+        assertEquals(Screen.Grid, viewModel.screen)
+        // On the camera that was open, as after Back.
+        assertEquals(2, viewModel.gridFocusIndex)
+    }
+
+    @Test
+    fun fullscreenStaysWhenReturningIsOff() = runComposeUiTest {
+        // Off is the default: nothing stored on this device.
+        val viewModel = showApp()
+        assertEquals(ReturnToGrid.OFF, viewModel.returnToGridAfter)
+        viewModel.openCamera("cam1")
+        waitForIdle()
+        wait(11 * 60_000L)
+        assertEquals(Screen.Fullscreen("cam1"), viewModel.screen)
+    }
+
+    @Test
+    fun keysTouchAndTheMouseRestartTheReturnTimer() = runComposeUiTest {
+        val viewModel = showApp(keyboardAndMouse = true, devicePreferences = returnAfter(1))
+        viewModel.openCamera("cam1")
+        waitForIdle()
+        wait(50_000)
+        press(Key.DirectionUp)
+        wait(50_000)
+        onRoot().performTouchInput { click(center) }
+        wait(50_000)
+        onRoot().performMouseInput {
+            moveTo(Offset(20f, 200f))
+            moveTo(Offset(60f, 200f))
+        }
+        wait(50_000)
+        // 200 s in fullscreen, never a minute without input.
+        assertEquals(Screen.Fullscreen("cam1"), viewModel.screen)
+        wait(15_000)
+        assertEquals(Screen.Grid, viewModel.screen)
+    }
+
+    @Test
+    fun theGridIsNeverLeftByTheReturnTimer() = runComposeUiTest {
+        val viewModel = showApp(devicePreferences = returnAfter(1))
+        viewModel.openSettings()
+        waitForIdle()
+        wait(61_000)
+        // Only fullscreen goes back by itself; Settings stays open.
+        assertEquals(Screen.Settings, viewModel.screen)
+    }
+
+    @Test
+    fun choosingTheReturnTimeInSettingsKeepsItOnTheDevice() = runComposeUiTest {
+        val preferences = MemoryDevicePreferences()
+        val viewModel = showApp(devicePreferences = preferences)
+        viewModel.openSettings()
+        waitForIdle()
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("5 min"))
+        onNodeWithText("5 min").performClick()
+        waitForIdle()
+        assertEquals(ReturnToGrid.MINUTES_5, viewModel.returnToGridAfter)
+        assertEquals(5, preferences.values[ReturnToGrid.PREFERENCE_KEY])
+    }
+
+    @Test
+    fun theRingFadesOnTheDesktopGridToo() = runComposeUiTest {
+        val viewModel = showApp(keyboardAndMouse = true)
+        press(Key.DirectionRight)
+        assertTrue(focusRingVisible())
+        wait(SELECTION_IDLE_MS + RING_FADE_MS + 100)
+        assertFalse(focusRingVisible())
+        // The first arrow only brings it back.
+        press(Key.DirectionRight)
+        assertEquals(1, viewModel.gridFocusIndex)
         assertTrue(focusRingVisible())
     }
 

@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.vandosketch.camgrid.data.AndroidBackupFiles
 import io.github.vandosketch.camgrid.data.AndroidConfigStore
+import io.github.vandosketch.camgrid.data.AndroidDevicePreferences
 import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.platform.AppLog
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
                     configStore = AndroidConfigStore(application),
                     backupFiles = AndroidBackupFiles(application),
                     go2rtcClient = Go2rtcClient(CamGridHttp.client),
+                    devicePreferences = AndroidDevicePreferences(application),
                 )
             }
         }

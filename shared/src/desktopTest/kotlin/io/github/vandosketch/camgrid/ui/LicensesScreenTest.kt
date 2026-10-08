@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.runComposeUiTest
+import io.github.vandosketch.camgrid.ReturnToGrid
 import io.github.vandosketch.camgrid.about.License
 import io.github.vandosketch.camgrid.about.ThirdPartyComponents
 import io.github.vandosketch.camgrid.core.CamGridConfig
@@ -64,9 +65,13 @@ class LicensesScreenTest {
                 onBackup = {},
                 appVersion = "0.1.0-preview.91",
                 onOpenLicenses = { opened++ },
+                returnToGrid = ReturnToGrid.OFF,
+                onReturnToGridChange = {},
             )
         }
-        onNodeWithText("CamGrid 0.1.0-preview.91").performScrollTo().assertIsDisplayed()
+        // The list is lazy: About at its end is composed once scrolled to.
+        onNodeWithTag(SETTINGS_LIST_TAG).performScrollToNode(hasText("CamGrid 0.1.0-preview.91"))
+        onNodeWithText("CamGrid 0.1.0-preview.91").assertIsDisplayed()
         onNodeWithText("github.com/Vando-sketch/CamGrid", substring = true).performScrollTo().assertIsDisplayed()
         onNodeWithText("Open-source licenses").performScrollTo().performClick()
         assertEquals(1, opened)

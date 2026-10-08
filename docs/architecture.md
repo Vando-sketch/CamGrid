@@ -73,6 +73,7 @@ Shared code never touches platform APIs directly. It goes through these interfac
 | --- | --- | --- | --- |
 | `VideoPlatform`, `LiveStream` (`LiveStream.kt`) | `player/AndroidVideoPlatform.kt` | `video/DesktopVideoPlatform.kt` | `ios/IosVideoPlatform.kt` |
 | `ConfigStore` (`ConfigStore.kt`) | `data/AndroidConfigStore.kt` | `config/DesktopConfigStore.kt` | `ios/IosConfigStore.kt` |
+| `DevicePreferences` (`DevicePreferences.kt`): per-device settings, not in the config or a backup | `data/AndroidDevicePreferences.kt` | `config/DesktopDevicePreferences.kt` | `ios/IosDevicePreferences.kt` |
 | `BackupFiles`, `BackupPickers`, `BackupDocument` (`BackupFiles.kt`) | `data/AndroidBackupFiles.kt` | `config/DesktopBackupFiles.kt` | `ios/IosBackupFiles.kt` |
 | `LanServer` (`BackupFiles.kt`) | `data/AndroidLanServer.kt` (TVs only) | none | none |
 | `DownloadsFolder` (`BackupFiles.kt`) | inside `AndroidBackupFiles.kt` (TVs up to Android 10) | none | none |

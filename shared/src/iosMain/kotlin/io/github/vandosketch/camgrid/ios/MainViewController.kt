@@ -30,6 +30,7 @@ fun MainViewController(streams: NativeStreamFactory, systemBars: SystemBarsHost)
         configStore = IosConfigStore(),
         backupFiles = IosBackupFiles(),
         go2rtcClient = Go2rtcClient(CamGridHttp.client),
+        devicePreferences = IosDevicePreferences(),
     )
     val video = IosVideoPlatform(streams, WebRtcOfferExchange(WhepClient(CamGridHttp.client)))
     // MARKETING_VERSION and CURRENT_PROJECT_VERSION from iosApp/project.yml, which CI overrides.

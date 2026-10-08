@@ -32,6 +32,11 @@
     <string name="view_summary">ID %1$s · %2$d tiles on %3$d×%4$d cells</string>
     <string name="section_backup">Backup</string>
     <string name="open_backup">Export or import settings</string>
+    <string name="section_return_to_grid">Back to grid after inactivity</string>
+    <string name="return_to_grid_off">Off</string>
+    <!-- A choice for the time above: "5 min". -->
+    <string name="return_to_grid_minutes">%1$d min</string>
+    <string name="return_to_grid_help">After this long without a key press, touch or mouse movement, a camera opened fullscreen goes back to the grid. Set on each device, not part of a backup.</string>
     <string name="section_autostart">Start on boot</string>
     <string name="autostart_switch">Start CamGrid when this device turns on</string>
     <string name="autostart_help">Starts after a restart or power cut. Waking the TV from standby returns to whatever app was open.</string>
