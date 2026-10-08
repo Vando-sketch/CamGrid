@@ -4,6 +4,8 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
 ### Added
 
 - **Config URL.** Optionally, a device loads its cameras and views from a file on your own web server (Settings > Config URL, with an optional token), checks it every 5 minutes and applies changes without a restart. The last file that loaded stays on the device, so the display keeps running when the server is unreachable; a broken or partial download never replaces it. While a URL is set, cameras and views are edited in the hosted file, not on the device. The file must not contain camera passwords: CamGrid refuses stream URLs with a user name or password, so logins stay in go2rtc. ([#45](https://github.com/Vando-sketch/CamGrid/issues/45))
@@ -94,7 +96,8 @@ The first stable release.
 - WebRTC works on the local network only and needs H.264 video (H.265 cameras play as MP4 through go2rtc instead).
 - A live viewer only: no recording, playback, motion alerts, PTZ or two-way audio.
 
-[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.0...v0.2.1
