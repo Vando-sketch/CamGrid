@@ -4,6 +4,8 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-08
+
 ### Fixed
 
 - **Fire TV: start on boot opens CamGrid soon after boot instead of 3 to 5 minutes later.** Fire OS hands the boot signal to one app after another, and CamGrid now asks to be near the front. It also opens a second time about 15 seconds later, in case the Fire TV home screen came up over it. ([#41](https://github.com/Vando-sketch/CamGrid/issues/41))
@@ -83,7 +85,8 @@ The first stable release.
 - WebRTC works on the local network only and needs H.264 video (H.265 cameras play as MP4 through go2rtc instead).
 - A live viewer only: no recording, playback, motion alerts, PTZ or two-way audio.
 
-[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.1.1...v0.2.0
