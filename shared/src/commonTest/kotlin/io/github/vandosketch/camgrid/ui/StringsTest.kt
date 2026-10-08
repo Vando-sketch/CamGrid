@@ -1,6 +1,7 @@
 package io.github.vandosketch.camgrid.ui
 
 import io.github.vandosketch.camgrid.shared.resources.Res
+import io.github.vandosketch.camgrid.shared.resources.autostart_overlay_needed
 import io.github.vandosketch.camgrid.shared.resources.bk_cameras
 import io.github.vandosketch.camgrid.shared.resources.bk_replace_message
 import io.github.vandosketch.camgrid.shared.resources.bk_views
@@ -27,6 +28,10 @@ class StringsTest {
         assertEquals("Offline · retry in 8 s", getString(Res.string.status_offline, 8))
         assertEquals("ID main · 4 tiles on 2×2 cells", getString(Res.string.view_summary, "main", 4, 2, 2))
         assertEquals("Garden · 2 / 3", getString(Res.string.page_indicator_named, "Garden", "2 / 3"))
+        assertEquals(
+            "CamGrid needs the “Display over other apps” permission to start by itself on this Android version.",
+            getString(Res.string.autostart_overlay_needed),
+        )
         assertEquals(
             "◀ ▶ or swipe: switch camera · OK: sound on/off · Back: grid",
             getString(Res.string.fullscreen_hint),

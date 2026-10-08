@@ -219,6 +219,20 @@ class GridScreenTest {
         assertColor(Color.DarkGray, tile.pixel(tile.width / 2, tile.height / 8))
     }
 
+    @Test
+    fun aDarkScrimKeepsTheNameReadableWithoutCoveringTheVideo() = runComposeUiTest {
+        // FakeVideoPlatform plays dark grey; Cam 2 is not selected, so no border at its edge.
+        showGrid(cameras = 4)
+        onNodeWithText("Cam 2").assertExists()
+        val tile = onNodeWithText("Cam 2").captureToImage()
+        // Middle of the tile: the video as it is.
+        assertColor(Color.DarkGray, tile.pixel(tile.width / 2, tile.height / 2))
+        // Bottom right, clear of the name: darker than the video, but not covered black.
+        val bottom = tile.pixel(tile.width * 3 / 4, tile.height - 4)
+        assertTrue(bottom.red < Color.DarkGray.red * 0.75f, "no scrim at the bottom: $bottom")
+        assertTrue(bottom.red > 0.02f, "the scrim hides the video: $bottom")
+    }
+
     private fun ImageBitmap.pixel(x: Int, y: Int): Color = toPixelMap()[x, y]
 
     private fun assertColor(expected: Color, actual: Color) {

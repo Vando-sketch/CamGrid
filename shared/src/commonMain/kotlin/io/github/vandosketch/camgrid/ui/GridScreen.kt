@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -44,7 +45,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -88,6 +92,15 @@ private val TileGap = 2.dp
 
 /** Outline of a tile's placeholder and of the rings around a tile. */
 private val TileShape = RoundedCornerShape(4.dp)
+
+/** How far up a tile the dark fade behind its name reaches. */
+private val LabelScrimHeight = 48.dp
+
+/** Clear at the top, 60 % black at the tile's bottom edge. */
+private val LabelScrim = Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)))
+
+/** A soft shadow keeps the name's edges crisp where the fade is still light. */
+private val LabelShadow = Shadow(color = Color.Black, offset = Offset(0f, 1f), blurRadius = 4f)
 
 /** How long the page indicator stays after entering the grid or switching page. */
 internal const val PAGE_INDICATOR_MS = 3_000L
@@ -380,21 +393,29 @@ private fun CameraTile(
             // Gone once the stream plays, so it never touches the video.
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant, TileShape))
         }
+        // Under the name: a fade to dark along the bottom edge, so a white name stays readable
+        // over a bright picture (snow, a lit driveway) while most of the video is untouched.
+        // Below the status badge, which draws its own backdrop.
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(LabelScrimHeight)
+                .background(LabelScrim, TileShape),
+        )
         StreamStatusBadge(
             status = status,
             modifier = Modifier.align(Alignment.Center),
         )
         Text(
             text = camera.name,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelLarge.copy(shadow = LabelShadow),
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(8.dp)
-                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
         )
     }
 }
