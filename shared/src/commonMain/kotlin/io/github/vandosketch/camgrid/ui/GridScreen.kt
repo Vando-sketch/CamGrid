@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -180,6 +181,9 @@ fun GridScreen(
     )
     // Read while drawing: the fade redraws the rings without recomposing the tiles.
     val readRingAlpha = remember(ringAlpha) { { ringAlpha.value } }
+    // The selected tile makes room for its ring only while the ring can be seen: once it has
+    // faded out, the video gets its full size back like every other tile.
+    val ringShown by remember(ringAlpha) { derivedStateOf { ringAlpha.value > 0f } }
 
     // The wall takes the keys on entering the grid and keeps focus across page switches.
     LaunchedEffect(Unit) { gridRequester.tryRequestFocus() }
@@ -285,7 +289,7 @@ fun GridScreen(
                     // across pages keeps playing.
                     val camera = placed.camera
                     if (camera != null) {
-                        val ringed = showSelection && index == currentIndex
+                        val ringed = showSelection && ringShown && index == currentIndex
                         CameraTile(
                             video = video,
                             camera = camera,

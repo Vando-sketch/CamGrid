@@ -23,6 +23,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -231,6 +232,21 @@ class GridScreenTest {
         // Only hidden: the selection itself stays.
         onNodeWithText("Cam 1").assertIsSelected()
         assertEquals(GridPosition(0, 0), harness.position)
+    }
+
+    @Test
+    fun theSelectedTileGetsItsFullSizeBackWhileTheRingIsHidden() = runComposeUiTest {
+        showGrid(cameras = 4)
+        val size = { name: String -> onNodeWithText(name).getUnclippedBoundsInRoot().let { it.right - it.left to it.bottom - it.top } }
+        val other = size("Cam 2")
+        // Inset for the ring while it shows.
+        assertTrue(size("Cam 1").first < other.first)
+        leaveAlone()
+        // No room kept for a ring nobody sees: the video is as big as the other tiles.
+        assertEquals(other, size("Cam 1"))
+        press(Key.DirectionRight)
+        press(Key.DirectionLeft)
+        assertTrue(size("Cam 1").first < other.first, "inset again with the ring")
     }
 
     @Test
