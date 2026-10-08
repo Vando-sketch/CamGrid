@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
 
         // On a TV the D-pad only highlights text fields, so it can move past them; OK types.
         val dpadFirst = isTvDevice()
+        val autoStart = AndroidAutoStart(applicationContext)
         setContent {
             CamGridTheme {
                 CompositionLocalProvider(LocalDpadFirst provides dpadFirst) {
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
                         video = AndroidVideoPlatform,
                         appVersion = BuildConfig.VERSION_NAME,
                         onImmersiveChange = ::setSystemBarsHidden,
+                        autoStart = autoStart,
                     )
                 }
             }

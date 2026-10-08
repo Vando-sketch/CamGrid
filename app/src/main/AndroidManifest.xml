@@ -11,6 +11,23 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
+    <!-- Starting after boot, only when the user turns it on (BootReceiver, AndroidAutoStart). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!--
+        Nothing is drawn over other apps. From Android 10 on, holding this permission is the only
+        exemption a user can grant from the ban on opening an activity from the background,
+        which the boot start needs. It is not granted at install: the user turns it on in
+        "Display over other apps" (or with adb on Fire TV, which hides that screen).
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- With package visibility (Android 11+), so Settings can tell whether that screen exists. -->
+    <queries>
+        <intent>
+            <action android:name="android.settings.action.MANAGE_OVERLAY_PERMISSION" />
+            <data android:scheme="package" />
+        </intent>
+    </queries>
 
     <!-- One APK for phones and Fire TV: neither a touchscreen nor leanback is required. -->
     <uses-feature
@@ -51,6 +68,20 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            Off until the user turns on starting after boot: the enabled state is the setting.
+            Exported because the system sends the boot broadcast; BOOT_COMPLETED is protected,
+            so no other app can send it.
+        -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

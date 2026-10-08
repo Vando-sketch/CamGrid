@@ -15,6 +15,8 @@ import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
+import io.github.vandosketch.camgrid.platform.AutoStart
+import io.github.vandosketch.camgrid.platform.AutoStartBlocker
 import io.github.vandosketch.camgrid.platform.BackupDocument
 import io.github.vandosketch.camgrid.platform.BackupFiles
 import io.github.vandosketch.camgrid.platform.BackupPickers
@@ -121,5 +123,35 @@ object NoBackupFiles : BackupFiles {
     ): BackupPickers = object : BackupPickers {
         override fun launchSave(suggestedName: String) = false
         override fun launchOpen() = false
+    }
+}
+
+/**
+ * Start on boot kept in memory. [blockedWhenEnabled] is what [blocker] reports while enabled
+ * (like Android without the overlay permission); [hasBlockerSettings] is false on a device
+ * without the system screen (Fire TV). Remembers every [setEnabled] and settings opened.
+ */
+class FakeAutoStart(
+    private var enabled: Boolean = false,
+    /** Changeable, like the user granting the permission on the system screen. */
+    var blockedWhenEnabled: AutoStartBlocker? = null,
+    private val hasBlockerSettings: Boolean = true,
+) : AutoStart {
+    val setCalls = mutableListOf<Boolean>()
+    var settingsOpened = 0
+        private set
+
+    override fun isEnabled() = enabled
+
+    override fun setEnabled(enabled: Boolean) {
+        setCalls += enabled
+        this.enabled = enabled
+    }
+
+    override fun blocker() = if (enabled) blockedWhenEnabled else null
+
+    override fun openBlockerSettings(): Boolean {
+        settingsOpened++
+        return hasBlockerSettings
     }
 }
