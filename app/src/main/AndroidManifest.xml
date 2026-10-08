@@ -78,7 +78,12 @@
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
-            <intent-filter>
+            <!--
+                Fire OS hands BOOT_COMPLETED to one receiver after another, highest priority
+                first; at the default 0 CamGrid only got it 3 to 5 minutes after boot (issue #41).
+                999 is the highest an app may ask for.
+            -->
+            <intent-filter android:priority="999">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>

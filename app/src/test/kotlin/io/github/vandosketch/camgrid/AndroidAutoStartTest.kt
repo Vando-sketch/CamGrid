@@ -63,6 +63,16 @@ class AndroidAutoStartTest {
         assertTrue(receivers.any { it.activityInfo.name == BootReceiver::class.java.name })
     }
 
+    /** Fire OS hands BOOT_COMPLETED out by priority; at the default 0, CamGrid waited minutes. */
+    @Test
+    fun theReceiverAsksForBootCompletedEarly() {
+        val receiver = app.packageManager.queryBroadcastReceivers(
+            Intent(Intent.ACTION_BOOT_COMPLETED).setPackage(app.packageName),
+            PackageManager.GET_RESOLVED_FILTER,
+        ).single { it.activityInfo.name == BootReceiver::class.java.name }
+        assertEquals(999, receiver.filter.priority)
+    }
+
     @Test
     fun turningItOnAndOffLeavesTheComponentAlone() {
         autoStart.setEnabled(true)
