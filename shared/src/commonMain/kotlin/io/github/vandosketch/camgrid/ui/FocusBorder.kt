@@ -1,6 +1,7 @@
 package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusEventModifierNode
@@ -24,13 +25,21 @@ import androidx.compose.ui.unit.dp
 val FocusColor = Color(0xFFFFC107)
 
 /**
+ * How much of the focus rings to draw, 0 (none) to 1, read while drawing so an animation only
+ * redraws them. The grid fades its rings out while nobody presses a key ([GridScreen]); everywhere
+ * else it is 1.
+ */
+val LocalFocusRingAlpha = staticCompositionLocalOf<() -> Float> { { 1f } }
+
+/**
  * Draws a thick border while this element or one of its children has focus, so the D-pad
  * position is always obvious from across the room. Place it before the focusable modifier
  * (clickable, toggleable, ...) or on a component whose content is focusable.
  *
  * With a keyboard and mouse ([LocalKeyboardNavigation]) the border shows only while the user
  * moves around with the keys, so a button clicked with the mouse (which takes focus) is not
- * left ringed. Without one (TV, phone) it shows whenever there is focus.
+ * left ringed. Without one (TV, phone) it shows whenever there is focus. [LocalFocusRingAlpha]
+ * fades it.
  */
 fun Modifier.focusBorder(
     width: Dp = 3.dp,
@@ -88,14 +97,21 @@ private class FocusBorderNode(
 
     override fun ContentDrawScope.draw() {
         drawContent()
-        // A state read: the border redraws when the user switches between keys and mouse.
-        if (focused && currentValueOf(LocalKeyboardNavigation)?.active != false) {
+        // State reads: the border redraws when the user switches between keys and mouse, and
+        // while it fades.
+        val alpha = if (focused && currentValueOf(LocalKeyboardNavigation)?.active != false) {
+            currentValueOf(LocalFocusRingAlpha)()
+        } else {
+            0f
+        }
+        if (alpha > 0f) {
             val strokePx = width.toPx()
             // Inset by half the stroke so the whole border is drawn inside the bounds.
             inset(strokePx / 2f) {
                 drawOutline(
                     outline = shape.createOutline(size, layoutDirection, this),
                     color = color,
+                    alpha = alpha,
                     style = Stroke(width = strokePx),
                 )
             }

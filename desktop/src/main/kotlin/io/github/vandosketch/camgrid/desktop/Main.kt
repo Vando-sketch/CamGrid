@@ -32,6 +32,7 @@ import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.desktop.config.DesktopBackupFiles
 import io.github.vandosketch.camgrid.desktop.config.DesktopConfigStore
+import io.github.vandosketch.camgrid.desktop.config.DesktopDevicePreferences
 import io.github.vandosketch.camgrid.desktop.config.WindowStateStore
 import io.github.vandosketch.camgrid.desktop.video.DesktopVideoPlatform
 import io.github.vandosketch.camgrid.platform.AppLog
@@ -111,6 +112,7 @@ private fun App(onImmersiveChange: (Boolean) -> Unit) {
             configStore = DesktopConfigStore.forThisUser(),
             backupFiles = DesktopBackupFiles(),
             go2rtcClient = Go2rtcClient(CamGridHttp.client),
+            devicePreferences = DesktopDevicePreferences.forThisUser(),
         )
     }
     // A window is not a phone screen: the grid and fullscreen leave the window as it is (F11

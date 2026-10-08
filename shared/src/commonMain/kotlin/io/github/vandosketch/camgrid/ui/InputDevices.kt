@@ -69,8 +69,11 @@ val LocalKeyboardNavigation = staticCompositionLocalOf<KeyboardNavigation?> { nu
 fun isKeyboardNavigation(): Boolean =
     LocalKeyboardNavigation.current?.active ?: (LocalInputModeManager.current.inputMode == InputMode.Keyboard)
 
-/** The keys that move focus or act on it. Letters, Esc, F-keys and shortcuts are not. */
-private fun Key.isNavigationKey(): Boolean = when (this) {
+/**
+ * The keys that move focus or act on it. Letters, Esc, F-keys and shortcuts are not. Also the
+ * keys whose first press on the idle grid only brings the faded selection back ([GridScreen]).
+ */
+internal fun Key.isNavigationKey(): Boolean = when (this) {
     Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight, Key.DirectionCenter,
     Key.Tab, Key.Enter, Key.NumPadEnter, Key.Spacebar,
     Key.PageUp, Key.PageDown, Key.MoveHome, Key.MoveEnd,

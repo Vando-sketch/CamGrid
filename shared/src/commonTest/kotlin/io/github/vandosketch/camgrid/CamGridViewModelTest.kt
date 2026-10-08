@@ -18,6 +18,7 @@ import io.github.vandosketch.camgrid.platform.BackupFiles
 import io.github.vandosketch.camgrid.platform.BackupPickers
 import io.github.vandosketch.camgrid.platform.ConfigStore
 import io.github.vandosketch.camgrid.platform.LanServer
+import io.github.vandosketch.camgrid.platform.MemoryDevicePreferences
 import io.github.vandosketch.camgrid.transfer.TransferConnectionHandler
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -131,6 +132,7 @@ class CamGridViewModelTest {
 
     private val store = MemoryStore()
     private val lan = FakeLanServer()
+    private val devicePreferences = MemoryDevicePreferences()
     private var files = FolderFiles()
     private var go2rtcResponse: Pair<HttpStatusCode, String> = HttpStatusCode.OK to "{}"
 
@@ -151,6 +153,7 @@ class CamGridViewModelTest {
             repository = ConfigRepository(store, CoroutineScope(dispatcher)),
             backupFiles = files,
             go2rtcClient = Go2rtcClient(http),
+            devicePreferences = devicePreferences,
             ioDispatcher = dispatcher,
             computeDispatcher = dispatcher,
         )
@@ -200,6 +203,43 @@ class CamGridViewModelTest {
         assertEquals(Screen.Settings, vm.screen)
         vm.back()
         assertEquals(Screen.Grid, vm.screen)
+    }
+
+    @Test
+    fun returnToGridIsOffUntilChosenAndPersistsOnTheDevice() = runTest {
+        val vm = viewModel()
+        assertEquals(ReturnToGrid.OFF, vm.returnToGridAfter)
+
+        vm.selectReturnToGrid(ReturnToGrid.MINUTES_5)
+        assertEquals(ReturnToGrid.MINUTES_5, vm.returnToGridAfter)
+        // A new start on the same device reads it back.
+        assertEquals(ReturnToGrid.MINUTES_5, viewModel().returnToGridAfter)
+        assertEquals(5, devicePreferences.values[ReturnToGrid.PREFERENCE_KEY])
+        // Not part of the config, so not part of a backup: a config save does not carry it.
+        vm.saveCamera(kitchen)
+        settle(vm)
+        assertFalse(store.json!!.contains("return", ignoreCase = true))
+    }
+
+    @Test
+    fun anUnknownStoredReturnToGridCountsAsOff() = runTest {
+        devicePreferences.putInt(ReturnToGrid.PREFERENCE_KEY, 7)
+        assertEquals(ReturnToGrid.OFF, viewModel().returnToGridAfter)
+    }
+
+    @Test
+    fun returnToGridWhenIdleLeavesFullscreenLikeBack() = runTest {
+        store.json = ConfigCodec.encode(configWith(kitchen, door))
+        val vm = viewModel()
+        vm.openCamera("door")
+        vm.returnToGridWhenIdle()
+        assertEquals(Screen.Grid, vm.screen)
+        // On the camera that was open, as after Back.
+        assertEquals(1, vm.gridFocusIndex)
+        // Only from fullscreen: a late call never leaves another screen.
+        vm.openSettings()
+        vm.returnToGridWhenIdle()
+        assertEquals(Screen.Settings, vm.screen)
     }
 
     @Test

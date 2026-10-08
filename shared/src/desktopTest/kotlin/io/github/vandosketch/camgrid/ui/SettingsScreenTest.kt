@@ -21,8 +21,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -35,7 +37,9 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
+import io.github.vandosketch.camgrid.ReturnToGrid
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.platform.AutoStart
@@ -70,6 +74,7 @@ class SettingsScreenTest {
     ) {
         setContent {
             var config by remember { mutableStateOf(initial) }
+            var returnToGrid by remember { mutableStateOf(ReturnToGrid.OFF) }
             CamGridTheme {
                 Box(modifier) {
                     SettingsScreen(
@@ -89,6 +94,8 @@ class SettingsScreenTest {
                         onBackup = {},
                         appVersion = "0.1.0",
                         onOpenLicenses = {},
+                        returnToGrid = returnToGrid,
+                        onReturnToGridChange = { returnToGrid = it },
                         autoStart = autoStart,
                     )
                 }
@@ -99,10 +106,22 @@ class SettingsScreenTest {
     /** Tall enough that the lazy list composes every section of a short config at once. */
     private val tall = Modifier.size(width = 1024.dp, height = 4000.dp)
 
+    /** A test window as big as [tall]: content is never larger than its window. */
+    private fun runTallTest(block: suspend ComposeUiTest.() -> Unit) =
+        runDesktopComposeUiTest(width = 1024, height = 4000) { block() }
+
     private fun ComposeUiTest.top(text: String): Float =
         onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
 
     private val bootSwitch = "Start CamGrid when this device turns on"
+
+    private val returnSection = "Back to grid after inactivity"
+
+    /** The return-to-grid choice labelled [label], scrolled into view first. */
+    private fun ComposeUiTest.returnChoice(label: String): SemanticsNodeInteraction {
+        onNodeWithTag(SETTINGS_LIST_TAG).performScrollToNode(hasText(label))
+        return onNodeWithText(label)
+    }
 
     /** The boot switch row, scrolled into view first. */
     private fun ComposeUiTest.bootRow(): SemanticsNodeInteraction {
@@ -208,6 +227,8 @@ class SettingsScreenTest {
                                 onBackup = {},
                                 appVersion = "0.1.0",
                                 onOpenLicenses = { onSettings = false },
+                                returnToGrid = ReturnToGrid.OFF,
+                                onReturnToGridChange = {},
                             )
                         }
                     }
@@ -226,14 +247,36 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun sectionsComeInOrderCamerasFirstAboutLast() = runComposeUiTest {
+    fun sectionsComeInOrderCamerasFirstAboutLast() = runTallTest {
         showSettings(testConfig(1), tall, FakeAutoStart())
-        val tops = listOf("Cameras", "Views", "Start on boot", "Backup", "About").map { top(it) }
+        val tops = listOf("Cameras", "Views", returnSection, "Start on boot", "Backup", "About").map { top(it) }
         assertEquals(tops.sorted(), tops, "section tops $tops")
     }
 
     @Test
-    fun withoutAutoStartTheBootSectionIsHidden() = runComposeUiTest {
+    fun returnToGridOffersOffAndFourTimesWithOffSelectedByDefault() = runComposeUiTest {
+        showSettings(testConfig(1))
+        returnChoice("Off").assertIsSelected()
+        for (label in listOf("1 min", "2 min", "5 min", "10 min")) returnChoice(label).assertIsNotSelected()
+        onNodeWithText("a camera opened fullscreen goes back to the grid", substring = true).assertExists()
+    }
+
+    @Test
+    fun returnToGridChangesWithOkOnTheRemote() = runComposeUiTest {
+        showSettings(testConfig(1))
+        returnChoice("2 min").requestFocus()
+        returnChoice("2 min").performKeyInput { pressKey(Key.Enter) }
+        waitForIdle()
+        returnChoice("2 min").assertIsSelected()
+        returnChoice("Off").assertIsNotSelected()
+        returnChoice("Off").performClick()
+        waitForIdle()
+        returnChoice("Off").assertIsSelected()
+        returnChoice("2 min").assertIsNotSelected()
+    }
+
+    @Test
+    fun withoutAutoStartTheBootSectionIsHidden() = runTallTest {
         showSettings(testConfig(1), tall, autoStart = null)
         onNodeWithText("About").assertIsDisplayed()
         onNodeWithText("Start on boot").assertDoesNotExist()
@@ -299,6 +342,8 @@ class SettingsScreenTest {
                         onBackup = {},
                         appVersion = "0.1.0",
                         onOpenLicenses = {},
+                        returnToGrid = ReturnToGrid.OFF,
+                        onReturnToGridChange = {},
                         autoStart = autoStart,
                     )
                 }
@@ -347,7 +392,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun theEmptyCameraListExplainsTheImportNextToItsButtons() = runComposeUiTest {
+    fun theEmptyCameraListExplainsTheImportNextToItsButtons() = runTallTest {
         showSettings(CamGridConfig(views = threeViews), tall)
         onNodeWithText("No cameras configured.").assertIsDisplayed()
         onNodeWithText("your go2rtc address", substring = true).assertIsDisplayed()

@@ -23,6 +23,7 @@ import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.createCamGridHttpClient
 import io.github.vandosketch.camgrid.platform.LiveStream
+import io.github.vandosketch.camgrid.platform.MemoryDevicePreferences
 import io.github.vandosketch.camgrid.platform.StreamStatus
 import io.github.vandosketch.camgrid.platform.VideoPlatform
 import io.ktor.client.engine.mock.MockEngine
@@ -108,6 +109,7 @@ class GridStreamHandoverTest {
             configStore = MemoryConfigStore(ConfigCodec.encode(config)),
             backupFiles = NoBackupFiles,
             go2rtcClient = Go2rtcClient(createCamGridHttpClient(MockEngine { respond("") })),
+            devicePreferences = MemoryDevicePreferences(),
         )
         setContent {
             CamGridTheme { CamGridApp(viewModel = viewModel, video = video, appVersion = "0.1.0-dev", onImmersiveChange = {}) }

@@ -4,6 +4,14 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Added
+
+- **Back to grid after inactivity.** A new setting returns a camera opened fullscreen to the grid after 1, 2, 5 or 10 minutes without a key press, touch or mouse movement, with that camera selected, for wall displays nobody closes by hand. Off by default; set on each device and not part of a backup.
+
+### Changed
+
+- **The selection ring fades out on an idle grid.** After 10 seconds without a key press, the yellow ring around the selected tile and the gear button fades away, like a video player's controls. The first arrow or OK press only brings it back, so a press nobody aimed never opens the wrong camera; Back works as usual. ([#43](https://github.com/Vando-sketch/CamGrid/issues/43))
+
 ## [0.3.1] - 2026-10-08
 
 ### Fixed

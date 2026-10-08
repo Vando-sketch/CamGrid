@@ -75,6 +75,10 @@ On a phone, tap a tile to select it, pick the mode with the Select / Move / Resi
 
 The editor shows how many streams the view plays at once and warns above 4, which is about what a Fire TV Stick can decode. The JSON format of views is in [docs/view-format.md](view-format.md).
 
+## Back to grid after inactivity
+
+For a wall display, Settings > **Back to grid after inactivity** makes a camera opened fullscreen go back to the grid by itself when nobody pressed a key, touched the screen or moved the mouse for 1, 2, 5 or 10 minutes. The grid then has the same camera selected as after pressing Back. It is off by default. Like Start on boot, it is set on each device and is not part of a backup, so the TV keeps its choice when you import a backup from your phone.
+
 ## Start on boot
 
 On Android and Fire TV, Settings > **Start on boot** opens CamGrid by itself after the device starts, for a wall display nobody wants to start with the remote. It is off by default and is not part of a backup.
@@ -135,6 +139,8 @@ On desktop (and with a keyboard on any device), the arrow keys, Enter and Esc wo
 | ? or F1 | Show all shortcuts |
 
 Fullscreen cycles through all cameras in configured order, not just the current page. Returning to the grid puts focus on the camera you were watching.
+
+The yellow ring around the selected tile (and around the gear button) fades out after 10 seconds without a key press, so a wall display shows just the cameras. The first arrow or OK press after that only brings the ring back; it does not move the selection or open a camera, so you can see where you are before you act. Back, the number keys, taps and clicks work as usual while the ring is hidden.
 
 Zoom (Android, Fire TV and desktop; not yet in the iOS app) goes up to 4x. While zoomed in, the arrow keys (D-pad) and dragging move the picture instead of switching camera, and Back (or Esc) first shows the whole picture again; the next Back returns to the grid. Switching to another camera starts with the whole picture.
 

@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,14 +87,19 @@ import io.github.vandosketch.camgrid.shared.resources.no_cameras
 import io.github.vandosketch.camgrid.shared.resources.no_cameras_help
 import io.github.vandosketch.camgrid.shared.resources.open_backup
 import io.github.vandosketch.camgrid.shared.resources.open_licenses
+import io.github.vandosketch.camgrid.shared.resources.return_to_grid_help
+import io.github.vandosketch.camgrid.shared.resources.return_to_grid_minutes
+import io.github.vandosketch.camgrid.shared.resources.return_to_grid_off
 import io.github.vandosketch.camgrid.shared.resources.section_about
 import io.github.vandosketch.camgrid.shared.resources.section_autostart
 import io.github.vandosketch.camgrid.shared.resources.section_backup
 import io.github.vandosketch.camgrid.shared.resources.section_cameras
+import io.github.vandosketch.camgrid.shared.resources.section_return_to_grid
 import io.github.vandosketch.camgrid.shared.resources.section_views
 import io.github.vandosketch.camgrid.shared.resources.settings_title
 import io.github.vandosketch.camgrid.shared.resources.view_summary
 import io.github.vandosketch.camgrid.shared.resources.views_help
+import io.github.vandosketch.camgrid.ReturnToGrid
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
@@ -112,8 +120,8 @@ private const val OVERLAY_ADB_COMMAND = "adb shell appops set io.github.vandoske
 /**
  * Settings, built for the D-pad: Up/Down buttons instead of drag-and-drop for the order of
  * views and cameras. Each view's layout is edited on its own screen. The sections run Cameras,
- * Views, Start on boot ([autoStart]; hidden where the platform cannot start by itself), Backup
- * and About, which shows [appVersion] (what bug reports should name) and opens the license
+ * Views, Back to grid after inactivity ([returnToGrid], a setting of this device), Start on boot
+ * ([autoStart]; hidden where the platform cannot start by itself), Backup and About, which shows [appVersion] (what bug reports should name) and opens the license
  * screen. Each section's rows sit on one card; a row is one lazy item (one card segment), so
  * long lists stay lazy and the D-pad scrolls row by row.
  */
@@ -131,6 +139,8 @@ fun SettingsScreen(
     onBackup: () -> Unit,
     appVersion: String,
     onOpenLicenses: () -> Unit,
+    returnToGrid: ReturnToGrid,
+    onReturnToGridChange: (ReturnToGrid) -> Unit,
     autoStart: AutoStart? = null,
 ) {
     var pendingDelete by remember { mutableStateOf<Camera?>(null) }
@@ -261,6 +271,13 @@ fun SettingsScreen(
                 }
             }
 
+            item(key = "title:return") { SettingsSectionTitle(SettingsIcons.Timer, stringResource(Res.string.section_return_to_grid)) }
+            item(key = "return") {
+                CardSegment(first = true, last = true) {
+                    ReturnToGridChoice(selected = returnToGrid, onSelect = onReturnToGridChange)
+                }
+            }
+
             if (autoStartSettings != null) autoStartSection(autoStartSettings)
 
             item(key = "title:backup") { SettingsSectionTitle(SettingsIcons.Backup, stringResource(Res.string.section_backup)) }
@@ -351,6 +368,43 @@ fun SettingsScreen(
                     Text(stringResource(Res.string.cancel))
                 }
             },
+        )
+    }
+}
+
+/**
+ * One chip per [ReturnToGrid] choice, wrapping on a narrow phone, and what the choice does. A
+ * chip is a single D-pad stop: OK picks it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ReturnToGridChoice(selected: ReturnToGrid, onSelect: (ReturnToGrid) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            for (choice in ReturnToGrid.entries) {
+                FilterChip(
+                    selected = choice == selected,
+                    onClick = { onSelect(choice) },
+                    label = {
+                        Text(
+                            if (choice == ReturnToGrid.OFF) {
+                                stringResource(Res.string.return_to_grid_off)
+                            } else {
+                                stringResource(Res.string.return_to_grid_minutes, choice.minutes)
+                            },
+                        )
+                    },
+                    modifier = Modifier.focusBorder(shape = RoundedCornerShape(8.dp)),
+                )
+            }
+        }
+        Text(
+            text = stringResource(Res.string.return_to_grid_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

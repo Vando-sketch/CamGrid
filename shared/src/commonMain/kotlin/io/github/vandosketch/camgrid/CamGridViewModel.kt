@@ -25,6 +25,7 @@ import io.github.vandosketch.camgrid.platform.BackupDocument
 import io.github.vandosketch.camgrid.platform.BackupFileException
 import io.github.vandosketch.camgrid.platform.BackupFiles
 import io.github.vandosketch.camgrid.platform.ConfigStore
+import io.github.vandosketch.camgrid.platform.DevicePreferences
 import io.github.vandosketch.camgrid.transfer.LanTransferProtocol
 import io.github.vandosketch.camgrid.transfer.TransferDownload
 import kotlin.coroutines.cancellation.CancellationException
@@ -63,6 +64,7 @@ sealed interface ImportState {
  * the go2rtc import and the backup flow. All config edits go through core's [ConfigEditor].
  *
  * @param backupFiles the platform's backup file access; the backup screen also uses its pickers.
+ * @param devicePreferences this device's own settings (when fullscreen returns to the grid).
  * @param ioDispatcher where blocking file IO (and the backup's key derivation) runs.
  * @param computeDispatcher where backups are decrypted and parsed.
  */
@@ -70,13 +72,18 @@ class CamGridViewModel(
     private val repository: ConfigRepository,
     val backupFiles: BackupFiles,
     private val go2rtcClient: Go2rtcClient,
+    private val devicePreferences: DevicePreferences,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
     /** Loads the config from [configStore] right away (synchronously). */
-    constructor(configStore: ConfigStore, backupFiles: BackupFiles, go2rtcClient: Go2rtcClient) :
-        this(ConfigRepository(configStore), backupFiles, go2rtcClient)
+    constructor(
+        configStore: ConfigStore,
+        backupFiles: BackupFiles,
+        go2rtcClient: Go2rtcClient,
+        devicePreferences: DevicePreferences,
+    ) : this(ConfigRepository(configStore), backupFiles, go2rtcClient, devicePreferences)
 
     val config: StateFlow<CamGridConfig> = repository.config
 
@@ -96,6 +103,15 @@ class CamGridViewModel(
     var importStreamType by mutableStateOf(StreamType.RTSP)
         private set
     private var fetchJob: Job? = null
+
+    /** When an untouched fullscreen goes back to the grid; a setting of this device, not the config. */
+    var returnToGridAfter by mutableStateOf(ReturnToGrid.fromMinutes(devicePreferences.getInt(ReturnToGrid.PREFERENCE_KEY)))
+        private set
+
+    fun selectReturnToGrid(value: ReturnToGrid) {
+        returnToGridAfter = value
+        devicePreferences.putInt(ReturnToGrid.PREFERENCE_KEY, value.minutes)
+    }
 
     // --- Navigation ---
 
@@ -166,6 +182,14 @@ class CamGridViewModel(
                 Screen.Settings
             }
         }
+    }
+
+    /**
+     * Nobody touched fullscreen for [returnToGridAfter]: back to the grid like Back (on the same
+     * camera), even while zoomed in. Does nothing on any other screen, so a late call is harmless.
+     */
+    fun returnToGridWhenIdle() {
+        if (screen is Screen.Fullscreen) back()
     }
 
     /**

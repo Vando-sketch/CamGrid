@@ -1,6 +1,8 @@
 package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -32,7 +34,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +53,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -106,6 +111,15 @@ private val LabelShadow = Shadow(color = Color.Black, offset = Offset(0f, 1f), b
 internal const val PAGE_INDICATOR_MS = 3_000L
 
 /**
+ * Without a key press for this long the selection ring (and the settings button's) fades out, so
+ * a wall display left alone shows just the cameras.
+ */
+internal const val SELECTION_IDLE_MS = 10_000L
+
+/** How long the selection ring takes to fade out (and back in). */
+internal const val RING_FADE_MS = 300
+
+/**
  * The camera wall: the config's views one after the other, each as one or more pages of tiles
  * (see [ViewPaging]), playing muted low-res streams. Tiles can have any size on the view's cell
  * canvas, so portrait and landscape tiles can sit side by side.
@@ -116,9 +130,12 @@ internal const val PAGE_INDICATOR_MS = 3_000L
  * edge to the other page, off the top edge to the settings button), OK/Enter opens it, 1-9 open
  * the Nth camera of the page and Page Up/Down (or the channel and track keys) switch page. The
  * selection ring is drawn over all tiles while the wall has focus in key mode
- * ([isKeyboardNavigation]), so phones and mouse users never see it. On touch screens a
- * horizontal swipe switches page and a tap opens the camera; a mouse gets a lighter hover ring
- * and the hand cursor.
+ * ([isKeyboardNavigation]), so phones and mouse users never see it. After [SELECTION_IDLE_MS]
+ * without a key it fades out, with the settings button's ring ([LocalFocusRingAlpha]), like a
+ * video player's controls; the first navigation key or OK after that only brings it back, so a
+ * press at a selection nobody can see neither moves it nor opens a camera. Other keys (Back,
+ * digits) act as usual. On touch screens a horizontal swipe switches page and a tap opens the
+ * camera; a mouse gets a lighter hover ring and the hand cursor.
  *
  * Tiles whose stream is not playing (connecting, offline) show a lighter placeholder, so the
  * wall does not look like one black area. With several pages, the view name and page number
@@ -155,6 +172,19 @@ fun GridScreen(
     val keyMode = isKeyboardNavigation()
     val showSelection = gridFocused && keyMode && currentIndex >= 0
 
+    // Fades the rings while nobody presses a key; see the comment above.
+    val ringTimer = remember { IdleTimer(SELECTION_IDLE_MS) }
+    LaunchedEffect(ringTimer) { ringTimer.run() }
+    val ringAlpha = animateFloatAsState(
+        targetValue = if (ringTimer.idle) 0f else 1f,
+        animationSpec = tween(RING_FADE_MS),
+    )
+    // Read while drawing: the fade redraws the rings without recomposing the tiles.
+    val readRingAlpha = remember(ringAlpha) { { ringAlpha.value } }
+    // The selected tile makes room for its ring only while the ring can be seen: once it has
+    // faded out, the video gets its full size back like every other tile.
+    val ringShown by remember(ringAlpha) { derivedStateOf { ringAlpha.value > 0f } }
+
     // The wall takes the keys on entering the grid and keeps focus across page switches.
     LaunchedEffect(Unit) { gridRequester.tryRequestFocus() }
 
@@ -175,7 +205,16 @@ fun GridScreen(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .keepScreenOn(),
+            .keepScreenOn()
+            // Before the wall and the settings button see the key.
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                val wasIdle = ringTimer.idle
+                ringTimer.onActivity()
+                // Only the press: its key up does nothing (a button clicks on the up only after
+                // it saw the down). Repeats of a held key go on as usual.
+                wasIdle && event.key.isNavigationKey()
+            },
     ) {
         BoxWithConstraints(
             Modifier
@@ -250,7 +289,7 @@ fun GridScreen(
                     // across pages keeps playing.
                     val camera = placed.camera
                     if (camera != null) {
-                        val ringed = showSelection && index == currentIndex
+                        val ringed = showSelection && ringShown && index == currentIndex
                         CameraTile(
                             video = video,
                             camera = camera,
@@ -280,7 +319,11 @@ fun GridScreen(
                 Box(slot(hovered.tile).border(3.dp, Color.White.copy(alpha = 0.7f), TileShape))
             }
             if (showSelection) {
-                Box(slot(tiles[currentIndex].tile).border(SelectionWidth, FocusColor, TileShape))
+                Box(
+                    slot(tiles[currentIndex].tile)
+                        .graphicsLayer { alpha = ringAlpha.value }
+                        .border(SelectionWidth, FocusColor, TileShape),
+                )
             }
         }
 
@@ -317,33 +360,36 @@ fun GridScreen(
             }
         }
 
-        IconButton(
-            onClick = onOpenSettings,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-                .focusBorder(width = 3.dp, shape = CircleShape)
-                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                .pointerHoverIcon(PointerIcon.Hand)
-                .focusRequester(settingsRequester)
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    when (event.key) {
-                        // Back into the grid, to the tile that was selected before.
-                        Key.DirectionDown, Key.DirectionLeft -> {
-                            gridRequester.tryRequestFocus()
-                            true
+        // Its focus ring fades with the selection ring.
+        CompositionLocalProvider(LocalFocusRingAlpha provides readRingAlpha) {
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .focusBorder(width = 3.dp, shape = CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .focusRequester(settingsRequester)
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (event.key) {
+                            // Back into the grid, to the tile that was selected before.
+                            Key.DirectionDown, Key.DirectionLeft -> {
+                                gridRequester.tryRequestFocus()
+                                true
+                            }
+                            Key.DirectionUp, Key.DirectionRight -> true
+                            else -> false
                         }
-                        Key.DirectionUp, Key.DirectionRight -> true
-                        else -> false
-                    }
-                },
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Settings,
-                contentDescription = stringResource(Res.string.open_settings),
-                tint = Color.White,
-            )
+                    },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = stringResource(Res.string.open_settings),
+                    tint = Color.White,
+                )
+            }
         }
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -43,6 +44,9 @@ import io.github.vandosketch.camgrid.platform.VideoPlatform
  *
  * With a keyboard and mouse it provides a [KeyboardNavigation] (unless the caller already did):
  * focus rings show only while the user moves around with the keys.
+ *
+ * Fullscreen goes back to the grid by itself after [CamGridViewModel.returnToGridAfter] without
+ * any key, touch or mouse input, when the user chose a time in Settings.
  *
  * Settings and the license list keep their saved UI state (the scroll position) while one of
  * their sub-screens is open, so Back returns to where the user was; leaving them for the grid
@@ -115,6 +119,31 @@ fun CamGridApp(
         Modifier
     }
 
+    // An untouched fullscreen goes back to the grid after the time chosen in Settings (per
+    // device, off by default), for a wall display nobody closes by hand. Any key, touch or mouse
+    // input restarts the count; a new timer starts with each visit to fullscreen.
+    val returnTimeout = if (screen is Screen.Fullscreen) viewModel.returnToGridAfter.timeoutMillis else null
+    val returnTimer = remember(returnTimeout) { returnTimeout?.let { IdleTimer(it) } }
+    if (returnTimer != null) LaunchedEffect(returnTimer) { returnTimer.run(onIdle = viewModel::returnToGridWhenIdle) }
+    val returnTimerInput = if (returnTimer != null) {
+        Modifier.pointerInput(returnTimer) {
+            awaitPointerEventScope {
+                var lastPosition: Offset? = null
+                while (true) {
+                    // Initial pass, never consumed: the screen still gets every event.
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val position = event.changes.firstOrNull()?.position
+                    // Like KeyboardNavigation: a move where the mouse rests is Compose's, not the user's.
+                    val moved = event.type == PointerEventType.Move && lastPosition != null && position != lastPosition
+                    lastPosition = position
+                    if (moved || event.type in UserPointerEvents) returnTimer.onActivity()
+                }
+            }
+        }
+    } else {
+        Modifier
+    }
+
     val pages = remember(config) { ViewPaging.pages(config) }
     val gridStreams = rememberGridStreams(video, gridStreamCameras(screen, config.cameras, pages, viewModel.gridPage))
 
@@ -129,7 +158,10 @@ fun CamGridApp(
                 .background(MaterialTheme.colorScheme.background)
                 // Every key on its way to the focused screen: do the rings have to show?
                 .onPreviewKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown) navigation?.onKeyDown(event.key)
+                    if (event.type == KeyEventType.KeyDown) {
+                        navigation?.onKeyDown(event.key)
+                        returnTimer?.onActivity()
+                    }
                     false
                 }
                 // Around the screens: only keys the focused screen did not handle arrive here.
@@ -148,7 +180,8 @@ fun CamGridApp(
                         else -> false
                     }
                 }
-                .then(mouseInput),
+                .then(mouseInput)
+                .then(returnTimerInput),
         ) {
             when (screen) {
                 Screen.Grid -> GridScreen(
@@ -181,6 +214,8 @@ fun CamGridApp(
                         onBackup = viewModel::openBackup,
                         appVersion = appVersion,
                         onOpenLicenses = viewModel::openLicenses,
+                        returnToGrid = viewModel.returnToGridAfter,
+                        onReturnToGridChange = viewModel::selectReturnToGrid,
                         autoStart = autoStart,
                     )
                 }
@@ -251,6 +286,9 @@ fun CamGridApp(
         }
     }
 }
+
+/** Pointer events that are always the user's: a touch or a click, its release, the wheel. */
+private val UserPointerEvents = setOf(PointerEventType.Press, PointerEventType.Release, PointerEventType.Scroll)
 
 private const val SETTINGS_STATE = "settings"
 private const val LICENSES_STATE = "licenses"

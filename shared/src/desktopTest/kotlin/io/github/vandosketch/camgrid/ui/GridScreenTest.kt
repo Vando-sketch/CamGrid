@@ -12,6 +12,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
@@ -19,6 +23,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -36,6 +41,7 @@ import io.github.vandosketch.camgrid.platform.VideoPlatform
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
@@ -45,6 +51,9 @@ class GridScreenTest {
         var position by mutableStateOf(GridPosition(0, 0))
         val opened = mutableListOf<String>()
         var settingsOpened = 0
+
+        /** Keys the grid left unhandled, as the app around it gets them. */
+        val keysPassedOn = mutableListOf<Key>()
     }
 
     /** Streams that never get past connecting; the surface is black, like the platforms' while there is no picture. */
@@ -77,15 +86,22 @@ class GridScreenTest {
         val harness = Harness().apply { position = start }
         setContent {
             CamGridTheme {
-                GridScreen(
-                    video = video,
-                    config = testConfig(cameras),
-                    page = harness.position.page,
-                    focusIndex = harness.position.index,
-                    onPositionChange = { harness.position = it },
-                    onOpenCamera = { harness.opened += it },
-                    onOpenSettings = { harness.settingsOpened++ },
-                )
+                Box(
+                    Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) harness.keysPassedOn += event.key
+                        false
+                    },
+                ) {
+                    GridScreen(
+                        video = video,
+                        config = testConfig(cameras),
+                        page = harness.position.page,
+                        focusIndex = harness.position.index,
+                        onPositionChange = { harness.position = it },
+                        onOpenCamera = { harness.opened += it },
+                        onOpenSettings = { harness.settingsOpened++ },
+                    )
+                }
             }
         }
         return harness
@@ -197,6 +213,122 @@ class GridScreenTest {
         mainClock.advanceTimeBy(PAGE_INDICATOR_MS + 1_000)
         waitForIdle()
         onNodeWithText("2 / 2").assertDoesNotExist()
+    }
+
+    /** Lets the grid sit untouched until the selection ring has faded out. */
+    private fun ComposeUiTest.leaveAlone() {
+        mainClock.advanceTimeBy(SELECTION_IDLE_MS + RING_FADE_MS + 100)
+        waitForIdle()
+    }
+
+    @Test
+    fun theSelectionRingFadesOutWhenNobodyPressesAKey() = runComposeUiTest {
+        val harness = showGrid(cameras = 4)
+        assertTrue(focusRingVisible())
+        mainClock.advanceTimeBy(SELECTION_IDLE_MS - 1_000)
+        assertTrue(focusRingVisible(), "gone before the timeout")
+        leaveAlone()
+        assertFalse(focusRingVisible())
+        // Only hidden: the selection itself stays.
+        onNodeWithText("Cam 1").assertIsSelected()
+        assertEquals(GridPosition(0, 0), harness.position)
+    }
+
+    @Test
+    fun theSelectedTileGetsItsFullSizeBackWhileTheRingIsHidden() = runComposeUiTest {
+        showGrid(cameras = 4)
+        val size = { name: String -> onNodeWithText(name).getUnclippedBoundsInRoot().let { it.right - it.left to it.bottom - it.top } }
+        val other = size("Cam 2")
+        // Inset for the ring while it shows.
+        assertTrue(size("Cam 1").first < other.first)
+        leaveAlone()
+        // No room kept for a ring nobody sees: the video is as big as the other tiles.
+        assertEquals(other, size("Cam 1"))
+        press(Key.DirectionRight)
+        press(Key.DirectionLeft)
+        assertTrue(size("Cam 1").first < other.first, "inset again with the ring")
+    }
+
+    @Test
+    fun theFirstArrowWhileHiddenOnlyShowsTheRing() = runComposeUiTest {
+        val harness = showGrid(cameras = 4)
+        leaveAlone()
+        press(Key.DirectionRight)
+        assertEquals(GridPosition(0, 0), harness.position)
+        assertTrue(focusRingVisible())
+        // Now it moves, as usual.
+        press(Key.DirectionRight)
+        assertEquals(GridPosition(0, 1), harness.position)
+    }
+
+    @Test
+    fun theFirstOkWhileHiddenOpensNothing() = runComposeUiTest {
+        val harness = showGrid(cameras = 4, start = GridPosition(0, 2))
+        for (ok in listOf(Key.DirectionCenter, Key.Enter)) {
+            leaveAlone()
+            press(ok)
+            assertEquals(emptyList(), harness.opened, "$ok")
+            assertTrue(focusRingVisible())
+        }
+        press(Key.Enter)
+        assertEquals(listOf("cam3"), harness.opened)
+    }
+
+    @Test
+    fun aKeyRestartsTheTimeout() = runComposeUiTest {
+        val harness = showGrid(cameras = 4)
+        mainClock.advanceTimeBy(SELECTION_IDLE_MS - 2_000)
+        press(Key.DirectionRight)
+        assertEquals(GridPosition(0, 1), harness.position)
+        // Past the first timeout, but not yet a whole timeout after the key.
+        mainClock.advanceTimeBy(SELECTION_IDLE_MS - 2_000)
+        assertTrue(focusRingVisible())
+        leaveAlone()
+        assertFalse(focusRingVisible())
+    }
+
+    @Test
+    fun backStillReachesTheAppWhileTheRingIsHidden() = runComposeUiTest {
+        val harness = showGrid(cameras = 4)
+        leaveAlone()
+        press(Key.Back)
+        assertEquals(listOf(Key.Back), harness.keysPassedOn)
+        harness.keysPassedOn.clear()
+        leaveAlone()
+        press(Key.Escape)
+        assertEquals(listOf(Key.Escape), harness.keysPassedOn)
+    }
+
+    @Test
+    fun digitsStillOpenTheirCameraWhileTheRingIsHidden() = runComposeUiTest {
+        // A digit names its camera; it does not depend on where the hidden selection is.
+        val harness = showGrid(cameras = 4)
+        leaveAlone()
+        press(Key.Three)
+        assertEquals(listOf("cam3"), harness.opened)
+    }
+
+    @Test
+    fun aTapStillOpensTheCameraWhileTheRingIsHidden() = runComposeUiTest {
+        val harness = showGrid(cameras = 4)
+        leaveAlone()
+        onNodeWithText("Cam 2").performClick()
+        assertEquals(listOf("cam2"), harness.opened)
+    }
+
+    @Test
+    fun theSettingsButtonRingFadesTooAndTheFirstOkOnlyShowsIt() = runComposeUiTest {
+        val harness = showGrid(cameras = 4)
+        press(Key.DirectionUp)
+        // The gear has the focus and its ring; the tile ring is gone with the focus.
+        assertTrue(focusRingVisible())
+        leaveAlone()
+        assertFalse(focusRingVisible())
+        press(Key.Enter)
+        assertEquals(0, harness.settingsOpened)
+        assertTrue(focusRingVisible())
+        press(Key.Enter)
+        assertEquals(1, harness.settingsOpened)
     }
 
     @Test
