@@ -1,11 +1,15 @@
 package io.github.vandosketch.camgrid
 
+import android.app.AlarmManager
 import android.app.Application
+import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.test.core.app.ApplicationProvider
 import io.github.vandosketch.camgrid.platform.AutoStartBlocker
@@ -21,7 +25,10 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowSettings
 
-/** Starting after boot: the receiver's enabled state is the setting, off until the user turns it on. */
+/**
+ * Starting after boot: a preference is the setting, off until the user turns it on. The receiver's
+ * component state is never touched (except to undo what older builds did), see [AndroidAutoStart].
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class AndroidAutoStartTest {
@@ -38,9 +45,13 @@ class AndroidAutoStartTest {
     @Test
     fun isOffUntilTheUserTurnsItOn() {
         assertFalse(autoStart.isEnabled())
-        // The manifest's default, not only "nobody changed it yet".
+    }
+
+    @Test
+    fun theReceiverIsAlwaysEnabledInTheManifest() {
+        // Toggling it would make the Fire TV launcher reload CamGrid and lose its tile.
         val info = app.packageManager.getReceiverInfo(receiver, PackageManager.MATCH_DISABLED_COMPONENTS)
-        assertFalse(info.enabled)
+        assertTrue(info.enabled)
     }
 
     @Test
@@ -52,25 +63,50 @@ class AndroidAutoStartTest {
         assertTrue(receivers.any { it.activityInfo.name == BootReceiver::class.java.name })
     }
 
+    /** Fire OS hands BOOT_COMPLETED out by priority; at the default 0, CamGrid waited minutes. */
     @Test
-    fun turningItOnAndOffSwitchesTheReceiver() {
-        autoStart.setEnabled(true)
-        assertTrue(autoStart.isEnabled())
-        assertEquals(
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            app.packageManager.getComponentEnabledSetting(receiver),
-        )
-
-        autoStart.setEnabled(false)
-        assertFalse(autoStart.isEnabled())
-        assertEquals(
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            app.packageManager.getComponentEnabledSetting(receiver),
-        )
+    fun theReceiverAsksForBootCompletedEarly() {
+        val receiver = app.packageManager.queryBroadcastReceivers(
+            Intent(Intent.ACTION_BOOT_COMPLETED).setPackage(app.packageName),
+            PackageManager.GET_RESOLVED_FILTER,
+        ).single { it.activityInfo.name == BootReceiver::class.java.name }
+        assertEquals(999, receiver.filter.priority)
     }
 
     @Test
-    fun bootCompletedOpensTheGridInANewTask() {
+    fun turningItOnAndOffLeavesTheComponentAlone() {
+        autoStart.setEnabled(true)
+        assertTrue(autoStart.isEnabled())
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, componentState())
+
+        autoStart.setEnabled(false)
+        assertFalse(autoStart.isEnabled())
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, componentState())
+    }
+
+    @Test
+    fun theSettingIsStoredInItsOwnPreferences() {
+        autoStart.setEnabled(true)
+        assertTrue(prefs().getBoolean("enabled", false))
+        // A new instance (the app restarted) reads it back.
+        assertTrue(AndroidAutoStart(app).isEnabled())
+
+        autoStart.setEnabled(false)
+        assertFalse(prefs().getBoolean("enabled", true))
+        assertFalse(AndroidAutoStart(app).isEnabled())
+    }
+
+    @Test
+    fun whenOffBootCompletedDoesNothing() {
+        BootReceiver().onReceive(app, Intent(Intent.ACTION_BOOT_COMPLETED))
+
+        assertNull(shadowOf(app).nextStartedActivity)
+        assertTrue(alarms().scheduledAlarms.isEmpty())
+    }
+
+    @Test
+    fun whenOnBootCompletedOpensTheGridInANewTask() {
+        autoStart.setEnabled(true)
         BootReceiver().onReceive(app, Intent(Intent.ACTION_BOOT_COMPLETED))
 
         val started = shadowOf(app).nextStartedActivity
@@ -79,12 +115,65 @@ class AndroidAutoStartTest {
     }
 
     @Test
+    fun whenOnBootCompletedOpensTheGridAgainAfterTheLauncher() {
+        autoStart.setEnabled(true)
+        val now = SystemClock.elapsedRealtime()
+        BootReceiver().onReceive(app, Intent(Intent.ACTION_BOOT_COMPLETED))
+
+        val scheduled = alarms().scheduledAlarms
+        assertEquals(1, scheduled.size)
+        val alarm = scheduled.single()
+        assertEquals(AlarmManager.ELAPSED_REALTIME, alarm.type)
+        assertEquals(now + 15_000L, alarm.triggerAtMs)
+        val pending = shadowOf(alarm.operation)
+        assertTrue(pending.isActivityIntent)
+        assertTrue(pending.flags and PendingIntent.FLAG_IMMUTABLE != 0)
+        assertEquals(ComponentName(app, MainActivity::class.java), pending.savedIntent.component)
+        assertTrue(pending.savedIntent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+    }
+
+    @Test
     fun otherBroadcastsAreIgnored() {
+        autoStart.setEnabled(true)
         BootReceiver().onReceive(app, Intent(Intent.ACTION_SCREEN_ON))
         BootReceiver().onReceive(app, Intent())
 
         assertNull(shadowOf(app).nextStartedActivity)
+        assertTrue(alarms().scheduledAlarms.isEmpty())
     }
+
+    @Test
+    fun anEnabledReceiverFromAnOlderBuildBecomesTheSetting() {
+        setComponentState(PackageManager.COMPONENT_ENABLED_STATE_ENABLED)
+
+        // Even before the app opens once after the update, the boot start still works.
+        BootReceiver().onReceive(app, Intent(Intent.ACTION_BOOT_COMPLETED))
+        assertEquals(ComponentName(app, MainActivity::class.java), shadowOf(app).nextStartedActivity.component)
+
+        assertTrue(AndroidAutoStart(app).isEnabled())
+        assertTrue(prefs().getBoolean("enabled", false))
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, componentState())
+    }
+
+    @Test
+    fun aDisabledReceiverFromAnOlderBuildBecomesTheSetting() {
+        prefs().edit().putBoolean("enabled", true).commit()
+        setComponentState(PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
+
+        assertFalse(AndroidAutoStart(app).isEnabled())
+        assertFalse(prefs().getBoolean("enabled", true))
+        // Otherwise the receiver would stay off for good, whatever the switch says.
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, componentState())
+    }
+
+    private fun prefs() = app.getSharedPreferences("autostart", Context.MODE_PRIVATE)
+
+    private fun alarms() = shadowOf(app.getSystemService(AlarmManager::class.java))
+
+    private fun componentState() = app.packageManager.getComponentEnabledSetting(receiver)
+
+    private fun setComponentState(state: Int) =
+        app.packageManager.setComponentEnabledSetting(receiver, state, PackageManager.DONT_KILL_APP)
 
     @Test
     @Config(sdk = [28])
