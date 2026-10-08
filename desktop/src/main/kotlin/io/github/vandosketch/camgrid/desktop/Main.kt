@@ -30,6 +30,7 @@ import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.core.UrlRedactor
 import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
+import io.github.vandosketch.camgrid.data.RemoteConfigClient
 import io.github.vandosketch.camgrid.desktop.config.DesktopBackupFiles
 import io.github.vandosketch.camgrid.desktop.config.DesktopConfigStore
 import io.github.vandosketch.camgrid.desktop.config.DesktopDevicePreferences
@@ -112,6 +113,7 @@ private fun App(onImmersiveChange: (Boolean) -> Unit) {
             configStore = DesktopConfigStore.forThisUser(),
             backupFiles = DesktopBackupFiles(),
             go2rtcClient = Go2rtcClient(CamGridHttp.client),
+            remoteConfigClient = RemoteConfigClient(CamGridHttp.client),
             devicePreferences = DesktopDevicePreferences.forThisUser(),
         )
     }

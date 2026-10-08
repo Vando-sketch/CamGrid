@@ -12,6 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ComposeUiTest
@@ -40,6 +43,9 @@ import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import io.github.vandosketch.camgrid.ReturnToGrid
+import io.github.vandosketch.camgrid.SourceStatus
+import io.github.vandosketch.camgrid.core.ConfigSource
+import io.github.vandosketch.camgrid.core.RemoteConfigException
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.platform.AutoStart
@@ -71,8 +77,11 @@ class SettingsScreenTest {
         initial: CamGridConfig,
         modifier: Modifier = Modifier,
         autoStart: AutoStart? = null,
+        sourceStatus: SourceStatus = SourceStatus.Off,
+        calls: MutableList<String> = mutableListOf(),
     ) {
         setContent {
+            focusManager = LocalFocusManager.current
             var config by remember { mutableStateOf(initial) }
             var returnToGrid by remember { mutableStateOf(ReturnToGrid.OFF) }
             CamGridTheme {
@@ -80,28 +89,33 @@ class SettingsScreenTest {
                     SettingsScreen(
                         config = config,
                         onDone = {},
-                        onEditView = {},
-                        onAddView = {},
+                        onEditView = { calls += "editView:$it" },
+                        onAddView = { calls += "addView" },
                         onMoveView = { id, delta ->
                             config = config.copy(views = config.views.moved(config.views.indexOfFirst { it.id == id }, delta))
                         },
                         onMoveCamera = { id, delta ->
                             config = config.copy(cameras = config.cameras.moved(config.cameras.indexOfFirst { it.id == id }, delta))
                         },
-                        onEditCamera = {},
-                        onDeleteCamera = {},
-                        onImport = {},
+                        onEditCamera = { calls += "editCamera:$it" },
+                        onDeleteCamera = { calls += "deleteCamera:$it" },
+                        onImport = { calls += "import" },
                         onBackup = {},
                         appVersion = "0.1.0",
                         onOpenLicenses = {},
                         returnToGrid = returnToGrid,
                         onReturnToGridChange = { returnToGrid = it },
                         autoStart = autoStart,
+                        sourceStatus = sourceStatus,
+                        onSetUpSource = { calls += "setUpSource" },
+                        onCheckSourceNow = { calls += "checkSourceNow" },
                     )
                 }
             }
         }
     }
+
+    private lateinit var focusManager: FocusManager
 
     /** Tall enough that the lazy list composes every section of a short config at once. */
     private val tall = Modifier.size(width = 1024.dp, height = 4000.dp)
@@ -249,7 +263,7 @@ class SettingsScreenTest {
     @Test
     fun sectionsComeInOrderCamerasFirstAboutLast() = runTallTest {
         showSettings(testConfig(1), tall, FakeAutoStart())
-        val tops = listOf("Cameras", "Views", returnSection, "Start on boot", "Backup", "About").map { top(it) }
+        val tops = listOf("Cameras", "Views", "Config URL", returnSection, "Start on boot", "Backup", "About").map { top(it) }
         assertEquals(tops.sorted(), tops, "section tops $tops")
     }
 
@@ -400,5 +414,82 @@ class SettingsScreenTest {
         // The buttons sit right there, before the Views section.
         assertTrue(top("Add camera") > emptyTop && top("Add camera") < top("Views"))
         assertTrue(top("Import from go2rtc") < top("Views"))
+    }
+
+    private val managed = testConfig(3).copy(
+        views = threeViews,
+        source = ConfigSource("https://example.com/camgrid.json", "token123"),
+    )
+
+    @Test
+    fun withoutAConfigUrlTheSectionOffersTheSetUp() = runTallTest {
+        val calls = mutableListOf<String>()
+        showSettings(testConfig(1), tall, calls = calls)
+        onNodeWithText("Off. Cameras and views are edited on this device.").assertIsDisplayed()
+        onNodeWithText("Check now").assertDoesNotExist()
+        onNodeWithText("Cameras and views come from the config URL", substring = true).assertDoesNotExist()
+        onNodeWithText("Set up config URL").performClick()
+        waitForIdle()
+        assertEquals(listOf("setUpSource"), calls)
+    }
+
+    @Test
+    fun theConfigUrlSectionSitsBetweenViewsAndReturnToGrid() = runTallTest {
+        showSettings(testConfig(1), tall)
+        assertTrue(top("Views") < top("Config URL") && top("Config URL") < top(returnSection))
+    }
+
+    @Test
+    fun aConfigUrlMakesCamerasAndViewsReadOnly() = runTallTest {
+        val calls = mutableListOf<String>()
+        showSettings(managed, tall, sourceStatus = SourceStatus.UpToDate, calls = calls)
+        onNodeWithText("Cameras and views come from the config URL. Edit the hosted file to change them.").assertIsDisplayed()
+        // Still readable.
+        onNodeWithText("1. Cam 1").assertIsDisplayed()
+        onNodeWithText("3. Third").assertIsDisplayed()
+        for (gone in listOf("Add camera", "Import from go2rtc", "Add view")) onNodeWithText(gone).assertDoesNotExist()
+        for (gone in listOf("Move Cam 1 down", "Move Cam 2 up", "Edit Cam 1", "Delete Cam 1", "Move First down", "Edit First")) {
+            onNodeWithContentDescription(gone).assertDoesNotExist()
+        }
+        // A row is a D-pad stop to read, but OK on it opens nothing.
+        onNodeWithText("1. Cam 1").requestFocus()
+        onNodeWithText("1. Cam 1").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNodeWithText("1. Cam 1").performClick()
+        waitForIdle()
+        assertEquals(emptyList<String>(), calls)
+    }
+
+    @Test
+    fun theDpadStepsThroughReadOnlyRows() = runComposeUiTest {
+        showSettings(managed.copy(cameras = testConfig(20).cameras), Modifier.size(width = 1024.dp, height = 720.dp))
+        onNodeWithTag(SETTINGS_LIST_TAG).performScrollToNode(hasText("1. Cam 1"))
+        onNodeWithText("1. Cam 1").requestFocus()
+        repeat(19) { runOnIdle { focusManager.moveFocus(FocusDirection.Down) } }
+        waitForIdle()
+        onNodeWithText("20. Cam 20").assertIsFocused().assertIsDisplayed()
+    }
+
+    @Test
+    fun aManagedConfigShowsItsStatusAndOffersCheckAndChange() = runTallTest {
+        val calls = mutableListOf<String>()
+        showSettings(managed, tall, sourceStatus = SourceStatus.UpToDate, calls = calls)
+        onNodeWithText("Loaded from the config URL.").assertIsDisplayed()
+        onNodeWithText("Set up config URL").assertDoesNotExist()
+        onNodeWithText("Check now").performClick()
+        onNodeWithText("Change").performClick()
+        waitForIdle()
+        assertEquals(listOf("checkSourceNow", "setUpSource"), calls)
+    }
+
+    @Test
+    fun aFailedCheckSaysWhyAndThatTheSavedCopyIsUsed() = runTallTest {
+        showSettings(managed, tall, sourceStatus = SourceStatus.Failed(RemoteConfigException.Reason.HTTP_STATUS, "HTTP 401"))
+        onNodeWithText("Couldn’t load the config URL (HTTP 401). Using the copy saved on this device.").assertIsDisplayed()
+    }
+
+    @Test
+    fun aRunningCheckShowsChecking() = runTallTest {
+        showSettings(managed, tall, sourceStatus = SourceStatus.Checking)
+        onNodeWithText("Checking…").assertIsDisplayed()
     }
 }

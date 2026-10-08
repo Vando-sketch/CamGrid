@@ -21,6 +21,7 @@ import io.github.vandosketch.camgrid.core.ConfigCodec
 import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.data.Go2rtcClient
+import io.github.vandosketch.camgrid.data.RemoteConfigClient
 import io.github.vandosketch.camgrid.data.createCamGridHttpClient
 import io.github.vandosketch.camgrid.platform.LiveStream
 import io.github.vandosketch.camgrid.platform.MemoryDevicePreferences
@@ -109,6 +110,7 @@ class GridStreamHandoverTest {
             configStore = MemoryConfigStore(ConfigCodec.encode(config)),
             backupFiles = NoBackupFiles,
             go2rtcClient = Go2rtcClient(createCamGridHttpClient(MockEngine { respond("") })),
+            remoteConfigClient = RemoteConfigClient(createCamGridHttpClient(MockEngine { respond("") })),
             devicePreferences = MemoryDevicePreferences(),
         )
         setContent {

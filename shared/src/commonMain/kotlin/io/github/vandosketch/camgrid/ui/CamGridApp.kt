@@ -217,8 +217,18 @@ fun CamGridApp(
                         returnToGrid = viewModel.returnToGridAfter,
                         onReturnToGridChange = viewModel::selectReturnToGrid,
                         autoStart = autoStart,
+                        sourceStatus = viewModel.sourceStatus,
+                        onSetUpSource = viewModel::openConfigSource,
+                        onCheckSourceNow = viewModel::checkSourceNow,
                     )
                 }
+                Screen.ConfigSource -> ConfigSourceScreen(
+                    current = config.source,
+                    setup = viewModel.sourceSetup,
+                    onConnect = viewModel::connectSource,
+                    onRemove = viewModel::removeSource,
+                    onBack = viewModel::back,
+                )
                 Screen.Licenses -> stateHolder.SaveableStateProvider(LICENSES_STATE) {
                     LicensesScreen(onOpenLicense = viewModel::openLicense, onBack = viewModel::back)
                 }
@@ -299,6 +309,6 @@ private val KeptStates = listOf(SETTINGS_STATE, LICENSES_STATE)
 /** The kept states this screen is on or below: Settings' sub-screens keep Settings' state, and so on. */
 private fun Screen.keptStates(): List<String> = when (this) {
     Screen.Grid, is Screen.Fullscreen -> emptyList()
-    Screen.Settings, is Screen.EditCamera, Screen.Go2rtcImport, Screen.Backup, is Screen.EditView -> listOf(SETTINGS_STATE)
+    Screen.Settings, is Screen.EditCamera, Screen.Go2rtcImport, Screen.ConfigSource, Screen.Backup, is Screen.EditView -> listOf(SETTINGS_STATE)
     Screen.Licenses, is Screen.LicenseText -> listOf(SETTINGS_STATE, LICENSES_STATE)
 }

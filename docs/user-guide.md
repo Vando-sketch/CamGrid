@@ -4,6 +4,7 @@ Everything the [README](../README.md) leaves out: how cameras are imported from 
 
 - [Cameras and go2rtc](#cameras-and-go2rtc)
 - [Views](#views)
+- [Config URL](#config-url)
 - [Backup](#backup)
 - [Controls](#controls)
 - [Updating](#updating)
@@ -74,6 +75,22 @@ Editing with the Fire TV remote, with focus on the preview:
 On a phone, tap a tile to select it, pick the mode with the Select / Move / Resize chips and use the arrow buttons. A move or resize that would leave the canvas or overlap another tile is ignored.
 
 The editor shows how many streams the view plays at once and warns above 4, which is about what a Fire TV Stick can decode. The JSON format of views is in [docs/view-format.md](view-format.md).
+
+## Config URL
+
+Instead of setting up every display by hand, a device can load its cameras and views from a file on your own web server: a NAS, Home Assistant's `www` folder (served at `/local/`), the machine go2rtc runs on, or any other server. This is optional; without a config URL nothing changes.
+
+1. Set up cameras and views on one device, then export a backup **without a password** (Settings > Backup). That file is a valid config file. A plain config as described in [docs/view-format.md](view-format.md) works too.
+2. Put the file on your web server.
+3. On each display, open Settings > **Config URL**, enter the file's address and, if your server asks for one, a token. CamGrid sends the token as `Authorization: Bearer <token>`. Choose **Load**.
+
+The first load replaces the cameras and views on the device. After that, CamGrid checks the URL every 5 minutes and applies changes without a restart (Settings > Config URL > **Check now** checks right away). The last file that loaded is kept on the device, so after a power cut or while the server is down the display keeps running on that copy and retries every minute. Only a file that downloads and reads completely is used; a broken or half-loaded one is ignored.
+
+While a config URL is set, cameras and views cannot be edited on the device, so a change there cannot be overwritten by the next check: edit the hosted file instead. **Stop using the URL** keeps the cameras and views as they are and makes them editable again.
+
+**No camera passwords in the hosted file.** Anyone who can download it can read it. Point the stream URLs at go2rtc (for example `rtsp://<go2rtc-host>:8554/<stream>`) and keep the camera logins in go2rtc. CamGrid refuses a file whose stream URLs contain a user name or password, and an encrypted backup. Use `https://` where you can; plain `http://` is only accepted for addresses on your local network (private IP addresses, `.local`, `.lan`, `.home.arpa` and names without a dot), and Settings warns that others on the network can read the file and the token.
+
+The config URL and token are part of the device's settings, so a backup includes them, and importing a backup replaces them too.
 
 ## Back to grid after inactivity
 
@@ -180,7 +197,7 @@ Each CI build's version code is its workflow run number, so a newer build is alw
 
 - The configuration, including stream URLs and any credentials in them, is stored encrypted. On Android it is one file encrypted with AES-256-GCM whose key lives in the Android Keystore and never leaves the device. On iOS it is a Keychain item for this device only. On desktop it is an AES-256-GCM file whose key is kept in the macOS Keychain, Windows DPAPI or the Linux Secret Service; without a Secret Service (some Linux desktops) the key falls back to an owner-only file next to the config, which only protects against other users. Android backup and device-to-device transfer are turned off for the app; the only way settings leave the device is a backup you export yourself (password-protected unless you choose otherwise, see [Backup](#backup)). On a TV, the backup transfer page listens on the local network only while the backup screen is open and answers only requests that carry the PIN shown on screen.
 - CamGrid does not log stream URLs. Logs name the camera and a short error code instead, player error text passes through a redactor that masks user info and password or token parameters, and Media3's own logging is switched off because its messages can contain URLs.
-- No cloud, account, analytics or telemetry. The app only talks to the addresses you configure. Cleartext HTTP is allowed because go2rtc usually runs on the LAN without TLS.
+- No cloud, account, analytics or telemetry. The app only talks to the addresses you configure, including a [config URL](#config-url) if you set one. Cleartext HTTP is allowed because go2rtc usually runs on the LAN without TLS.
 
 ## Limitations
 

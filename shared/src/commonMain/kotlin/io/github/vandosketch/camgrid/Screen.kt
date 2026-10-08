@@ -15,6 +15,9 @@ sealed interface Screen {
 
     data object Go2rtcImport : Screen
 
+    /** Setting up or removing the config URL. */
+    data object ConfigSource : Screen
+
     /** Settings export and import. */
     data object Backup : Screen
 

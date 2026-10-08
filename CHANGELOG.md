@@ -6,6 +6,7 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ### Added
 
+- **Config URL.** Optionally, a device loads its cameras and views from a file on your own web server (Settings > Config URL, with an optional token), checks it every 5 minutes and applies changes without a restart. The last file that loaded stays on the device, so the display keeps running when the server is unreachable; a broken or partial download never replaces it. While a URL is set, cameras and views are edited in the hosted file, not on the device. The file must not contain camera passwords: CamGrid refuses stream URLs with a user name or password, so logins stay in go2rtc. ([#45](https://github.com/Vando-sketch/CamGrid/issues/45))
 - **Back to grid after inactivity.** A new setting returns a camera opened fullscreen to the grid after 1, 2, 5 or 10 minutes without a key press, touch or mouse movement, with that camera selected, for wall displays nobody closes by hand. Off by default; set on each device and not part of a backup.
 
 ### Changed

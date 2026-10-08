@@ -1,6 +1,7 @@
 package io.github.vandosketch.camgrid.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -57,6 +59,7 @@ import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,15 +97,33 @@ import io.github.vandosketch.camgrid.shared.resources.section_about
 import io.github.vandosketch.camgrid.shared.resources.section_autostart
 import io.github.vandosketch.camgrid.shared.resources.section_backup
 import io.github.vandosketch.camgrid.shared.resources.section_cameras
+import io.github.vandosketch.camgrid.shared.resources.section_config_url
+import io.github.vandosketch.camgrid.shared.resources.source_check_now
+import io.github.vandosketch.camgrid.shared.resources.source_change
+import io.github.vandosketch.camgrid.shared.resources.source_checking
+import io.github.vandosketch.camgrid.shared.resources.source_failed
+import io.github.vandosketch.camgrid.shared.resources.source_managed_note
+import io.github.vandosketch.camgrid.shared.resources.source_off
+import io.github.vandosketch.camgrid.shared.resources.source_reason_credentials
+import io.github.vandosketch.camgrid.shared.resources.source_reason_encrypted
+import io.github.vandosketch.camgrid.shared.resources.source_reason_invalid_url
+import io.github.vandosketch.camgrid.shared.resources.source_reason_network
+import io.github.vandosketch.camgrid.shared.resources.source_reason_newer_version
+import io.github.vandosketch.camgrid.shared.resources.source_reason_too_large
+import io.github.vandosketch.camgrid.shared.resources.source_reason_unreadable
+import io.github.vandosketch.camgrid.shared.resources.source_set_up
+import io.github.vandosketch.camgrid.shared.resources.source_up_to_date
 import io.github.vandosketch.camgrid.shared.resources.section_return_to_grid
 import io.github.vandosketch.camgrid.shared.resources.section_views
 import io.github.vandosketch.camgrid.shared.resources.settings_title
 import io.github.vandosketch.camgrid.shared.resources.view_summary
 import io.github.vandosketch.camgrid.shared.resources.views_help
 import io.github.vandosketch.camgrid.ReturnToGrid
+import io.github.vandosketch.camgrid.SourceStatus
 import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.Camera
+import io.github.vandosketch.camgrid.core.RemoteConfigException
 import io.github.vandosketch.camgrid.core.UrlRedactor
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import io.github.vandosketch.camgrid.platform.AutoStart
@@ -120,7 +141,7 @@ private const val OVERLAY_ADB_COMMAND = "adb shell appops set io.github.vandoske
 /**
  * Settings, built for the D-pad: Up/Down buttons instead of drag-and-drop for the order of
  * views and cameras. Each view's layout is edited on its own screen. The sections run Cameras,
- * Views, Back to grid after inactivity ([returnToGrid], a setting of this device), Start on boot
+ * Views, Config URL ([sourceStatus]; while a URL is set, cameras and views are read-only here), Back to grid after inactivity ([returnToGrid], a setting of this device), Start on boot
  * ([autoStart]; hidden where the platform cannot start by itself), Backup and About, which shows [appVersion] (what bug reports should name) and opens the license
  * screen. Each section's rows sit on one card; a row is one lazy item (one card segment), so
  * long lists stay lazy and the D-pad scrolls row by row.
@@ -142,7 +163,12 @@ fun SettingsScreen(
     returnToGrid: ReturnToGrid,
     onReturnToGridChange: (ReturnToGrid) -> Unit,
     autoStart: AutoStart? = null,
+    sourceStatus: SourceStatus = SourceStatus.Off,
+    onSetUpSource: () -> Unit = {},
+    onCheckSourceNow: () -> Unit = {},
 ) {
+    // Cameras and views come from the config URL: shown, not edited (the ViewModel ignores edits too).
+    val managed = config.source != null
     var pendingDelete by remember { mutableStateOf<Camera?>(null) }
     val doneRequester = remember { FocusRequester() }
     // The button that opened a sub-screen (Licenses, Backup, an editor) gets the focus back on
@@ -185,7 +211,17 @@ fun SettingsScreen(
 
             // First: the cameras are what people come here for.
             item(key = "title:cameras") { SettingsSectionTitle(SettingsIcons.Cameras, stringResource(Res.string.section_cameras)) }
-            if (config.cameras.isEmpty()) {
+            if (managed) {
+                item(key = "cameras:managed") {
+                    CardSegment(first = true, last = config.cameras.isEmpty()) {
+                        Text(
+                            text = stringResource(Res.string.source_managed_note),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else if (config.cameras.isEmpty()) {
                 // A fresh install lands here: say how to get cameras before the buttons that do it.
                 item(key = "cameras:empty") {
                     CardSegment(first = true, last = false) {
@@ -204,7 +240,7 @@ fun SettingsScreen(
                 }
             }
             // Above the list, so Add stays a press away with many cameras.
-            item(key = "cameras:add") {
+            if (!managed) item(key = "cameras:add") {
                 CardSegment(first = config.cameras.isNotEmpty(), last = config.cameras.isEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(
@@ -228,6 +264,7 @@ fun SettingsScreen(
                         position = index + 1,
                         camera = camera,
                         lastPosition = config.cameras.size,
+                        editable = !managed,
                         onUp = { onMoveCamera(camera.id, -1) },
                         onDown = { onMoveCamera(camera.id, 1) },
                         onEdit = { open("camera:" + camera.id) { onEditCamera(camera.id) } },
@@ -248,11 +285,12 @@ fun SettingsScreen(
                 }
             }
             itemsIndexed(config.views, key = { _, view -> "view:" + view.id }) { index, view ->
-                CardSegment(first = false, last = false, contentPadding = RowPadding) {
+                CardSegment(first = false, last = managed && index == config.views.lastIndex, contentPadding = RowPadding) {
                     ViewRow(
                         position = index + 1,
                         view = view,
                         lastPosition = config.views.size,
+                        editable = !managed,
                         onUp = { onMoveView(view.id, -1) },
                         onDown = { onMoveView(view.id, 1) },
                         onEdit = { open("view:" + view.id) { onEditView(view.id) } },
@@ -260,7 +298,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            item(key = "views:add") {
+            if (!managed) item(key = "views:add") {
                 CardSegment(first = false, last = true) {
                     OutlinedButton(
                         onClick = { open("addView", onAddView) },
@@ -268,6 +306,19 @@ fun SettingsScreen(
                     ) {
                         Text(stringResource(Res.string.add_view))
                     }
+                }
+            }
+
+            item(key = "title:source") { SettingsSectionTitle(SettingsIcons.ConfigUrl, stringResource(Res.string.section_config_url)) }
+            item(key = "source") {
+                CardSegment(first = true, last = true) {
+                    ConfigUrlSection(
+                        managed = managed,
+                        status = sourceStatus,
+                        onCheckNow = onCheckSourceNow,
+                        onSetUp = { open("source", onSetUpSource) },
+                        setUpModifier = focusReturn.modifier("source"),
+                    )
                 }
             }
 
@@ -593,6 +644,7 @@ private fun CameraRow(
     position: Int,
     camera: Camera,
     lastPosition: Int,
+    editable: Boolean,
     onUp: () -> Unit,
     onDown: () -> Unit,
     onEdit: () -> Unit,
@@ -600,7 +652,7 @@ private fun CameraRow(
     onDelete: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = rowModifier(editable),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -619,15 +671,17 @@ private fun CameraRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        OrderButtons(
-            name = camera.name,
-            position = position,
-            lastPosition = lastPosition,
-            onUp = onUp,
-            onDown = onDown,
-        )
-        RowIconButton(onEdit, Icons.Filled.Edit, stringResource(Res.string.edit, camera.name), modifier = editModifier)
-        RowIconButton(onDelete, Icons.Filled.Delete, stringResource(Res.string.delete, camera.name))
+        if (editable) {
+            OrderButtons(
+                name = camera.name,
+                position = position,
+                lastPosition = lastPosition,
+                onUp = onUp,
+                onDown = onDown,
+            )
+            RowIconButton(onEdit, Icons.Filled.Edit, stringResource(Res.string.edit, camera.name), modifier = editModifier)
+            RowIconButton(onDelete, Icons.Filled.Delete, stringResource(Res.string.delete, camera.name))
+        }
     }
 }
 
@@ -636,6 +690,7 @@ private fun ViewRow(
     position: Int,
     view: CamView,
     lastPosition: Int,
+    editable: Boolean,
     onUp: () -> Unit,
     onDown: () -> Unit,
     onEdit: () -> Unit,
@@ -643,7 +698,7 @@ private fun ViewRow(
 ) {
     val name = view.name.ifBlank { view.id }
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = rowModifier(editable),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -661,15 +716,86 @@ private fun ViewRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        OrderButtons(
-            name = name,
-            position = position,
-            lastPosition = lastPosition,
-            onUp = onUp,
-            onDown = onDown,
-        )
-        RowIconButton(onEdit, Icons.Filled.Edit, stringResource(Res.string.edit, name), modifier = editModifier)
+        if (editable) {
+            OrderButtons(
+                name = name,
+                position = position,
+                lastPosition = lastPosition,
+                onUp = onUp,
+                onDown = onDown,
+            )
+            RowIconButton(onEdit, Icons.Filled.Edit, stringResource(Res.string.edit, name), modifier = editModifier)
+        }
     }
+}
+
+/**
+ * A camera or view row. Without its buttons ([editable] false) the row itself is a D-pad stop,
+ * read out as one, so the D-pad still steps through the list row by row; OK on it does nothing.
+ */
+private fun rowModifier(editable: Boolean): Modifier =
+    if (editable) {
+        Modifier.fillMaxWidth()
+    } else {
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .focusBorder()
+            .semantics(mergeDescendants = true) {}
+            .focusable()
+            // Room between the focus border and the text.
+            .padding(horizontal = 8.dp)
+    }
+
+/**
+ * The Config URL section: one line on where the cameras come from, and the way to set the URL
+ * up ([managed] false) or to check it now and change it.
+ */
+@Composable
+private fun ConfigUrlSection(
+    managed: Boolean,
+    status: SourceStatus,
+    onCheckNow: () -> Unit,
+    onSetUp: () -> Unit,
+    setUpModifier: Modifier,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = when {
+                !managed -> stringResource(Res.string.source_off)
+                status == SourceStatus.UpToDate -> stringResource(Res.string.source_up_to_date)
+                status is SourceStatus.Failed -> stringResource(Res.string.source_failed, sourceReason(status))
+                // Off only for the moment until the first check starts.
+                else -> stringResource(Res.string.source_checking)
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (status is SourceStatus.Failed && managed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (managed) {
+                OutlinedButton(onClick = onCheckNow, modifier = Modifier.focusBorder(shape = CircleShape)) {
+                    Text(stringResource(Res.string.source_check_now))
+                }
+            }
+            OutlinedButton(onClick = onSetUp, modifier = Modifier.focusBorder(shape = CircleShape).then(setUpModifier)) {
+                Text(stringResource(if (managed) Res.string.source_change else Res.string.source_set_up))
+            }
+        }
+    }
+}
+
+/** Why the last check failed, short enough for the middle of [Res.string.source_failed]. */
+@Composable
+private fun sourceReason(status: SourceStatus.Failed): String = when (status.reason) {
+    // "HTTP 401": never the URL or the token; redacted anyway to be safe.
+    RemoteConfigException.Reason.HTTP_STATUS -> UrlRedactor.redact(status.detail)
+    RemoteConfigException.Reason.NETWORK -> stringResource(Res.string.source_reason_network)
+    RemoteConfigException.Reason.TOO_LARGE -> stringResource(Res.string.source_reason_too_large)
+    RemoteConfigException.Reason.UNREADABLE -> stringResource(Res.string.source_reason_unreadable)
+    RemoteConfigException.Reason.ENCRYPTED -> stringResource(Res.string.source_reason_encrypted)
+    RemoteConfigException.Reason.NEWER_VERSION -> stringResource(Res.string.source_reason_newer_version)
+    RemoteConfigException.Reason.CREDENTIALS -> stringResource(Res.string.source_reason_credentials)
+    RemoteConfigException.Reason.INVALID_URL -> stringResource(Res.string.source_reason_invalid_url)
 }
 
 /**

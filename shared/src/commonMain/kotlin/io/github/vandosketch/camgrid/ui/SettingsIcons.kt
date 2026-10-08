@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
 /**
- * Material's "videocam", "grid view", "timer", "power settings" and "backup" icons (Apache-2.0,
+ * Material's "videocam", "grid view", "link", "timer", "power settings" and "backup" icons (Apache-2.0,
  * like the material-icons-core the app uses) for the Settings section titles. Only the much
  * larger extended icon set has them; About uses core's Info.
  */
@@ -26,6 +26,15 @@ internal object SettingsIcons {
             "Views",
             "M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 " +
                 "4v8h8v-8h-8zm6 6h-4v-4h4v4z",
+        )
+    }
+
+    /** Two chain links: the Config URL section. */
+    val ConfigUrl: ImageVector by lazy {
+        icon(
+            "ConfigUrl",
+            "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 " +
+                "13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z",
         )
     }
 
