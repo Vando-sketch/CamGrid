@@ -4,6 +4,11 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+
+- **Fire TV: start on boot opens CamGrid even when the Fire TV home screen comes up late.** CamGrid now opens a second time about 15 seconds after boot, which only brings it to the front if it is already open.
+- **Fire TV: turning on start on boot no longer blanks CamGrid's tile on the home screen.** If the tile is still blank after this update, restart the Fire TV; if that does not help, uninstall and reinstall CamGrid (export a backup first, and turn start on boot on again afterwards).
+
 ## [0.3.0] - 2026-10-08
 
 ### Added

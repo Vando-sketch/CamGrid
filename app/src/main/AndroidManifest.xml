@@ -70,13 +70,13 @@
         </activity>
 
         <!--
-            Off until the user turns on starting after boot: the enabled state is the setting.
-            Exported because the system sends the boot broadcast; BOOT_COMPLETED is protected,
-            so no other app can send it.
+            Always enabled: it checks the setting itself (AndroidAutoStart). Switching the component
+            on and off made the Fire TV launcher reload CamGrid and lose its tile. Exported because
+            the system sends the boot broadcast; BOOT_COMPLETED is protected, so no other app can
+            send it.
         -->
         <receiver
             android:name=".BootReceiver"
-            android:enabled="false"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
