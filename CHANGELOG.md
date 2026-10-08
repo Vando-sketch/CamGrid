@@ -4,6 +4,15 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Added
+
+- **Android and Fire TV: start on boot.** Settings > Start on boot opens CamGrid by itself after a restart or power cut. Off by default; on Android 10 / Fire OS 8 and newer it needs the "Display over other apps" permission, which Fire TV only grants via adb (see the user guide).
+
+### Changed
+
+- **Settings are reordered and restyled.** Cameras come first, then Views, Start on boot, Backup and About; each section is one card with an icon, and an empty camera list explains the go2rtc import.
+- **Camera names on the grid sit on a soft dark fade** along the bottom of each tile instead of a black box.
+
 ## [0.2.1] - 2026-10-07
 
 ### Changed

@@ -75,6 +75,18 @@ On a phone, tap a tile to select it, pick the mode with the Select / Move / Resi
 
 The editor shows how many streams the view plays at once and warns above 4, which is about what a Fire TV Stick can decode. The JSON format of views is in [docs/view-format.md](view-format.md).
 
+## Start on boot
+
+On Android and Fire TV, Settings > **Start on boot** opens CamGrid by itself after the device starts, for a wall display nobody wants to start with the remote. It is off by default and is not part of a backup.
+
+It only helps after a restart or power cut. A Fire TV that wakes from standby returns to whatever app was open, so for daily on and off, leave CamGrid open when the TV goes to standby.
+
+From Android 10 (Fire OS 8) on, Android lets an app open by itself only with the **Display over other apps** permission. CamGrid draws nothing over other apps; the permission is just the exemption. Settings shows a note while it is missing and opens the system screen where there is one. Fire TV has no such screen, so grant it once from a computer:
+
+```sh
+adb shell appops set io.github.vandosketch.camgrid SYSTEM_ALERT_WINDOW allow
+```
+
 ## Backup
 
 Settings > **Backup** exports all settings (views, cameras with their URLs, the go2rtc address) to one JSON file and imports them again, for example before uninstalling or to copy a setup from a phone to a Fire TV.
