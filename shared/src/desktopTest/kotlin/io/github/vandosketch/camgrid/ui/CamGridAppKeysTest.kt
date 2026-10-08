@@ -25,6 +25,7 @@ import io.github.vandosketch.camgrid.Screen
 import io.github.vandosketch.camgrid.about.License
 import io.github.vandosketch.camgrid.core.ConfigCodec
 import io.github.vandosketch.camgrid.data.Go2rtcClient
+import io.github.vandosketch.camgrid.data.RemoteConfigClient
 import io.github.vandosketch.camgrid.data.createCamGridHttpClient
 import io.github.vandosketch.camgrid.platform.MemoryDevicePreferences
 import io.ktor.client.engine.mock.MockEngine
@@ -64,6 +65,7 @@ class CamGridAppKeysTest {
             configStore = MemoryConfigStore(ConfigCodec.encode(testConfig(cameras))),
             backupFiles = NoBackupFiles,
             go2rtcClient = Go2rtcClient(createCamGridHttpClient(MockEngine { respond("") })),
+            remoteConfigClient = RemoteConfigClient(createCamGridHttpClient(MockEngine { respond("") })),
             devicePreferences = devicePreferences,
         )
         setContent {

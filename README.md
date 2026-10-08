@@ -121,7 +121,7 @@ Known limits: WebRTC works on your home network only; a Fire TV Stick plays abou
 
 ## Privacy
 
-CamGrid has no server, no account, no analytics and no telemetry. It connects only to the camera and go2rtc addresses you enter. Your settings, including camera passwords, are stored encrypted with a key that stays on the device, and settings only leave the device as a backup you export yourself. Details: [user guide](docs/user-guide.md#privacy-and-security).
+CamGrid has no server, no account, no analytics and no telemetry. It connects only to the camera and go2rtc addresses you enter, and to a config URL if you set one. Your settings, including camera passwords, are stored encrypted with a key that stays on the device, and settings only leave the device as a backup you export yourself. Details: [user guide](docs/user-guide.md#privacy-and-security).
 
 ## Help and feedback
 

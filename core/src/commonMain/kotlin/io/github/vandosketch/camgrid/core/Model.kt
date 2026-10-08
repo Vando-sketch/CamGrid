@@ -1,5 +1,7 @@
 package io.github.vandosketch.camgrid.core
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /** How a camera's URLs are played. Stored by name in the config. */
@@ -45,15 +47,20 @@ data class Camera(
  * cameras in the order of [cameras]. [go2rtcBaseUrl] is optional and only used to import streams
  * (for example http://192.0.2.10:1984).
  *
+ * [source] is set while cameras and views come from a config URL (see [RemoteConfig]); they are
+ * then the last copy that loaded and are not edited on the device. Not written when null.
+ *
  * Version history: 1 had a single uniform `layout` {columns, rows}; 2 replaced it with [views].
  * [ConfigCodec] migrates older files.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class CamGridConfig(
     val views: List<CamView> = listOf(CamView.uniform(DEFAULT_VIEW_ID, "", 2, 2)),
     val cameras: List<Camera> = emptyList(),
     val go2rtcBaseUrl: String = "",
     val version: Int = CURRENT_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val source: ConfigSource? = null,
 ) {
     init {
         require(views.isNotEmpty()) { "At least one view is needed" }
@@ -66,4 +73,13 @@ data class CamGridConfig(
         /** Id of the view a version 1 grid becomes. */
         const val DEFAULT_VIEW_ID = "main"
     }
+}
+
+/**
+ * Where this device loads its cameras and views from: an http(s) [url] and an optional [token],
+ * sent as `Authorization: Bearer <token>`. [toString] shows neither.
+ */
+@Serializable
+data class ConfigSource(val url: String, val token: String = "") {
+    override fun toString(): String = "ConfigSource"
 }

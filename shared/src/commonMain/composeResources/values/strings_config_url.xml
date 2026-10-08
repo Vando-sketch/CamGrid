@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Config URL: cameras and views loaded from a hosted file (Settings section and ConfigSourceScreen.kt). -->
+<resources>
+    <!-- Settings section -->
+    <string name="section_config_url">Config URL</string>
+    <string name="source_off">Off. Cameras and views are edited on this device.</string>
+    <string name="source_set_up">Set up config URL</string>
+    <string name="source_up_to_date">Loaded from the config URL.</string>
+    <string name="source_checking">Checking…</string>
+    <!-- %1$s: why, one of the source_reason_* texts. -->
+    <string name="source_failed">Couldn’t load the config URL (%1$s). Using the copy saved on this device.</string>
+    <string name="source_check_now">Check now</string>
+    <string name="source_change">Change</string>
+    <!-- At the top of the Cameras section while a config URL is set. -->
+    <string name="source_managed_note">Cameras and views come from the config URL. Edit the hosted file to change them.</string>
+
+    <!-- Short reasons in source_failed -->
+    <string name="source_reason_network">server not reached</string>
+    <string name="source_reason_too_large">file too large</string>
+    <string name="source_reason_unreadable">not a CamGrid config</string>
+    <string name="source_reason_encrypted">encrypted backup</string>
+    <string name="source_reason_newer_version">made by a newer CamGrid</string>
+    <string name="source_reason_credentials">password in a stream URL</string>
+    <string name="source_reason_invalid_url">URL can’t be used</string>
+
+    <!-- Config URL screen -->
+    <string name="source_title">Config URL</string>
+    <string name="source_field_url">Config URL</string>
+    <string name="source_hint_url">https://nas.local/camgrid.json</string>
+    <string name="source_field_token">Token (optional)</string>
+    <string name="source_token_help">Sent as "Authorization: Bearer …" with each download.</string>
+    <string name="source_url_local_http">Plain HTTP: anyone on your network can read this file and the token. Use HTTPS if you can.</string>
+    <string name="source_url_public_http">Plain HTTP only works for addresses on your local network. Use https://.</string>
+    <string name="source_url_credentials">No user name or password in the URL. Use the token instead.</string>
+    <string name="source_url_invalid">Enter an http:// or https:// address</string>
+    <string name="source_token_invalid">The token can’t contain spaces.</string>
+    <string name="source_help">The hosted file is a CamGrid config or an unencrypted backup exported from this app. Its stream URLs must point at go2rtc and never contain passwords. CamGrid checks the file every 5 minutes and keeps the last copy for when the server can’t be reached.</string>
+    <string name="source_load">Load</string>
+    <string name="source_connecting">Loading the config URL…</string>
+    <string name="source_stop">Stop using the URL</string>
+    <string name="source_stop_help">The cameras and views stay on this device and can be edited here again.</string>
+    <string name="source_replace_title">Use the config URL?</string>
+    <string name="source_replace_message">Replace the cameras and views on this device with the ones from the URL?</string>
+    <string name="source_replace_confirm">Replace</string>
+
+    <!-- Why the URL did not load on this screen -->
+    <!-- %1$s: the server's answer, for example HTTP 401. -->
+    <string name="source_error_http">The server answered with an error (%1$s).</string>
+    <string name="source_error_network">Couldn’t reach the server.</string>
+    <string name="source_error_unreadable">That’s not a CamGrid config.</string>
+    <string name="source_error_encrypted">That’s an encrypted backup. Export one without a password.</string>
+    <string name="source_error_newer_version">Made by a newer CamGrid. Update the app.</string>
+    <string name="source_error_credentials">A stream URL in the file contains a user name or password. Keep logins in go2rtc.</string>
+    <string name="source_error_too_large">The file is too large.</string>
+    <string name="source_error_invalid_url">That URL can’t be used.</string>
+</resources>

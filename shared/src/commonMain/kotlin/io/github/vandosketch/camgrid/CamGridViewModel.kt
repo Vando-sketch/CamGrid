@@ -13,6 +13,9 @@ import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.core.ConfigBackup
 import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.ConfigEditor
+import io.github.vandosketch.camgrid.core.ConfigSource
+import io.github.vandosketch.camgrid.core.RemoteConfig
+import io.github.vandosketch.camgrid.core.RemoteConfigException
 import io.github.vandosketch.camgrid.core.Go2rtc
 import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.core.StreamType
@@ -20,6 +23,7 @@ import io.github.vandosketch.camgrid.core.ViewPaging
 import io.github.vandosketch.camgrid.data.ConfigRepository
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.Go2rtcException
+import io.github.vandosketch.camgrid.data.RemoteConfigClient
 import io.github.vandosketch.camgrid.platform.AppLog
 import io.github.vandosketch.camgrid.platform.BackupDocument
 import io.github.vandosketch.camgrid.platform.BackupFileException
@@ -33,11 +37,16 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** State of the "Import from go2rtc" screen. */
 sealed interface ImportState {
@@ -61,10 +70,12 @@ sealed interface ImportState {
 
 /**
  * App state: the config (via [ConfigRepository]), the current [Screen], where the grid focus is,
- * the go2rtc import and the backup flow. All config edits go through core's [ConfigEditor].
+ * the go2rtc import, the backup flow and the config URL. All config edits go through core's
+ * [ConfigEditor]; while a config URL is set ([isManaged]) cameras and views are not edited here.
  *
  * @param backupFiles the platform's backup file access; the backup screen also uses its pickers.
  * @param devicePreferences this device's own settings (when fullscreen returns to the grid).
+ * @param remoteConfigClient downloads the config from the config URL, when one is set.
  * @param ioDispatcher where blocking file IO (and the backup's key derivation) runs.
  * @param computeDispatcher where backups are decrypted and parsed.
  */
@@ -73,6 +84,7 @@ class CamGridViewModel(
     val backupFiles: BackupFiles,
     private val go2rtcClient: Go2rtcClient,
     private val devicePreferences: DevicePreferences,
+    private val remoteConfigClient: RemoteConfigClient,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
@@ -83,7 +95,8 @@ class CamGridViewModel(
         backupFiles: BackupFiles,
         go2rtcClient: Go2rtcClient,
         devicePreferences: DevicePreferences,
-    ) : this(ConfigRepository(configStore), backupFiles, go2rtcClient, devicePreferences)
+        remoteConfigClient: RemoteConfigClient,
+    ) : this(ConfigRepository(configStore), backupFiles, go2rtcClient, devicePreferences, remoteConfigClient)
 
     val config: StateFlow<CamGridConfig> = repository.config
 
@@ -139,6 +152,7 @@ class CamGridViewModel(
     }
 
     fun editCamera(cameraId: String?) {
+        if (isManaged) return
         screen = Screen.EditCamera(cameraId)
     }
 
@@ -149,6 +163,7 @@ class CamGridViewModel(
     }
 
     fun openImport() {
+        if (isManaged) return
         fetchJob?.cancel()
         importState = ImportState.Idle
         screen = Screen.Go2rtcImport
@@ -176,6 +191,11 @@ class CamGridViewModel(
             Screen.Settings -> Screen.Grid
             is Screen.EditCamera, Screen.Go2rtcImport, is Screen.EditView, Screen.Licenses -> Screen.Settings
             is Screen.LicenseText -> Screen.Licenses
+            Screen.ConfigSource -> {
+                connectJob?.cancel()
+                sourceSetup = SourceSetupState.Idle
+                Screen.Settings
+            }
             Screen.Backup -> {
                 resetBackup()
                 leaveLanTransfer()
@@ -201,14 +221,113 @@ class CamGridViewModel(
         setGridPosition(position)
     }
 
+    // --- Config URL ---
+
+    /** Whether cameras and views come from a config URL; they are not edited on the device then. */
+    val isManaged: Boolean get() = config.value.source != null
+
+    var sourceStatus by mutableStateOf<SourceStatus>(SourceStatus.Off)
+        private set
+
+    var sourceSetup by mutableStateOf<SourceSetupState>(SourceSetupState.Idle)
+        private set
+
+    private var connectJob: Job? = null
+    private val checkNow = Channel<Unit>(Channel.CONFLATED)
+
+    /** Just loaded by [connectSource]: its first check can wait a full interval. */
+    private var freshlyLoaded: ConfigSource? = null
+
+    init {
+        // While a URL is set: check it now, then every few minutes (sooner after a failure). A new
+        // or removed URL restarts this, dropping a download still running for the old one.
+        viewModelScope.launch {
+            config.map { it.source }.distinctUntilChanged().collectLatest { source ->
+                if (source == null) {
+                    sourceStatus = SourceStatus.Off
+                    return@collectLatest
+                }
+                var skip = freshlyLoaded == source
+                freshlyLoaded = null
+                while (true) {
+                    if (!skip) {
+                        sourceStatus = SourceStatus.Checking
+                        sourceStatus = check(source)
+                    }
+                    skip = false
+                    val wait = if (sourceStatus is SourceStatus.Failed) RemoteConfig.RETRY_MILLIS else RemoteConfig.REFRESH_MILLIS
+                    withTimeoutOrNull(wait) { checkNow.receive() }
+                }
+            }
+        }
+    }
+
+    fun openConfigSource() {
+        connectJob?.cancel()
+        sourceSetup = SourceSetupState.Idle
+        screen = Screen.ConfigSource
+    }
+
+    /**
+     * Tries [url] with [token]. Only when the file loads does it become this device's config URL,
+     * replacing the cameras and views here; otherwise nothing changes and [sourceSetup] says why.
+     */
+    fun connectSource(url: String, token: String) {
+        val candidate = ConfigSource(url.trim(), token.trim())
+        connectJob?.cancel()
+        sourceSetup = SourceSetupState.Connecting
+        connectJob = viewModelScope.launch {
+            sourceSetup = try {
+                val remote = remoteConfigClient.fetch(candidate)
+                if (candidate != config.value.source) freshlyLoaded = candidate
+                repository.update { remote.copy(source = candidate) }
+                gridPage = 0
+                gridFocusIndex = 0
+                sourceStatus = SourceStatus.UpToDate
+                if (screen == Screen.ConfigSource) screen = Screen.Settings
+                SourceSetupState.Idle
+            } catch (e: RemoteConfigException) {
+                AppLog.w("Config URL not loaded: ${e.reason} ${e.detail}")
+                SourceSetupState.Failed(e.reason, e.detail)
+            }
+        }
+    }
+
+    /** Checks the config URL right away instead of at the next interval. */
+    fun checkSourceNow() {
+        if (isManaged) checkNow.trySend(Unit)
+    }
+
+    /** Stops loading from the URL. The cameras and views last loaded stay, editable again. */
+    fun removeSource() {
+        connectJob?.cancel()
+        sourceSetup = SourceSetupState.Idle
+        repository.update { it.copy(source = null) }
+    }
+
+    /** One download; a file that loads replaces the config, anything else leaves it as it is. */
+    private suspend fun check(source: ConfigSource): SourceStatus = try {
+        val remote = remoteConfigClient.fetch(source).copy(source = source)
+        // Unchanged: no write. Changed while downloading (URL removed): not ours to apply any more.
+        if (config.value.source == source && remote != config.value) {
+            repository.update { if (it.source == source) remote else it }
+        }
+        SourceStatus.UpToDate
+    } catch (e: RemoteConfigException) {
+        AppLog.w("Config URL check failed: ${e.reason} ${e.detail}")
+        SourceStatus.Failed(e.reason, e.detail)
+    }
+
     // --- Views ---
 
     fun editView(viewId: String) {
+        if (isManaged) return
         screen = Screen.EditView(viewId)
     }
 
     /** Adds a new 2x2 view at the end and opens it in the editor. */
     fun addView() {
+        if (isManaged) return
         val id = ConfigEditor.newViewId(config.value)
         edit { ConfigEditor.addView(it, CamView.uniform(id, "", 2, 2)) }
         screen = Screen.EditView(id)
@@ -216,17 +335,20 @@ class CamGridViewModel(
 
     /** Saves an edited view (matched by id). */
     fun updateView(view: CamView) {
+        if (isManaged) return
         edit { ConfigEditor.updateView(it, view) }
     }
 
     /** Deletes a view (never the last one) and returns to settings. */
     fun deleteView(viewId: String) {
+        if (isManaged) return
         edit { ConfigEditor.removeView(it, viewId) }
         screen = Screen.Settings
     }
 
     /** Moves a view [delta] places in the order (negative = towards the start). */
     fun moveView(viewId: String, delta: Int) {
+        if (isManaged) return
         edit { current ->
             val index = current.views.indexOfFirst { it.id == viewId }
             if (index < 0) current else ConfigEditor.moveView(current, viewId, index + delta)
@@ -237,6 +359,7 @@ class CamGridViewModel(
 
     /** Moves a camera [delta] places in the order (negative = towards the start). */
     fun moveCamera(cameraId: String, delta: Int) {
+        if (isManaged) return
         edit { current ->
             val index = current.cameras.indexOfFirst { it.id == cameraId }
             if (index < 0) current else ConfigEditor.moveCamera(current, cameraId, index + delta)
@@ -244,11 +367,13 @@ class CamGridViewModel(
     }
 
     fun deleteCamera(cameraId: String) {
+        if (isManaged) return
         edit { ConfigEditor.removeCamera(it, cameraId) }
     }
 
     /** Adds [camera] if its id is new, otherwise replaces the existing one. Returns to settings. */
     fun saveCamera(camera: Camera) {
+        if (isManaged) return
         edit { current ->
             if (current.cameras.any { it.id == camera.id }) {
                 ConfigEditor.updateCamera(current, camera)
@@ -306,6 +431,7 @@ class CamGridViewModel(
     }
 
     fun importSelected() {
+        if (isManaged) return
         val state = importState as? ImportState.Loaded ?: return
         val chosen = state.cameras.filter { it.id in state.selected }
         edit { ConfigEditor.importCameras(it, chosen) }

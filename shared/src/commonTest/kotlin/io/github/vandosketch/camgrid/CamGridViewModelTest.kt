@@ -11,6 +11,7 @@ import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.data.ConfigRepository
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.Go2rtcException
+import io.github.vandosketch.camgrid.data.RemoteConfigClient
 import io.github.vandosketch.camgrid.data.createCamGridHttpClient
 import io.github.vandosketch.camgrid.platform.BackupDocument
 import io.github.vandosketch.camgrid.platform.BackupFileException
@@ -154,6 +155,7 @@ class CamGridViewModelTest {
             backupFiles = files,
             go2rtcClient = Go2rtcClient(http),
             devicePreferences = devicePreferences,
+            remoteConfigClient = RemoteConfigClient(http),
             ioDispatcher = dispatcher,
             computeDispatcher = dispatcher,
         )

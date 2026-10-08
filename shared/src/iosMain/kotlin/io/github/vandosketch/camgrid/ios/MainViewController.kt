@@ -5,6 +5,7 @@ import io.github.vandosketch.camgrid.CamGridViewModel
 import io.github.vandosketch.camgrid.about.AppVersion
 import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
+import io.github.vandosketch.camgrid.data.RemoteConfigClient
 import io.github.vandosketch.camgrid.data.WebRtcOfferExchange
 import io.github.vandosketch.camgrid.data.WhepClient
 import io.github.vandosketch.camgrid.platform.AppLog
@@ -30,6 +31,7 @@ fun MainViewController(streams: NativeStreamFactory, systemBars: SystemBarsHost)
         configStore = IosConfigStore(),
         backupFiles = IosBackupFiles(),
         go2rtcClient = Go2rtcClient(CamGridHttp.client),
+        remoteConfigClient = RemoteConfigClient(CamGridHttp.client),
         devicePreferences = IosDevicePreferences(),
     )
     val video = IosVideoPlatform(streams, WebRtcOfferExchange(WhepClient(CamGridHttp.client)))
