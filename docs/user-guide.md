@@ -102,6 +102,14 @@ On Android and Fire TV, Settings > **Start on boot** opens CamGrid by itself aft
 
 It only helps after a restart or power cut. A Fire TV that wakes from standby returns to whatever app was open, so for daily on and off, leave CamGrid open when the TV goes to standby.
 
+On a computer (Windows, macOS, Linux) the same section is called **Start at login**: CamGrid opens when you log in, with the window where and how you left it (press F11 for fullscreen before closing it to come back fullscreen). For a wall display after a power cut, let the computer log in by itself. It only appears in the installed app, not in `gradlew run`. The switch is the system's own login item:
+
+- **Windows**: the `CamGrid` entry in Task Manager > Startup apps (the `Run` key of your user). Turning it off there turns the switch off too.
+- **macOS**: a launch agent, `~/Library/LaunchAgents/io.github.vandosketch.camgrid.login.plist`, listed in System Settings > General > Login Items. If you turn CamGrid off there, CamGrid's switch still shows on; turn it off in CamGrid instead.
+- **Linux**: `~/.config/autostart/camgrid.desktop`, which GNOME, KDE, Xfce and most desktops start at login. A bare window manager may ignore it.
+
+Uninstalling CamGrid does not remove the login item; turn the switch off first. On Linux the entry is skipped once the app is gone.
+
 From Android 10 (Fire OS 8) on, Android lets an app open by itself only with the **Display over other apps** permission. CamGrid draws nothing over other apps; the permission is just the exemption. Settings shows a note while it is missing and opens the system screen where there is one. Fire TV has no such screen, so grant it once from a computer:
 
 ```sh
