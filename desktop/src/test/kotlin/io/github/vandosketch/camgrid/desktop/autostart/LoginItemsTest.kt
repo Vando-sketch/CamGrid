@@ -60,7 +60,7 @@ class LoginItemsTest {
 
     @Test
     fun macLaunchAgentOpensTheBundleAtLogin() {
-        val text = MacLaunchAgent.content(Path.of("/Applications/Cam & Grid.app"))
+        val text = MacLaunchAgent.content("/Applications/Cam & Grid.app")
         assertTrue("<key>Label</key>\n    <string>io.github.vandosketch.camgrid.login</string>" in text, text)
         assertTrue(
             "<key>ProgramArguments</key>\n    <array>\n        <string>/usr/bin/open</string>\n        <string>/Applications/Cam &amp; Grid.app</string>\n    </array>" in text,

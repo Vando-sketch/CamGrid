@@ -94,7 +94,7 @@ class XdgAutostartEntry(file: Path, private val launcher: String) : LoginItemFil
  * click in the Finder; launchd does not restart it when it quits.
  */
 class MacLaunchAgent(file: Path, val bundle: Path) : LoginItemFile(file) {
-    override fun content() = content(bundle)
+    override fun content() = content(bundle.toString())
 
     companion object {
         const val LABEL = "io.github.vandosketch.camgrid.login"
@@ -104,7 +104,7 @@ class MacLaunchAgent(file: Path, val bundle: Path) : LoginItemFile(file) {
         fun bundleOf(launcher: Path): Path? =
             generateSequence(launcher) { it.parent }.firstOrNull { it.fileName?.toString()?.endsWith(".app") == true }
 
-        fun content(bundle: Path): String = """
+        fun content(bundle: String): String = """
             |<?xml version="1.0" encoding="UTF-8"?>
             |<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
             |<plist version="1.0">
@@ -114,7 +114,7 @@ class MacLaunchAgent(file: Path, val bundle: Path) : LoginItemFile(file) {
             |    <key>ProgramArguments</key>
             |    <array>
             |        <string>/usr/bin/open</string>
-            |        <string>${xml(bundle.toString())}</string>
+            |        <string>${xml(bundle)}</string>
             |    </array>
             |    <key>RunAtLoad</key>
             |    <true/>

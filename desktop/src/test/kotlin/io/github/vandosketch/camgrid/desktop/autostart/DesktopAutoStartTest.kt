@@ -36,7 +36,8 @@ class DesktopAutoStartTest {
     fun linuxUsesTheXdgAutostartFolder() {
         val item = DesktopAutoStart.loginItem("Linux", "/opt/camgrid/bin/camgrid", emptyMap(), home.toString())
         assertEquals(home.resolve(".config/autostart/camgrid.desktop"), (item as XdgAutostartEntry).file)
-        val xdg = home.resolve("xdg").toString()
+        // An absolute POSIX path, as on Linux (a Windows temp folder would not start with "/").
+        val xdg = "/xdg-config"
         val custom = DesktopAutoStart.loginItem("Linux", "/opt/camgrid/bin/camgrid", mapOf("XDG_CONFIG_HOME" to xdg), home.toString())
         assertEquals(Path.of(xdg, "autostart", "camgrid.desktop"), (custom as XdgAutostartEntry).file)
         // The XDG spec: a relative XDG_CONFIG_HOME is ignored.
