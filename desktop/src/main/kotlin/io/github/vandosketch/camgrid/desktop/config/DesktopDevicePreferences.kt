@@ -21,10 +21,15 @@ class DesktopDevicePreferences(private val file: Path) : DevicePreferences {
 
     override fun getInt(key: String): Int? = load().getProperty(key)?.toIntOrNull()
 
-    override fun putInt(key: String, value: Int) {
+    override fun putInt(key: String, value: Int) = putString(key, value.toString())
+
+    /** The stored text (desktop only, for values like a view id), or null when there is none. */
+    fun getString(key: String): String? = load().getProperty(key)
+
+    fun putString(key: String, value: String) {
         try {
             val props = load()
-            props.setProperty(key, value.toString())
+            props.setProperty(key, value)
             Files.createDirectories(file.parent)
             val temp = file.resolveSibling("${file.fileName}.tmp")
             try {

@@ -110,6 +110,11 @@ class WindowStateStore(private val file: Path) {
         private const val Y = "y"
         private const val PLACEMENT = "placement"
 
+        /** The second window's own file, next to the main window's. */
+        const val SECOND_WINDOW_FILE_NAME = "window-2.properties"
+
         fun forThisUser() = WindowStateStore(AppDirs.dataDir.resolve(FILE_NAME))
+
+        fun forSecondWindow() = WindowStateStore(AppDirs.dataDir.resolve(SECOND_WINDOW_FILE_NAME))
     }
 }

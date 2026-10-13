@@ -50,19 +50,34 @@ private const val SAVE_DELAY_MS = 500L
 
 private val DefaultSize = DpSize(1280.dp, 800.dp)
 
-/** The window as last saved, or a centred default window; a position off every screen is dropped. */
-fun initialWindowState(saved: SavedWindow?): WindowState {
+/**
+ * The window as last saved, or a default window centred on [defaultScreen] (the main screen when
+ * null); a position off every screen is dropped.
+ */
+fun initialWindowState(saved: SavedWindow?, defaultScreen: Rectangle? = null): WindowState {
     val screens = screenBounds()
+    val size = saved?.let { DpSize(it.width.dp, it.height.dp) } ?: DefaultSize
     val position = saved
         ?.takeIf { it.x != null && it.y != null && it.isVisibleOn(screens) }
         ?.let { WindowPosition(it.x!!.dp, it.y!!.dp) }
+        ?: defaultScreen?.let { centredOn(it, size) }
         ?: WindowPosition.Aligned(Alignment.Center)
     return WindowState(
         placement = saved?.placement ?: WindowPlacement.Floating,
         position = position,
-        size = saved?.let { DpSize(it.width.dp, it.height.dp) } ?: DefaultSize,
+        size = size,
     )
 }
+
+/** A window of [size] in the middle of [screen], its top left corner kept on the screen. */
+fun centredOn(screen: Rectangle, size: DpSize): WindowPosition {
+    val x = screen.x + ((screen.width - size.width.value.roundToInt()) / 2).coerceAtLeast(0)
+    val y = screen.y + ((screen.height - size.height.value.roundToInt()) / 2).coerceAtLeast(0)
+    return WindowPosition(x.dp, y.dp)
+}
+
+/** The first of [screens] that [taken] (another window's bounds) does not reach into, or null. */
+fun freeScreen(screens: List<Rectangle>, taken: Rectangle): Rectangle? = screens.firstOrNull { !it.intersects(taken) }
 
 /**
  * Saves [state] to [store] whenever it changes (once it has rested a moment) and when the
@@ -153,7 +168,7 @@ private val BlankCursor: PointerIcon by lazy {
 }
 
 /** The bounds of every screen, in the same scaled coordinates as window positions in dp. */
-private fun screenBounds(): List<Rectangle> = try {
+fun screenBounds(): List<Rectangle> = try {
     GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.map { it.defaultConfiguration.bounds }
 } catch (e: Exception) {
     emptyList()
