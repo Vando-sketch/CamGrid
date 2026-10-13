@@ -63,6 +63,8 @@ import io.github.vandosketch.camgrid.platform.VideoPlatform
  * @param onImmersiveChange hides the system bars for the grid and fullscreen, shows them otherwise.
  * @param autoStart starting after the device boots, for the platforms that can; Settings shows
  *   the option only when there is one.
+ * @param secondWindow whether a second window for another monitor is open (desktop); Settings
+ *   shows the switch only when this is not null, and [onSecondWindowChange] turns it on or off.
  */
 @Composable
 fun CamGridApp(
@@ -71,6 +73,8 @@ fun CamGridApp(
     appVersion: String,
     onImmersiveChange: (Boolean) -> Unit,
     autoStart: AutoStart? = null,
+    secondWindow: Boolean? = null,
+    onSecondWindowChange: (Boolean) -> Unit = {},
 ) {
     val config by viewModel.config.collectAsStateWithLifecycle()
     val screen = viewModel.screen
@@ -220,6 +224,8 @@ fun CamGridApp(
                         sourceStatus = viewModel.sourceStatus,
                         onSetUpSource = viewModel::openConfigSource,
                         onCheckSourceNow = viewModel::checkSourceNow,
+                        secondWindow = secondWindow,
+                        onSecondWindowChange = onSecondWindowChange,
                     )
                 }
                 Screen.ConfigSource -> ConfigSourceScreen(

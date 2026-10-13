@@ -78,6 +78,7 @@ sealed interface ImportState {
  * @param remoteConfigClient downloads the config from the config URL, when one is set.
  * @param ioDispatcher where blocking file IO (and the backup's key derivation) runs.
  * @param computeDispatcher where backups are decrypted and parsed.
+ * @param main set for a second window's model (see the constructor taking only [main]).
  */
 class CamGridViewModel(
     private val repository: ConfigRepository,
@@ -87,6 +88,7 @@ class CamGridViewModel(
     private val remoteConfigClient: RemoteConfigClient,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val main: CamGridViewModel? = null,
 ) : ViewModel() {
 
     /** Loads the config from [configStore] right away (synchronously). */
@@ -97,6 +99,23 @@ class CamGridViewModel(
         devicePreferences: DevicePreferences,
         remoteConfigClient: RemoteConfigClient,
     ) : this(ConfigRepository(configStore), backupFiles, go2rtcClient, devicePreferences, remoteConfigClient)
+
+    /**
+     * The model of a second window (a second monitor on desktop) next to [main]'s: the same
+     * config, but its own grid page, focus and fullscreen camera, so each window shows its own
+     * view. Settings always open in [main]'s window, so two editors never work on the config at
+     * once; only [main] checks the config URL, and the device settings are [main]'s.
+     */
+    constructor(main: CamGridViewModel) : this(
+        main.repository,
+        main.backupFiles,
+        main.go2rtcClient,
+        main.devicePreferences,
+        main.remoteConfigClient,
+        main.ioDispatcher,
+        main.computeDispatcher,
+        main,
+    )
 
     val config: StateFlow<CamGridConfig> = repository.config
 
@@ -117,12 +136,14 @@ class CamGridViewModel(
         private set
     private var fetchJob: Job? = null
 
+    private var ownReturnToGridAfter by mutableStateOf(ReturnToGrid.fromMinutes(devicePreferences.getInt(ReturnToGrid.PREFERENCE_KEY)))
+
     /** When an untouched fullscreen goes back to the grid; a setting of this device, not the config. */
-    var returnToGridAfter by mutableStateOf(ReturnToGrid.fromMinutes(devicePreferences.getInt(ReturnToGrid.PREFERENCE_KEY)))
-        private set
+    val returnToGridAfter: ReturnToGrid get() = main?.returnToGridAfter ?: ownReturnToGridAfter
 
     fun selectReturnToGrid(value: ReturnToGrid) {
-        returnToGridAfter = value
+        if (main != null) return main.selectReturnToGrid(value)
+        ownReturnToGridAfter = value
         devicePreferences.putInt(ReturnToGrid.PREFERENCE_KEY, value.minutes)
     }
 
@@ -138,14 +159,31 @@ class CamGridViewModel(
         screen = Screen.Fullscreen(cameraId)
     }
 
+    /** Opens settings; a second window opens them in [main]'s window and stays as it is. */
     fun openSettings() {
+        if (main != null) {
+            main.onMenuKey()
+            main.settingsRequests++
+            return
+        }
         screen = Screen.Settings
     }
+
+    /**
+     * How often a second window asked for settings, which open in this (the main) window: the
+     * platform brings this window to the front on each request, even when settings were open already.
+     */
+    var settingsRequests by mutableIntStateOf(0)
+        private set
 
     /** MENU key: opens settings from the grid or fullscreen. Returns whether it did anything. */
     fun onMenuKey(): Boolean {
         val current = screen
         if (current !is Screen.Grid && current !is Screen.Fullscreen) return false
+        if (main != null) {
+            openSettings()
+            return true
+        }
         if (current is Screen.Fullscreen) focusCameraInGrid(current.cameraId)
         screen = Screen.Settings
         return true
@@ -241,7 +279,7 @@ class CamGridViewModel(
     init {
         // While a URL is set: check it now, then every few minutes (sooner after a failure). A new
         // or removed URL restarts this, dropping a download still running for the old one.
-        viewModelScope.launch {
+        if (main == null) viewModelScope.launch {
             config.map { it.source }.distinctUntilChanged().collectLatest { source ->
                 if (source == null) {
                     sourceStatus = SourceStatus.Off
@@ -665,6 +703,8 @@ class CamGridViewModel(
     }
 
     override fun onCleared() {
+        // A second window never runs the server; stopping it would stop the main window's.
+        if (main != null) return
         // viewModelScope is already cancelled, so stop directly; closing sockets does not block.
         lanProtocol = null
         backupFiles.lanServer?.stop()

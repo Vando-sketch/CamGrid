@@ -246,6 +246,22 @@ class CamGridViewModelRemoteConfigTest {
     }
 
     @Test
+    fun aSecondWindowGetsTheChangesWithoutCheckingItself() = test {
+        store.json = ConfigCodec.encode(hosted.copy(source = source))
+        val vm = viewModel()
+        val second = CamGridViewModel(vm).also { viewModels += it }
+        until { requests.size == 1 && vm.sourceStatus == SourceStatus.UpToDate }
+
+        val changed = hosted.copy(cameras = listOf(yard, door))
+        answer = { file(changed) }
+        advanceTimeBy(RemoteConfig.REFRESH_MILLIS + 1)
+        until { second.config.value.cameras == changed.cameras }
+        // Only the main window's check: two windows do not ask the server twice as often.
+        assertEquals(2, requests.size)
+        assertTrue(second.isManaged)
+    }
+
+    @Test
     fun anUnchangedFileIsNotWrittenAgain() = test {
         store.json = ConfigCodec.encode(hosted.copy(source = source))
         val vm = viewModel()

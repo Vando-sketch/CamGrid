@@ -8,26 +8,34 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.ApplicationScope
+import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import io.github.vandosketch.camgrid.CamGridViewModel
 import io.github.vandosketch.camgrid.core.FitMode
+import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.core.UrlRedactor
+import io.github.vandosketch.camgrid.core.ViewPaging
 import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.RemoteConfigClient
@@ -43,7 +51,10 @@ import io.github.vandosketch.camgrid.ui.CamGridTheme
 import io.github.vandosketch.camgrid.ui.KeyboardNavigation
 import io.github.vandosketch.camgrid.ui.LocalHasKeyboardAndMouse
 import io.github.vandosketch.camgrid.ui.LocalKeyboardNavigation
+import java.awt.Rectangle
 import javax.imageio.ImageIO
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 
 /**
  * The desktop app. With stream URLs as arguments (or in CAMGRID_URLS, separated by spaces or
@@ -54,6 +65,10 @@ import javax.imageio.ImageIO
  * The window comes back with the size, position and placement it had when last closed. F11
  * toggles window fullscreen (not a bare F: text fields leave letter key presses unconsumed), and on the camera wall and fullscreen the mouse cursor hides
  * while it rests.
+ *
+ * With Settings, Second monitor turned on, a second window shows a camera wall of its own
+ * ([SecondWindow]): the same config, its own view, its own size and place. Closing it turns the
+ * setting off; closing the main window quits both.
  */
 fun main(args: Array<String>) {
     AppLog.sink = AppLog.Sink { level, tag, message -> System.err.println("$level $tag: $message") }
@@ -65,66 +80,136 @@ fun main(args: Array<String>) {
         ?.let { BitmapPainter(it.toComposeImageBitmap()) }
 
     application {
-        val windowStore = remember { WindowStateStore.forThisUser() }
-        val windowState = remember { initialWindowState(windowStore.load()) }
-        val initialWindow = remember { windowState.toSaved(previous = null) }
-        SaveWindowState(windowState, windowStore, initialWindow)
-        var immersive by remember { mutableStateOf(false) }
-        // Focus rings only while the user moves around with the keys. Fed here as well as in
-        // CamGridApp, so keys pressed in a dialog count too.
-        val keyboardNavigation = remember { KeyboardNavigation() }
-        Window(
-            onCloseRequest = ::exitApplication,
-            state = windowState,
-            title = "CamGrid",
-            icon = icon,
-            onPreviewKeyEvent = { event ->
-                if (event.type == KeyEventType.KeyDown) keyboardNavigation.onKeyDown(event.key)
-                // F11 toggles fullscreen from anywhere, like browsers and video players.
-                if (event.isPlainPress(Key.F11)) {
-                    windowState.toggleFullscreen()
-                    true
-                } else {
-                    false
-                }
-            },
-        ) {
-            CamGridTheme {
-                CompositionLocalProvider(
-                    LocalHasKeyboardAndMouse provides true,
-                    LocalKeyboardNavigation provides keyboardNavigation,
-                ) {
-                    if (testUrls.isNotEmpty()) {
-                        TestGrid(testUrls)
-                    } else {
-                        AutoHideCursor(enabled = immersive) { App(onImmersiveChange = { immersive = it }) }
-                    }
-                }
-            }
+        if (testUrls.isNotEmpty()) {
+            CamGridWindow(WindowStateStore.forThisUser(), icon, onCloseRequest = ::exitApplication) { TestGrid(testUrls) }
+        } else {
+            CamGridWindows(icon)
         }
     }
 }
 
-/** The app; [onImmersiveChange] reports the grid and fullscreen, where the cursor may hide. */
+/** The main window and, when turned on, the second one. */
 @Composable
-private fun App(onImmersiveChange: (Boolean) -> Unit) {
+private fun ApplicationScope.CamGridWindows(icon: Painter?) {
+    val preferences = remember { DesktopDevicePreferences.forThisUser() }
     val viewModel = remember {
         CamGridViewModel(
             configStore = DesktopConfigStore.forThisUser(),
             backupFiles = DesktopBackupFiles(),
             go2rtcClient = Go2rtcClient(CamGridHttp.client),
             remoteConfigClient = RemoteConfigClient(CamGridHttp.client),
-            devicePreferences = DesktopDevicePreferences.forThisUser(),
+            devicePreferences = preferences,
         )
     }
-    // A window is not a phone screen: the grid and fullscreen leave the window as it is (F11
-    // makes it fullscreen); immersive only lets the idle mouse cursor hide.
-    CamGridApp(
-        viewModel = viewModel,
-        video = DesktopVideoPlatform,
-        appVersion = DesktopAppVersion.current,
-        onImmersiveChange = onImmersiveChange,
-    )
+    var secondWindow by remember { mutableStateOf(SecondWindow.isEnabled(preferences)) }
+    val setSecondWindow: (Boolean) -> Unit = {
+        secondWindow = it
+        SecondWindow.setEnabled(preferences, it)
+    }
+    // The main window's bounds, for placing a new second window on another screen.
+    val mainWindow = remember { arrayOfNulls<java.awt.Window>(1) }
+
+    CamGridWindow(WindowStateStore.forThisUser(), icon, onCloseRequest = ::exitApplication) { immersive ->
+        SideEffect { mainWindow[0] = window }
+        // Settings asked for in the second window open here: bring this window forward.
+        LaunchedEffect(viewModel) {
+            snapshotFlow { viewModel.settingsRequests }.drop(1).collect {
+                if (window.isMinimized) window.isMinimized = false
+                window.toFront()
+                window.requestFocus()
+            }
+        }
+        CamGridApp(
+            viewModel = viewModel,
+            video = DesktopVideoPlatform,
+            appVersion = DesktopAppVersion.current,
+            // A window is not a phone screen: the grid and fullscreen leave the window as it is (F11
+            // makes it fullscreen); immersive only lets the idle mouse cursor hide.
+            onImmersiveChange = immersive,
+            secondWindow = secondWindow,
+            onSecondWindowChange = setSecondWindow,
+        )
+    }
+
+    if (secondWindow) {
+        val second = remember {
+            CamGridViewModel(viewModel).apply {
+                val page = SecondWindow.startPage(preferences, ViewPaging.pages(config.value))
+                setGridPosition(GridPosition(page, 0))
+            }
+        }
+        // Which view it shows, for the next start.
+        LaunchedEffect(second) {
+            snapshotFlow { ViewPaging.pages(second.config.value).getOrNull(second.gridPage) }
+                .filterNotNull()
+                .collect { SecondWindow.save(preferences, it) }
+        }
+        val defaultScreen = remember {
+            mainWindow[0]?.let { main -> freeScreen(screenBounds(), main.bounds) }
+        }
+        CamGridWindow(
+            WindowStateStore.forSecondWindow(),
+            icon,
+            onCloseRequest = { setSecondWindow(false) },
+            title = "CamGrid 2",
+            defaultScreen = defaultScreen,
+        ) { immersive ->
+            CamGridApp(
+                viewModel = second,
+                video = DesktopVideoPlatform,
+                appVersion = DesktopAppVersion.current,
+                onImmersiveChange = immersive,
+            )
+        }
+    }
+}
+
+/**
+ * One CamGrid window: its size, place and placement kept in [store], F11 for fullscreen, focus
+ * rings while the keys are used, and the mouse cursor hidden on the camera wall while it rests.
+ * [content] gets the callback that says when the camera wall (or a camera) is showing.
+ */
+@Composable
+private fun ApplicationScope.CamGridWindow(
+    store: WindowStateStore,
+    icon: Painter?,
+    onCloseRequest: () -> Unit,
+    title: String = "CamGrid",
+    defaultScreen: Rectangle? = null,
+    content: @Composable FrameWindowScope.(onImmersiveChange: (Boolean) -> Unit) -> Unit,
+) {
+    val windowState = remember { initialWindowState(store.load(), defaultScreen) }
+    val initialWindow = remember { windowState.toSaved(previous = null) }
+    SaveWindowState(windowState, store, initialWindow)
+    var immersive by remember { mutableStateOf(false) }
+    // Focus rings only while the user moves around with the keys. Fed here as well as in
+    // CamGridApp, so keys pressed in a dialog count too.
+    val keyboardNavigation = remember { KeyboardNavigation() }
+    Window(
+        onCloseRequest = onCloseRequest,
+        state = windowState,
+        title = title,
+        icon = icon,
+        onPreviewKeyEvent = { event ->
+            if (event.type == KeyEventType.KeyDown) keyboardNavigation.onKeyDown(event.key)
+            // F11 toggles fullscreen from anywhere, like browsers and video players.
+            if (event.isPlainPress(Key.F11)) {
+                windowState.toggleFullscreen()
+                true
+            } else {
+                false
+            }
+        },
+    ) {
+        CamGridTheme {
+            CompositionLocalProvider(
+                LocalHasKeyboardAndMouse provides true,
+                LocalKeyboardNavigation provides keyboardNavigation,
+            ) {
+                AutoHideCursor(enabled = immersive) { content { immersive = it } }
+            }
+        }
+    }
 }
 
 /** The developer test grid: up to four streams, muted, with their status. */

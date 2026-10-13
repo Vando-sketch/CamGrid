@@ -7,6 +7,7 @@ import io.github.vandosketch.camgrid.core.Camera
 import io.github.vandosketch.camgrid.core.ConfigBackup
 import io.github.vandosketch.camgrid.core.ConfigCodec
 import io.github.vandosketch.camgrid.core.ConfigEditor
+import io.github.vandosketch.camgrid.core.GridPosition
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.data.ConfigRepository
 import io.github.vandosketch.camgrid.data.Go2rtcClient
@@ -242,6 +243,59 @@ class CamGridViewModelTest {
         vm.openSettings()
         vm.returnToGridWhenIdle()
         assertEquals(Screen.Settings, vm.screen)
+    }
+
+    @Test
+    fun aSecondWindowSharesTheConfigButNavigatesOnItsOwn() = runTest {
+        store.json = ConfigCodec.encode(configWith(kitchen, door))
+        val main = viewModel()
+        val second = CamGridViewModel(main)
+
+        second.setGridPosition(GridPosition(page = 0, index = 1))
+        second.openCamera("door")
+        assertEquals(Screen.Fullscreen("door"), second.screen)
+        assertEquals(Screen.Grid, main.screen)
+        assertEquals(0, main.gridFocusIndex)
+
+        // An edit in the main window shows in the second one at once, and is saved once.
+        main.saveCamera(kitchen.copy(name = "Kitchen wall"))
+        settle(main)
+        assertEquals("Kitchen wall", second.config.value.cameras.first().name)
+        assertEquals("Kitchen wall", ConfigCodec.decode(store.json!!).cameras.first().name)
+
+        second.back()
+        assertEquals(Screen.Grid, second.screen)
+        assertEquals(1, second.gridFocusIndex)
+    }
+
+    @Test
+    fun settingsAskedForInASecondWindowOpenInTheMainWindow() = runTest {
+        store.json = ConfigCodec.encode(configWith(kitchen, door))
+        val main = viewModel()
+        val second = CamGridViewModel(main)
+        main.openCamera("door")
+
+        second.openSettings()
+        assertEquals(Screen.Grid, second.screen)
+        assertEquals(Screen.Settings, main.screen)
+        // The main window left fullscreen as with its own MENU key: back on that camera.
+        assertEquals(1, main.gridFocusIndex)
+        assertEquals(1, main.settingsRequests)
+
+        // Settings already open there: still a request, so the window comes to the front.
+        second.openCamera("kitchen")
+        assertTrue(second.onMenuKey())
+        assertEquals(Screen.Fullscreen("kitchen"), second.screen)
+        assertEquals(Screen.Settings, main.screen)
+        assertEquals(2, main.settingsRequests)
+    }
+
+    @Test
+    fun aSecondWindowFollowsTheMainWindowsReturnToGrid() = runTest {
+        val main = viewModel()
+        val second = CamGridViewModel(main)
+        main.selectReturnToGrid(ReturnToGrid.MINUTES_2)
+        assertEquals(ReturnToGrid.MINUTES_2, second.returnToGridAfter)
     }
 
     @Test
