@@ -31,6 +31,7 @@ import io.github.vandosketch.camgrid.core.UrlRedactor
 import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.RemoteConfigClient
+import io.github.vandosketch.camgrid.desktop.autostart.DesktopAutoStart
 import io.github.vandosketch.camgrid.desktop.config.DesktopBackupFiles
 import io.github.vandosketch.camgrid.desktop.config.DesktopConfigStore
 import io.github.vandosketch.camgrid.desktop.config.DesktopDevicePreferences
@@ -117,6 +118,7 @@ private fun App(onImmersiveChange: (Boolean) -> Unit) {
             devicePreferences = DesktopDevicePreferences.forThisUser(),
         )
     }
+    val autoStart = remember { DesktopAutoStart.forThisApp() }
     // A window is not a phone screen: the grid and fullscreen leave the window as it is (F11
     // makes it fullscreen); immersive only lets the idle mouse cursor hide.
     CamGridApp(
@@ -124,6 +126,7 @@ private fun App(onImmersiveChange: (Boolean) -> Unit) {
         video = DesktopVideoPlatform,
         appVersion = DesktopAppVersion.current,
         onImmersiveChange = onImmersiveChange,
+        autoStart = autoStart,
     )
 }
 
