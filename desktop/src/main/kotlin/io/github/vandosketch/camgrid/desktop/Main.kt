@@ -39,6 +39,7 @@ import io.github.vandosketch.camgrid.core.ViewPaging
 import io.github.vandosketch.camgrid.data.CamGridHttp
 import io.github.vandosketch.camgrid.data.Go2rtcClient
 import io.github.vandosketch.camgrid.data.RemoteConfigClient
+import io.github.vandosketch.camgrid.desktop.autostart.DesktopAutoStart
 import io.github.vandosketch.camgrid.desktop.config.DesktopBackupFiles
 import io.github.vandosketch.camgrid.desktop.config.DesktopConfigStore
 import io.github.vandosketch.camgrid.desktop.config.DesktopDevicePreferences
@@ -101,6 +102,7 @@ private fun ApplicationScope.CamGridWindows(icon: Painter?) {
             devicePreferences = preferences,
         )
     }
+    val autoStart = remember { DesktopAutoStart.forThisApp() }
     var secondWindow by remember { mutableStateOf(SecondWindow.isEnabled(preferences)) }
     val setSecondWindow: (Boolean) -> Unit = {
         secondWindow = it
@@ -128,6 +130,7 @@ private fun ApplicationScope.CamGridWindows(icon: Painter?) {
             onImmersiveChange = immersive,
             secondWindow = secondWindow,
             onSecondWindowChange = setSecondWindow,
+            autoStart = autoStart,
         )
     }
 

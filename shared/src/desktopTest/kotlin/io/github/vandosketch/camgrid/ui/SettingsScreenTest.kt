@@ -50,6 +50,7 @@ import io.github.vandosketch.camgrid.core.CamGridConfig
 import io.github.vandosketch.camgrid.core.CamView
 import io.github.vandosketch.camgrid.platform.AutoStart
 import io.github.vandosketch.camgrid.platform.AutoStartBlocker
+import io.github.vandosketch.camgrid.platform.AutoStartMoment
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -135,6 +136,8 @@ class SettingsScreenTest {
         onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
 
     private val bootSwitch = "Start CamGrid when this device turns on"
+
+    private val loginSwitch = "Start CamGrid when you log in"
 
     private val returnSection = "Back to grid after inactivity"
 
@@ -294,6 +297,21 @@ class SettingsScreenTest {
         waitForIdle()
         returnChoice("Off").assertIsSelected()
         returnChoice("2 min").assertIsNotSelected()
+    }
+
+    @Test
+    fun aDesktopStartsAtLoginAndSaysSo() = runTallTest {
+        val autoStart = FakeAutoStart(moment = AutoStartMoment.LOGIN)
+        showSettings(testConfig(1), tall, autoStart)
+        onNodeWithText("Start at login").assertIsDisplayed()
+        onNodeWithText("Start on boot").assertDoesNotExist()
+        onNodeWithText(bootSwitch).assertDoesNotExist()
+        onNodeWithText("standby", substring = true).assertDoesNotExist()
+        onNodeWithText(loginSwitch).performClick()
+        waitForIdle()
+        assertEquals(listOf(true), autoStart.setCalls)
+        val tops = listOf(returnSection, "Start at login", "Backup").map { top(it) }
+        assertEquals(tops.sorted(), tops, "section tops $tops")
     }
 
     @Test

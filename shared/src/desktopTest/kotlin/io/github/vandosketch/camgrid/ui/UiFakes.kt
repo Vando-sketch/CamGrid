@@ -17,6 +17,7 @@ import io.github.vandosketch.camgrid.core.FitMode
 import io.github.vandosketch.camgrid.core.StreamType
 import io.github.vandosketch.camgrid.platform.AutoStart
 import io.github.vandosketch.camgrid.platform.AutoStartBlocker
+import io.github.vandosketch.camgrid.platform.AutoStartMoment
 import io.github.vandosketch.camgrid.platform.BackupDocument
 import io.github.vandosketch.camgrid.platform.BackupFiles
 import io.github.vandosketch.camgrid.platform.BackupPickers
@@ -136,6 +137,7 @@ class FakeAutoStart(
     /** Changeable, like the user granting the permission on the system screen. */
     var blockedWhenEnabled: AutoStartBlocker? = null,
     private val hasBlockerSettings: Boolean = true,
+    override val moment: AutoStartMoment = AutoStartMoment.BOOT,
 ) : AutoStart {
     val setCalls = mutableListOf<Boolean>()
     var settingsOpened = 0

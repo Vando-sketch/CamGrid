@@ -61,7 +61,7 @@ import io.github.vandosketch.camgrid.platform.VideoPlatform
  * @param video the platform's players; the screens use nothing else to show streams.
  * @param appVersion the version shown in Settings, About; see [io.github.vandosketch.camgrid.about.AppVersion].
  * @param onImmersiveChange hides the system bars for the grid and fullscreen, shows them otherwise.
- * @param autoStart starting after the device boots, for the platforms that can; Settings shows
+ * @param autoStart starting after the device boots or the user logs in, for the platforms that can; Settings shows
  *   the option only when there is one.
  * @param secondWindow whether a second window for another monitor is open (desktop); Settings
  *   shows the switch only when this is not null, and [onSecondWindowChange] turns it on or off.

@@ -1,14 +1,17 @@
 package io.github.vandosketch.camgrid.platform
 
 /**
- * Starting CamGrid by itself when the device boots, for a wall display that should come up
- * showing the grid without anyone touching a remote. Only platforms that can do it provide
- * one; Settings hides the option where there is none.
+ * Starting CamGrid by itself when the device boots (Android) or the user logs in (desktop), for
+ * a wall display that should come up showing the grid without anyone touching a remote. Only
+ * platforms that can do it provide one; Settings hides the option where there is none.
  *
  * The setting belongs to the device, not to the config: it is not part of a backup.
  */
 interface AutoStart {
-    /** Whether CamGrid starts after the device boots. */
+    /** When CamGrid starts; Settings words the option after it. */
+    val moment: AutoStartMoment get() = AutoStartMoment.BOOT
+
+    /** Whether CamGrid starts at [moment]. */
     fun isEnabled(): Boolean
 
     fun setEnabled(enabled: Boolean)
@@ -32,4 +35,12 @@ enum class AutoStartBlocker {
      * "Display over other apps" permission, which the user has to grant.
      */
     OVERLAY_PERMISSION,
+}
+
+enum class AutoStartMoment {
+    /** After the device boots, without anyone logging in (Android, Fire TV). */
+    BOOT,
+
+    /** When the user logs in to the computer (desktop). */
+    LOGIN,
 }

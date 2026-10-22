@@ -70,7 +70,7 @@ jobs:
       # The Kotlin/Native toolchain and its iOS caches (about 1 GB), otherwise downloaded and
       # rebuilt on every run.
       - name: Cache Kotlin/Native
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.konan
           key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
@@ -89,7 +89,7 @@ jobs:
 
       - name: Install the Android SDK
         if: steps.sdk.outputs.missing == 'true'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Kotlin tests in the iOS simulator
         run: ./gradlew -Pcamgrid.skipAndroid=true :core:iosSimulatorArm64Test :shared:iosSimulatorArm64Test --stacktrace
@@ -100,7 +100,7 @@ jobs:
           cd iosApp && xcodegen generate
 
       - name: Cache Swift packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .spm
           key: spm-${{ hashFiles('iosApp/project.yml') }}
@@ -168,7 +168,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: CamGrid-iOS-unsigned-build-${{ github.run_number }}
           path: dist

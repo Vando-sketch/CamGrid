@@ -35,7 +35,7 @@ jobs:
       # CHANGELOG.md for the notes, NOTICE and LICENSE.
       - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           pattern: ${{ inputs.artifact-pattern }}
           path: artifacts

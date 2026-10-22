@@ -40,6 +40,9 @@
     <string name="section_autostart">Start on boot</string>
     <string name="autostart_switch">Start CamGrid when this device turns on</string>
     <string name="autostart_help">Starts after a restart or power cut. Waking the TV from standby returns to whatever app was open.</string>
+    <string name="section_autostart_login">Start at login</string>
+    <string name="autostart_switch_login">Start CamGrid when you log in</string>
+    <string name="autostart_help_login">Opens CamGrid after you log in to this computer, with the window as you left it. For a wall display, let the computer log in by itself after a restart or power cut.</string>
     <string name="autostart_overlay_needed">CamGrid needs the “Display over other apps” permission to start by itself on this Android version.</string>
     <string name="autostart_open_permission">Open permission settings</string>
     <!-- Followed by the adb command, which is not translated. -->

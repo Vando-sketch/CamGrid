@@ -72,10 +72,12 @@ import io.github.vandosketch.camgrid.shared.resources.about_version
 import io.github.vandosketch.camgrid.shared.resources.add_camera
 import io.github.vandosketch.camgrid.shared.resources.add_view
 import io.github.vandosketch.camgrid.shared.resources.autostart_help
+import io.github.vandosketch.camgrid.shared.resources.autostart_help_login
 import io.github.vandosketch.camgrid.shared.resources.autostart_manual
 import io.github.vandosketch.camgrid.shared.resources.autostart_open_permission
 import io.github.vandosketch.camgrid.shared.resources.autostart_overlay_needed
 import io.github.vandosketch.camgrid.shared.resources.autostart_switch
+import io.github.vandosketch.camgrid.shared.resources.autostart_switch_login
 import io.github.vandosketch.camgrid.shared.resources.cancel
 import io.github.vandosketch.camgrid.shared.resources.delete
 import io.github.vandosketch.camgrid.shared.resources.delete_confirm
@@ -95,6 +97,7 @@ import io.github.vandosketch.camgrid.shared.resources.return_to_grid_minutes
 import io.github.vandosketch.camgrid.shared.resources.return_to_grid_off
 import io.github.vandosketch.camgrid.shared.resources.section_about
 import io.github.vandosketch.camgrid.shared.resources.section_autostart
+import io.github.vandosketch.camgrid.shared.resources.section_autostart_login
 import io.github.vandosketch.camgrid.shared.resources.section_backup
 import io.github.vandosketch.camgrid.shared.resources.section_cameras
 import io.github.vandosketch.camgrid.shared.resources.section_config_url
@@ -131,6 +134,7 @@ import io.github.vandosketch.camgrid.core.UrlRedactor
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import io.github.vandosketch.camgrid.platform.AutoStart
 import io.github.vandosketch.camgrid.platform.AutoStartBlocker
+import io.github.vandosketch.camgrid.platform.AutoStartMoment
 
 /** Test tag of the Settings screen's list. */
 internal const val SETTINGS_LIST_TAG = "settings"
@@ -488,6 +492,8 @@ private fun ReturnToGridChoice(selected: ReturnToGrid, onSelect: (ReturnToGrid) 
  * item, so scrolling the section out and back does not forget that the system screen is missing.
  */
 private class AutoStartSettings(private val autoStart: AutoStart) {
+    val atLogin: Boolean = autoStart.moment == AutoStartMoment.LOGIN
+
     var enabled by mutableStateOf(autoStart.isEnabled())
         private set
     private var blocker by mutableStateOf(autoStart.blocker())
@@ -517,14 +523,18 @@ private class AutoStartSettings(private val autoStart: AutoStart) {
 }
 
 /**
- * The Start on boot section: a switch row, and while the switch is on but something keeps the
- * start from happening, a note with the way out under it, on the same card.
+ * The Start on boot section (Start at login on a computer): a switch row, and while the switch
+ * is on but something keeps the start from happening, a note with the way out under it, on the
+ * same card.
  */
 private fun LazyListScope.autoStartSection(settings: AutoStartSettings) {
-    item(key = "title:autostart") { SettingsSectionTitle(SettingsIcons.Boot, stringResource(Res.string.section_autostart)) }
+    item(key = "title:autostart") {
+        val title = if (settings.atLogin) Res.string.section_autostart_login else Res.string.section_autostart
+        SettingsSectionTitle(SettingsIcons.Boot, stringResource(title))
+    }
     item(key = "autostart") {
         CardSegment(first = true, last = !settings.blocked, contentPadding = PaddingValues(4.dp)) {
-            AutoStartSwitch(checked = settings.enabled, onCheckedChange = settings::change)
+            AutoStartSwitch(atLogin = settings.atLogin, checked = settings.enabled, onCheckedChange = settings::change)
         }
         if (settings.blocked) {
             CardSegment(first = false, last = true) {
@@ -539,7 +549,7 @@ private fun LazyListScope.autoStartSection(settings: AutoStartSettings) {
  * only shows the state. The help line sits inside, read out with the label.
  */
 @Composable
-private fun AutoStartSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun AutoStartSwitch(atLogin: Boolean, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -550,11 +560,11 @@ private fun AutoStartSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = stringResource(Res.string.autostart_switch),
+                text = stringResource(if (atLogin) Res.string.autostart_switch_login else Res.string.autostart_switch),
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = stringResource(Res.string.autostart_help),
+                text = stringResource(if (atLogin) Res.string.autostart_help_login else Res.string.autostart_help),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
