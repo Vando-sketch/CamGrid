@@ -38,6 +38,16 @@ class DesktopDevicePreferencesTest {
     }
 
     @Test
+    fun textComesBackNextToNumbers() {
+        DesktopDevicePreferences(file).putInt("minutes", 5)
+        DesktopDevicePreferences(file).putString("view", "wall 2")
+        val reread = DesktopDevicePreferences(file)
+        assertEquals("wall 2", reread.getString("view"))
+        assertEquals(5, reread.getInt("minutes"))
+        assertNull(reread.getString("other"))
+    }
+
+    @Test
     fun nothingSavedGivesNull() {
         assertNull(DesktopDevicePreferences(file).getInt("minutes"))
         assertFalse(file.exists())

@@ -116,6 +116,14 @@ From Android 10 (Fire OS 8) on, Android lets an app open by itself only with the
 adb shell appops set io.github.vandosketch.camgrid SYSTEM_ALERT_WINDOW allow
 ```
 
+## Second monitor (desktop)
+
+On a computer with two monitors, Settings > **Second monitor** opens a second CamGrid window with a camera wall of its own. Move it to the other monitor and press F11 for fullscreen. Each window shows its own view (Page Up and Page Down switch views, as in the main window), and the second window opens with the same view, place and size the next time. A new second window starts on your second view, and on the other monitor if the main window is not on it. It is off by default, is set on each computer and is not part of a backup.
+
+Settings always open in the main window: the gear button or Menu key in the second window brings the main window to the front. Closing the second window turns the setting off; closing the main window quits CamGrid.
+
+Every tile plays its own stream, and the desktop app decodes video on the CPU, so two screens of cameras need about twice the computing power, and a camera shown in both windows is decoded twice. On a weaker computer, give the cameras a lower-resolution grid URL (see [Cameras and go2rtc](#cameras-and-go2rtc)).
+
 ## Backup
 
 Settings > **Backup** exports all settings (views, cameras with their URLs, the go2rtc address) to one JSON file and imports them again, for example before uninstalling or to copy a setup from a phone to a Fire TV.

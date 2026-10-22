@@ -7,6 +7,7 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 ### Added
 
 - **Windows, macOS and Linux: start at login.** Settings > Start at login opens CamGrid when you log in, with the window as you left it, for a computer that runs as a camera wall. Off by default and set on each computer, not part of a backup. It uses the system's own login item (Task Manager's Startup apps on Windows, Login Items on macOS, the autostart folder on Linux); see the user guide.
+- **Desktop: second monitor.** Settings > Second monitor opens a second window with its own view, for a camera wall on two screens. It remembers its view, place and fullscreen, settings always open in the main window, and closing it turns it off. Off by default; set on each computer and not part of a backup. Two screens of cameras need about twice the CPU.
 
 ## [0.4.0] - 2026-10-08
 

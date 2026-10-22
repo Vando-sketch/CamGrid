@@ -7,8 +7,10 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
 import io.github.vandosketch.camgrid.desktop.config.SavedWindow
+import java.awt.Rectangle
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class DesktopWindowTest {
 
@@ -42,5 +44,29 @@ class DesktopWindowTest {
         assertEquals(WindowPlacement.Fullscreen, state.placement)
         state.toggleFullscreen()
         assertEquals(WindowPlacement.Floating, state.placement)
+    }
+
+    @Test
+    fun aNewWindowGoesToTheMiddleOfTheScreenItIsGiven() {
+        val screen = Rectangle(1920, 0, 1920, 1080)
+        val state = initialWindowState(saved = null, defaultScreen = screen)
+        assertEquals(WindowPosition((1920 + 320).dp, 140.dp), state.position)
+        assertEquals(DpSize(1280.dp, 800.dp), state.size)
+    }
+
+    @Test
+    fun aWindowLargerThanTheScreenStartsAtItsCorner() {
+        assertEquals(WindowPosition(1920.dp, 0.dp), centredOn(Rectangle(1920, 0, 1024, 600), DpSize(1280.dp, 800.dp)))
+    }
+
+    @Test
+    fun theFreeScreenIsOneTheOtherWindowDoesNotReach() {
+        val left = Rectangle(0, 0, 1920, 1080)
+        val right = Rectangle(1920, 0, 2560, 1440)
+        assertEquals(right, freeScreen(listOf(left, right), Rectangle(100, 100, 1280, 800)))
+        assertEquals(left, freeScreen(listOf(left, right), Rectangle(2000, 0, 2560, 1440)))
+        // Spread over both, or only one screen: none is free.
+        assertNull(freeScreen(listOf(left, right), Rectangle(1500, 0, 1000, 800)))
+        assertNull(freeScreen(listOf(left), Rectangle(100, 100, 1280, 800)))
     }
 }

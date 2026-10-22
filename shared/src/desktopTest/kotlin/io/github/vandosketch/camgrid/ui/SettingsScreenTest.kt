@@ -80,10 +80,12 @@ class SettingsScreenTest {
         autoStart: AutoStart? = null,
         sourceStatus: SourceStatus = SourceStatus.Off,
         calls: MutableList<String> = mutableListOf(),
+        secondWindow: Boolean? = null,
     ) {
         setContent {
             focusManager = LocalFocusManager.current
             var config by remember { mutableStateOf(initial) }
+            var second by remember { mutableStateOf(secondWindow) }
             var returnToGrid by remember { mutableStateOf(ReturnToGrid.OFF) }
             CamGridTheme {
                 Box(modifier) {
@@ -110,6 +112,11 @@ class SettingsScreenTest {
                         sourceStatus = sourceStatus,
                         onSetUpSource = { calls += "setUpSource" },
                         onCheckSourceNow = { calls += "checkSourceNow" },
+                        secondWindow = second,
+                        onSecondWindowChange = {
+                            calls += "secondWindow:$it"
+                            second = it
+                        },
                     )
                 }
             }
@@ -332,6 +339,30 @@ class SettingsScreenTest {
         waitForIdle()
         assertEquals(listOf(true, false), autoStart.setCalls)
         bootRow().assertIsOff()
+    }
+
+    @Test
+    fun withoutASecondWindowSettingTheSectionIsHidden() = runTallTest {
+        showSettings(testConfig(1), tall)
+        onNodeWithText("About").assertIsDisplayed()
+        onNodeWithText("Second monitor").assertDoesNotExist()
+    }
+
+    @Test
+    fun theSecondWindowSwitchSitsBeforeBackupAndToggles() = runTallTest {
+        val calls = mutableListOf<String>()
+        showSettings(testConfig(1), tall, FakeAutoStart(), calls = calls, secondWindow = false)
+        val tops = listOf(returnSection, "Start on boot", "Second monitor", "Backup").map { top(it) }
+        assertEquals(tops.sorted(), tops, "section tops $tops")
+        onNodeWithText("Second window").assertIsOff()
+        onNodeWithText("Second window").requestFocus()
+        onNodeWithText("Second window").performKeyInput { pressKey(Key.Enter) }
+        waitForIdle()
+        onNodeWithText("Second window").assertIsOn()
+        onNodeWithText("Second window").performClick()
+        waitForIdle()
+        onNodeWithText("Second window").assertIsOff()
+        assertEquals(listOf("secondWindow:true", "secondWindow:false"), calls)
     }
 
     @Test

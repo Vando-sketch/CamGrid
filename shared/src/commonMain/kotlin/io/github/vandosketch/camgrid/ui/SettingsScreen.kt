@@ -117,6 +117,9 @@ import io.github.vandosketch.camgrid.shared.resources.source_reason_unreadable
 import io.github.vandosketch.camgrid.shared.resources.source_set_up
 import io.github.vandosketch.camgrid.shared.resources.source_up_to_date
 import io.github.vandosketch.camgrid.shared.resources.section_return_to_grid
+import io.github.vandosketch.camgrid.shared.resources.section_second_window
+import io.github.vandosketch.camgrid.shared.resources.second_window_help
+import io.github.vandosketch.camgrid.shared.resources.second_window_switch
 import io.github.vandosketch.camgrid.shared.resources.section_views
 import io.github.vandosketch.camgrid.shared.resources.settings_title
 import io.github.vandosketch.camgrid.shared.resources.view_summary
@@ -146,7 +149,8 @@ private const val OVERLAY_ADB_COMMAND = "adb shell appops set io.github.vandoske
  * Settings, built for the D-pad: Up/Down buttons instead of drag-and-drop for the order of
  * views and cameras. Each view's layout is edited on its own screen. The sections run Cameras,
  * Views, Config URL ([sourceStatus]; while a URL is set, cameras and views are read-only here), Back to grid after inactivity ([returnToGrid], a setting of this device), Start on boot
- * ([autoStart]; hidden where the platform cannot start by itself), Backup and About, which shows [appVersion] (what bug reports should name) and opens the license
+ * ([autoStart]; hidden where the platform cannot start by itself), Second monitor ([secondWindow];
+ * desktop only, hidden where it is null), Backup and About, which shows [appVersion] (what bug reports should name) and opens the license
  * screen. Each section's rows sit on one card; a row is one lazy item (one card segment), so
  * long lists stay lazy and the D-pad scrolls row by row.
  */
@@ -170,6 +174,8 @@ fun SettingsScreen(
     sourceStatus: SourceStatus = SourceStatus.Off,
     onSetUpSource: () -> Unit = {},
     onCheckSourceNow: () -> Unit = {},
+    secondWindow: Boolean? = null,
+    onSecondWindowChange: (Boolean) -> Unit = {},
 ) {
     // Cameras and views come from the config URL: shown, not edited (the ViewModel ignores edits too).
     val managed = config.source != null
@@ -334,6 +340,22 @@ fun SettingsScreen(
             }
 
             if (autoStartSettings != null) autoStartSection(autoStartSettings)
+
+            if (secondWindow != null) {
+                item(key = "title:secondWindow") {
+                    SettingsSectionTitle(SettingsIcons.Monitor, stringResource(Res.string.section_second_window))
+                }
+                item(key = "secondWindow") {
+                    CardSegment(first = true, last = true, contentPadding = PaddingValues(4.dp)) {
+                        SwitchRow(
+                            title = stringResource(Res.string.second_window_switch),
+                            help = stringResource(Res.string.second_window_help),
+                            checked = secondWindow,
+                            onCheckedChange = onSecondWindowChange,
+                        )
+                    }
+                }
+            }
 
             item(key = "title:backup") { SettingsSectionTitle(SettingsIcons.Backup, stringResource(Res.string.section_backup)) }
             item(key = "backup") {
@@ -543,6 +565,33 @@ private fun AutoStartSwitch(atLogin: Boolean, checked: Boolean, onCheckedChange:
             )
             Text(
                 text = stringResource(if (atLogin) Res.string.autostart_help_login else Res.string.autostart_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+/**
+ * A setting that is on or off: the whole row toggles, so OK on the remote works wherever the
+ * focus border is; the Switch only shows the state. [help] sits inside, read out with [title].
+ */
+@Composable
+private fun SwitchRow(title: String, help: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusBorder()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = help,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

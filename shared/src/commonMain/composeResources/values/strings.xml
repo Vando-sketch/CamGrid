@@ -47,6 +47,9 @@
     <string name="autostart_open_permission">Open permission settings</string>
     <!-- Followed by the adb command, which is not translated. -->
     <string name="autostart_manual">This device has no screen for it. On Fire TV the permission can only be granted from a computer, with:</string>
+    <string name="section_second_window">Second monitor</string>
+    <string name="second_window_switch">Second window</string>
+    <string name="second_window_help">Opens a second CamGrid window with its own view, for another monitor. Move it there and press F11; it opens there again next time. Every tile plays its own stream, so two screens of cameras need about twice the computing power. Set on this computer only.</string>
     <string name="section_cameras">Cameras</string>
     <string name="add_camera">Add camera</string>
     <string name="import_go2rtc">Import from go2rtc</string>
