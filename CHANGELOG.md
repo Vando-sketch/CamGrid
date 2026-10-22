@@ -4,6 +4,8 @@ All notable changes to CamGrid are listed here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-22
+
 ### Added
 
 - **Windows, macOS and Linux: start at login.** Settings > Start at login opens CamGrid when you log in, with the window as you left it, for a computer that runs as a camera wall. Off by default and set on each computer, not part of a backup. It uses the system's own login item (Task Manager's Startup apps on Windows, Login Items on macOS, the autostart folder on Linux); see the user guide.
@@ -101,7 +103,8 @@ The first stable release.
 - WebRTC works on the local network only and needs H.264 video (H.265 cameras play as MP4 through go2rtc instead).
 - A live viewer only: no recording, playback, motion alerts, PTZ or two-way audio.
 
-[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Vando-sketch/CamGrid/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Vando-sketch/CamGrid/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vando-sketch/CamGrid/compare/v0.2.1...v0.3.0
