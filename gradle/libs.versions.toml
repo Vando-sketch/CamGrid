@@ -15,7 +15,7 @@ webrtc = "150.7871.01"
 # Apache-2.0. Only the iOS (and later web) backup crypto; Android and desktop use javax.crypto.
 cryptography = "0.6.0"
 # Compose Multiplatform for the shared UI (desktop, iOS; on Android it resolves to androidx).
-composeMultiplatform = "1.12.1"
+composeMultiplatform = "1.12.2"
 # Material3 1.9.0 is androidx Material3 1.4.0, the version the Compose BOM above uses.
 composeMaterial3 = "1.9.0"
 composeMaterialIcons = "1.7.3"
