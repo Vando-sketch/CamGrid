@@ -22,7 +22,7 @@ composeMaterialIcons = "1.7.3"
 lifecycleMultiplatform = "2.11.0"
 # Desktop WebRTC: Java bindings for Google's libwebrtc (Apache-2.0; the natives bundle libwebrtc
 # with its BSD-3-Clause parts and Chromium's LGPL-2.1 FFmpeg build for H.264 decoding).
-webrtcJava = "0.19.0"
+webrtcJava = "0.20.0"
 # Desktop RTSP: FFmpeg via JavaCPP presets, LGPL build only (never the "-gpl" classifier).
 bytedecoFfmpeg = "8.1.2-1.5.14"
 javacpp = "1.5.14"
